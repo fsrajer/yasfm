@@ -12,31 +12,9 @@
 
 #include <ctime>
 #include <iostream>
-#include <memory>
-#include <set>
-#include <vector>
 
-// VS2013 compiler gave many warnings about:
-// 1) conversion size_t <-> int
-// 2) no appropriate delete operator to overloaded new
-// These are in FLANN by design, therefore, we ignore the warnings.
-#pragma warning(push) 
-#pragma warning(disable : 4267 4291)
-#include "FLANN\flann.hpp"
-#pragma warning(pop)
-
-#include "defines.h"
-#include "options.h"
-#include "utils.h"
-#include "sfm_data.h"
-
-using namespace yasfm;
-using std::cout;
 using std::cerr;
-using std::endl;
-using std::string;
-using std::vector;
-using std::set;
+using std::cout;
 
 namespace yasfm
 {
@@ -113,7 +91,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& 
       clock_t start = clock();
       matchFeatFLANN(opt,index,descr[i],&pairs[pairIdx]);
       clock_t end = clock();
-      cout << "took: " << (double)(end - start) / (double)CLOCKS_PER_SEC << "s" << std::endl;
+      cout << "took: " << (double)(end - start) / (double)CLOCKS_PER_SEC << "s\n";
     }
   }
 }

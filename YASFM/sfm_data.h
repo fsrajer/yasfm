@@ -1,4 +1,3 @@
-#pragma once
 /*
 * Filip Srajer
 * filip.srajer (at) fel.cvut.cz
@@ -9,27 +8,31 @@
 * 10/2015
 */
 
+#pragma once
+
 #include <array>
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
-#include "Eigen/Dense"
+
 #include "ceres/ceres.h"
+#include "ceres/rotation.h"
+#include "Eigen/Dense"
 
 #include "defines.h"
 #include "utils.h"
 #include "utils_io.h"
 
-using std::array;
-using std::string;
-using std::vector;
-using std::unique_ptr;
-using std::make_unique;
-using Eigen::Matrix3d;
-using Eigen::Vector3d;
-using Eigen::Vector2d;
-using Eigen::ArrayXXf;
 using Eigen::AngleAxisd;
+using Eigen::ArrayXXf;
+using Eigen::Matrix3d;
+using Eigen::Vector2d;
+using Eigen::Vector3d;
+using std::array;
+using std::make_unique;
+using std::string;
+using std::unique_ptr;
+using std::vector;
 
 namespace yasfm
 {

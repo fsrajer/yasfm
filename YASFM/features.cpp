@@ -10,41 +10,16 @@
 
 #include "features.h"
 
-#include <cstdlib>
-#include <algorithm>
 #include <iostream>
 #include <string>
 #include <vector>
-#include "SiftGPU/SiftGPU.h"
 
-// loading dll at runtime, see SiftGPU SimpleSIFT example for 
-// changing to dynamic linking
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#define YASFM_FREE_LIB FreeLibrary
-#define YASFM_GET_PROC GetProcAddress
-#else
-#include <dlfcn.h>
-#define YASFM_FREE_LIB dlclose
-#define YASFM_GET_PROC dlsym
-#endif
-
-#include "defines.h"
-#include "options.h"
-#include "utils.h"
-
-using Eigen::Vector3d;
-using Eigen::Vector4d;
-using Eigen::Matrix3d;
-using Eigen::Matrix4d;
-using namespace yasfm;
-using std::cout;
 using std::cerr;
-using std::endl;
+using std::cout;
 using std::string;
-using std::vector;
 using std::to_string;
+using std::vector;
+using namespace yasfm;
 
 namespace yasfm
 {
@@ -115,7 +90,7 @@ SiftGPUAutoMemRelease::SiftGPUAutoMemRelease() : sift(nullptr),siftgpuHandle(nul
 
   if(siftgpuHandle == nullptr)
   {
-    cerr << "detectSiftGPU: could not load SiftGPU library" << endl;
+    cerr << "detectSiftGPU: could not load SiftGPU library\n";
     return;
   }
 
@@ -193,7 +168,7 @@ bool SiftGPUAutoMemRelease::initialize(const OptionsSIFT& opt,int maxWidth,int m
 
   if(sift->CreateContextGL() != SiftGPU::SIFTGPU_FULL_SUPPORTED)
   {
-    cerr << "detectSiftGPU: could not create OpenGL context" << endl;
+    cerr << "detectSiftGPU: could not create OpenGL context\n";
     return false;
   }
 

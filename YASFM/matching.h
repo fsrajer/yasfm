@@ -8,7 +8,7 @@
 * 10/2015
 */
 
-// NOTE on FLANN: There have been 3 problems. 1st and 2nd are of interest to a user.
+// NOTE on FLANN: There have been 3 problems.
 // 1) One warning was theated as error. Therefore, project using YASFM
 // must set project properties->Configuration Properties->C/C++->General->SDL checks->No
 // See this link:
@@ -24,9 +24,6 @@
 
 #pragma once
 
-#include <ctime>
-#include <iostream>
-#include <memory>
 #include <set>
 #include <vector>
 
@@ -41,16 +38,11 @@
 
 #include "defines.h"
 #include "options.h"
-#include "utils.h"
 #include "sfm_data.h"
 
-using namespace yasfm;
-using std::cout;
-using std::cerr;
-using std::endl;
-using std::string;
-using std::vector;
 using std::set;
+using std::vector;
+using namespace yasfm;
 
 namespace yasfm
 {

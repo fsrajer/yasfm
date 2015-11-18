@@ -10,23 +10,12 @@
 
 #pragma once
 
-#include <string>
-#include <unordered_set>
 #include <vector>
-
-#include "Eigen\Dense"
 
 #include "defines.h"
 #include "options.h"
 #include "sfm_data.h"
 
-using Eigen::Vector3d;
-using Eigen::Vector4d;
-using Eigen::Matrix3d;
-using Eigen::Matrix4d;
-using namespace yasfm;
-using std::string;
-using std::unordered_set;
 using std::vector;
 
 namespace yasfm
@@ -50,14 +39,6 @@ YASFM_API void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,int camIdx,
 
 YASFM_API void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,
   int camIdx,const vector<bool>& constantPoints,Camera *cam,Points *pts);
-
-struct SharedParameterGroup
-{
-  vector<int> camsIdxs;
-  vector<vector<int>> paramsIdxs;
-};
-
-vector<SharedParameterGroup>;
 
 } // namespace yasfm
 

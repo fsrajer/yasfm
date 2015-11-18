@@ -10,34 +10,13 @@
 
 #include "absolute_pose.h"
 
-#include <cassert>
 #include <iostream>
-#include <vector>
-#include <unordered_set>
-#include "Eigen\Dense"
-#include "Eigen\SVD"
 
-#include "defines.h"
-#include "options.h"
-#include "ransac.h"
-#include "utils.h"
-#include "sfm_data.h"
-
-using Eigen::Vector2d;
-using Eigen::Vector3d;
-using Eigen::Vector4d;
-using Eigen::VectorXd;
-using Eigen::Matrix3d;
-using Eigen::Matrix4d;
-using Eigen::MatrixXd;
-using Eigen::Matrix;
 using Eigen::JacobiSVD;
-using namespace yasfm;
-using std::vector;
-using std::unordered_set;
-using std::cout;
+using Eigen::MatrixXd;
+
 using std::cerr;
-using std::endl;
+using std::cout;
 
 namespace yasfm
 {

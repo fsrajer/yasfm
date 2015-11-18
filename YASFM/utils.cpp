@@ -10,30 +10,14 @@
 
 #include "utils.h"
 
-#include <algorithm>
 #include <iostream>
-#include <string>
-#include <vector>
-
-#include "Eigen\Dense"
-
-#include "defines.h"
-#include "points.h"
-#include "relative_pose.h"
-#include "sfm_data.h"
 
 using Eigen::Map;
-using Eigen::Vector3d;
-using Eigen::Vector4d;
-using Eigen::Matrix3d;
-using Eigen::Matrix4d;
-using Eigen::ArrayXXi;
-using namespace yasfm;
+using Eigen::MatrixXd;
+using Eigen::Vector2d;
+using Eigen::VectorXd;
 using std::cerr;
 using std::cout;
-using std::endl;
-using std::string;
-using std::vector;
 
 namespace yasfm
 {

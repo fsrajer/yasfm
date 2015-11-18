@@ -11,18 +11,8 @@
 #include "ransac.h"
 
 #include <cassert>
-#include <iostream>
 #include <random>
-#include <vector>
 #include <unordered_set>
-
-#include "Eigen\Dense"
-
-using Eigen::MatrixXd;
-using std::cerr;
-using std::endl;
-using std::unordered_set;
-using std::vector;
 
 namespace yasfm
 {
@@ -37,7 +27,7 @@ void generateRandomIndices(int numToGenerate,int numOverall,vector<int>& idxs)
     idxs.resize(numToGenerate);
 
   std::uniform_int_distribution<int> distribution(0,numOverall - 1);
-  unordered_set<int> generated;
+  std::unordered_set<int> generated;
   generated.reserve(numToGenerate);
 
   for(int i = 0; i < numToGenerate; i++)

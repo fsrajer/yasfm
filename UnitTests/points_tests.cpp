@@ -248,7 +248,7 @@ namespace yasfm_tests
       P *= -1;
       Assert::IsTrue(isInFront(P,pt));
 
-      AngleAxisd aa(DEG2RAD(180),Vector3d::UnitX());
+      AngleAxisd aa(deg2Rad(180),Vector3d::UnitX());
       R = aa.toRotationMatrix();
       P.col(3) = -C;
       P = K*R*P;
@@ -421,7 +421,7 @@ namespace yasfm_tests
 
       Vector3d ray1 = pt - cams[0]->C();
       Vector3d ray2 = pt - cams[1]->C();
-      double angle = RAD2DEG(acos(ray1.dot(ray2) / (ray1.norm() * ray2.norm())));
+      double angle = rad2Deg(acos(ray1.dot(ray2) / (ray1.norm() * ray2.norm())));
 
       rayAngleThresh = angle-1;
       Assert::IsTrue(isWellConditioned(rayAngleThresh,cams,views));
@@ -429,7 +429,7 @@ namespace yasfm_tests
       rayAngleThresh = angle+1;
       Assert::IsFalse(isWellConditioned(rayAngleThresh,cams,views));
 
-      double angle2 = RAD2DEG(computeRayAngle(*cams[0],0,*cams[1],0));
+      double angle2 = rad2Deg(computeRayAngle(*cams[0],0,*cams[1],0));
       Assert::IsTrue(abs(angle-angle2) < 1e-10);
     }
 

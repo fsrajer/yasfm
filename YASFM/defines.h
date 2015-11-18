@@ -28,9 +28,6 @@
 namespace yasfm
 {
 
-#define DEG2RAD(d) ((d) * (M_PI / 180.))
-#define RAD2DEG(r) ((r) * (180. / M_PI))
-
 typedef Eigen::Matrix<unsigned char,3,1> Vector3uc;
 typedef Eigen::Matrix<double,3,4> Matrix34d;
 typedef std::pair<int,int> IntPair;

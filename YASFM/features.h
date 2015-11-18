@@ -10,8 +10,8 @@
 
 #pragma once
 
-#include <string>
-#include <vector>
+#include <cstdlib>
+
 #include "SiftGPU/SiftGPU.h"
 
 #include "defines.h"
@@ -21,26 +21,15 @@
 // loading dll at runtime, see SiftGPU SimpleSIFT example for 
 // changing to dynamic linking
 #ifdef _WIN32
-  #define WIN32_LEAN_AND_MEAN
-  #include <windows.h>
-  #define YASFM_FREE_LIB FreeLibrary
-  #define YASFM_GET_PROC GetProcAddress
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#define YASFM_FREE_LIB FreeLibrary
+#define YASFM_GET_PROC GetProcAddress
 #else
-  #include <dlfcn.h>
-  #define YASFM_FREE_LIB dlclose
-  #define YASFM_GET_PROC dlsym
+#include <dlfcn.h>
+#define YASFM_FREE_LIB dlclose
+#define YASFM_GET_PROC dlsym
 #endif
-
-using namespace yasfm;
-using Eigen::Vector3d;
-using Eigen::Vector4d;
-using Eigen::Matrix3d;
-using Eigen::Matrix4d;
-using std::cout;
-using std::cerr;
-using std::endl;
-using std::string;
-using std::vector;
 
 namespace yasfm
 {

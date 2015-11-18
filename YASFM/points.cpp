@@ -11,34 +11,18 @@
 #include "points.h"
 
 #include <iostream>
-#include <list>
 #include <queue>
-#include <string>
-#include <unordered_set>
-#include <vector>
-
-#include "Eigen\Dense"
 
 #include "utils.h"
-#include "options.h"
 
-using Eigen::VectorXd;
-using Eigen::Vector3d;
-using Eigen::Vector4d;
-using Eigen::Matrix3d;
+using Eigen::JacobiSVD;
 using Eigen::Matrix4d;
 using Eigen::MatrixXd;
-using namespace yasfm;
-using std::list;
-using std::string;
-using std::vector;
-using std::unordered_map;
-using std::unordered_set;
-using std::queue;
-using std::pair;
-using std::cout;
-using std::endl;
+using Eigen::Vector4d;
+using Eigen::VectorXd;
 using std::cerr;
+using std::cout;
+using std::queue;
 
 namespace yasfm
 {
@@ -218,7 +202,7 @@ void triangulate(const Matrix34d& P1,const Matrix34d& P2,const Vector2d& key1,
   Vector4d maxCols = D.cwiseAbs().colwise().maxCoeff();
   S = maxCols.cwiseInverse().asDiagonal();
 
-  Eigen::JacobiSVD<Matrix4d> svd(D*S,Eigen::ComputeFullV);
+  JacobiSVD<Matrix4d> svd(D*S,Eigen::ComputeFullV);
 
   Vector4d ptHom;
   ptHom.noalias() = S*(svd.matrixV().rightCols(1));
@@ -326,7 +310,7 @@ bool isWellConditioned(double rayAngleThresh,const ptr_vector<Camera>& cams,
       const auto& cam2 = *cams[camKey2->first];
       double angle = computeRayAngle(cam1,camKey1->second,
         cam2,camKey2->second);
-      if(RAD2DEG(angle) > rayAngleThresh)
+      if(rad2Deg(angle) > rayAngleThresh)
         return true;
     }
   }
@@ -363,7 +347,7 @@ void removeIllConditionedPoints(double rayAngleThresh,
       {
         Vector3d ray2 = pt - cams[camKey2->first]->C();
         ray2.normalize();
-        double angle = RAD2DEG(acos(ray1.dot(ray2)));
+        double angle = rad2Deg(acos(ray1.dot(ray2)));
         wellConditioned[ptIdx] = angle > rayAngleThresh;
       }
     }

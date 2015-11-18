@@ -11,7 +11,7 @@
 #pragma once
 
 #include <vector>
-#include <unordered_set>
+
 #include "Eigen\Dense"
 
 #include "defines.h"
@@ -21,15 +21,8 @@
 
 using Eigen::Vector2d;
 using Eigen::Vector3d;
-using Eigen::Vector4d;
-using Eigen::VectorXd;
-using Eigen::Matrix3d;
-using Eigen::Matrix4d;
-using Eigen::MatrixXd;
-using Eigen::JacobiSVD;
-using namespace yasfm;
-using std::unordered_set;
 using std::vector;
+using namespace yasfm;
 
 namespace yasfm
 {

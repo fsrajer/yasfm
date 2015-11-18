@@ -11,7 +11,6 @@
 #pragma once
 
 #include <fstream>
-#include <unordered_set>
 #include <string>
 #include <vector>
 
@@ -19,11 +18,10 @@
 #include "options.h"
 #include "sfm_data.h"
 
-using namespace yasfm;
 using std::ifstream;
 using std::string;
-using std::unordered_set;
 using std::vector;
+using namespace yasfm;
 
 namespace yasfm
 {
@@ -240,7 +238,7 @@ void readMatchesASCII(const string& filename,pair_ptr_unordered_map<ICameraPair>
   ifstream in(filename);
   if(!in.is_open())
   {
-    cerr << "readMatchesASCII: unable to open: " << filename << " for reading" << endl;
+    cerr << "readMatchesASCII: unable to open: " << filename << " for reading\n";
     return;
   }
   int nPairs;
@@ -279,7 +277,7 @@ void readTransformsASCII(const string& filename,pair_ptr_unordered_map<ICameraPa
   ifstream in(filename);
   if(!in.is_open())
   {
-    cerr << "readTransformsASCII: unable to open: " << filename << " for reading" << endl;
+    cerr << "readTransformsASCII: unable to open: " << filename << " for reading\n";
     return;
   }
   int nPairs;

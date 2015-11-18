@@ -10,28 +10,20 @@
 
 #pragma once
 
-#include <algorithm>
 #include <string>
 #include <utility>
-#include <unordered_set>
 #include <vector>
 
-#include "Eigen\Dense"
+#include "ceres/ceres.h"
+#include "Eigen/Dense"
 
 #include "defines.h"
-#include "options.h"
 #include "sfm_data.h"
 
-using Eigen::Vector3d;
-using Eigen::Vector4d;
 using Eigen::Matrix3d;
-using Eigen::Matrix4d;
-using Eigen::ArrayXXi;
-using namespace yasfm;
+using Eigen::Vector3d;
 using std::string;
-using std::unordered_set;
 using std::vector;
-using std::pair;
 
 ////////////////////////////////////////////////////
 ///////////////   Declarations   ///////////////////
@@ -46,6 +38,9 @@ class Points;
 class Dataset;
 
 YASFM_API string joinPaths(const string& p1, const string& p2);
+
+inline double deg2Rad(double d);
+inline double rad2Deg(double r);
 
 // Sorts in ascending order. order is the output. It is the mapping 
 // from the new ordered indices to the original ones. 
@@ -134,6 +129,16 @@ private:
 
 namespace yasfm
 {
+
+inline double deg2Rad(double d)
+{
+  return ((d)* (M_PI / 180.));
+}
+
+inline double rad2Deg(double r)
+{
+  return ((r)* (180. / M_PI));
+}
 
 // order is the output. It is the mapping from the new ordered indices
 // to the original ones.

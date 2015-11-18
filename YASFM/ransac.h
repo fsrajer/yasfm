@@ -10,19 +10,15 @@
 
 #pragma once
 
-#include <cassert>
 #include <iostream>
-#include <random>
 #include <vector>
-#include <unordered_set>
 
-#include "defines.h"
 #include "options.h"
 
-using std::cerr;
-using std::endl;
-using std::unordered_set;
 using std::vector;
+
+using std::cerr;
+using std::cout;
 
 ////////////////////////////////////////////////////
 ///////////////   Declarations   ///////////////////
@@ -99,7 +95,7 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   auto& M = *pM;
   if(nMatches < minMatches)
   {
-    cerr << "estimateTransformRANSAC: cannot estimate transformation (too few points)" << endl;
+    cerr << "estimateTransformRANSAC: cannot estimate transformation (too few points)\n";
     M.setZero();
     return -1;
   }
@@ -163,7 +159,7 @@ int estimateTransformPROSAC(const MediatorPROSAC<MatType>& m,const OptionsRANSAC
   auto& M = *pM;
   if(nMatches < minMatches)
   {
-    cerr << "estimateTransformPROSAC: cannot estimate transformation (too few points)" << endl;
+    cerr << "estimateTransformPROSAC: cannot estimate transformation (too few points)\n";
     M.setZero();
     return -1;
   }

@@ -10,39 +10,17 @@
 
 #include "relative_pose.h"
 
-#include <cassert>
-#include <cfloat>
-#include <cmath>
-#include <cstdlib>
 #include <ctime>
-#include <algorithm>
 #include <iostream>
-#include <vector>
-#include "Eigen\Dense"
-#include "Eigen\Geometry"
-#include "Eigen\SVD"
-#include "5point\5point.h"
 
-#include "defines.h"
+#include "5point/5point.h"
+
 #include "points.h"
-#include "options.h"
-#include "ransac.h"
-#include "utils.h"
-#include "sfm_data.h"
 
-using Eigen::Vector3d;
-using Eigen::Vector4d;
-using Eigen::VectorXd;
-using Eigen::Matrix;
-using Eigen::Matrix3d;
-using Eigen::Matrix4d;
-using Eigen::MatrixXd;
 using Eigen::JacobiSVD;
-using namespace yasfm;
+using Eigen::MatrixXd;
+using std::cerr;
 using std::cout;
-using std::endl;
-using std::vector;
-using std::string;
 
 namespace yasfm
 {
@@ -297,7 +275,7 @@ void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
       *C = -Rb.transpose()*tb;
     } else
     {
-      cout << "E2RC: error: none of the 4 decompositions is good" << endl;
+      cout << "E2RC: error: none of the 4 decompositions is good\n";
       return;
     }
   }
@@ -331,7 +309,7 @@ void verifyMatchesGeometrically(const Options& opt,const ptr_vector<Camera>& cam
 
     clock_t end = clock();
     cout << "->" << inliers.size() << " matches" << "\t";
-    cout << "took: " << (double)(end - start) / (double)CLOCKS_PER_SEC << "s" << std::endl;
+    cout << "took: " << (double)(end - start) / (double)CLOCKS_PER_SEC << "s\n";
   }
 }
 

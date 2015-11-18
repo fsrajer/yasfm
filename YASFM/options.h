@@ -18,7 +18,7 @@
 // These are in FLANN by design, therefore, we ignore the warnings.
 #pragma warning(push) 
 #pragma warning(disable : 4267 4291)
-#include "FLANN\flann.hpp"
+#include "FLANN/flann.hpp"
 #pragma warning(pop)
 #include "ceres/ceres.h"
 

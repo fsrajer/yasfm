@@ -15,9 +15,6 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
-#include <string>
-#include <vector>
-#include <unordered_set>
 
 #include "IL\il.h"
 #ifdef _WIN32
@@ -33,20 +30,13 @@ extern "C"
   extern ImageInfo_t ImageInfo;
   }
 }
-
-#include "defines.h"
 #include "utils.h"
 
-using namespace yasfm;
 using std::cout;
 using std::cerr;
-using std::endl;
 using std::ifstream;
 using std::ofstream;
 using std::setprecision;
-using std::unordered_set;
-using std::string;
-using std::vector;
 
 namespace yasfm
 {
@@ -86,7 +76,7 @@ void listFilenames(const string& dir,
     closedir(dirReadable);
   } else
   {
-    cerr << "listFilenames: could not open dir: " << dir << endl;
+    cerr << "listFilenames: could not open dir: " << dir << "\n";
   }
 }
 
@@ -120,7 +110,7 @@ void getImgDims(const string& filename,int *width,int *height)
       *height = ilGetInteger(IL_IMAGE_HEIGHT);
   } else
   {
-    cerr << "getImgDims: could not load image: " << filename << endl;
+    cerr << "getImgDims: could not load image: " << filename << "\n";
   }
   ilDeleteImages(1,&imId);
 }
@@ -157,7 +147,7 @@ void readFeatureColors(const string& dir,ICamera& cam,int *width,int *height)
     }
   } else
   {
-    cerr << "readFeatureColors: could not load image: " << cam.imgFilename() << endl;
+    cerr << "readFeatureColors: could not load image: " << cam.imgFilename() << "\n";
   }
   ilDeleteImages(1,&imId);
 }
@@ -177,12 +167,12 @@ void writeImgFnsList(const string& listFilename,const ptr_vector<ICamera>& cams)
   ofstream out(listFilename);
   if(!out.is_open())
   {
-    cerr << "writeImgFnsList: unable to open: " << listFilename << " for writing" << endl;
+    cerr << "writeImgFnsList: unable to open: " << listFilename << " for writing\n";
     return;
   }
   for(const auto& cam : cams)
   {
-    out << cam->imgFilename() << endl;
+    out << cam->imgFilename() << "\n";
   }
   out.close();
 }
@@ -197,12 +187,12 @@ void writeFeatsFnsList(const string& listFilename,const ptr_vector<ICamera>& cam
   ofstream out(listFilename);
   if(!out.is_open())
   {
-    cerr << "writeFeatsFnsList: unable to open: " << listFilename << " for writing" << endl;
+    cerr << "writeFeatsFnsList: unable to open: " << listFilename << " for writing\n";
     return;
   }
   for(const auto& cam : cams)
   {
-    out << cam->featsFilename() << endl;
+    out << cam->featsFilename() << "\n";
   }
   out.close();
 }
@@ -237,12 +227,12 @@ double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilena
 
   if(jhead::ImageInfo.FocalLength == 0.f)
   {
-    cout << "  focal [mm] not found in EXIF" << endl;
+    cout << "  focal [mm] not found in EXIF\n";
     return 0.;
   } else
   {
     double focalMM = jhead::ImageInfo.FocalLength;
-    cout << "  focal [mm] found in EXIF" << endl;
+    cout << "  focal [mm] found in EXIF\n";
 
     string cameraMake(jhead::ImageInfo.CameraMake);
     string cameraModel(jhead::ImageInfo.CameraModel);
@@ -250,23 +240,23 @@ double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilena
     if(CCDWidth == 0.)
     {
       CCDWidth = jhead::ImageInfo.CCDWidth;
-      cout << "  ccd width not found in DB" << endl;
+      cout << "  ccd width not found in DB\n";
       if(CCDWidth > 0.)
-        cout << "  ccd width computed from EXIF" << endl;
+        cout << "  ccd width computed from EXIF\n";
     } else
     {
-      cout << "  ccd width found in DB" << endl;
+      cout << "  ccd width found in DB\n";
     }
 
     if(CCDWidth == 0.)
     {
-      cout << "  ccd width not computed from EXIF" << endl;
-      cout << "  unable to compute focal [px]" << endl;
+      cout << "  ccd width not computed from EXIF\n";
+      cout << "  unable to compute focal [px]\n";
       return 0.;
     } else
     {
       double focalPX = ((double)maxImgDim) * (focalMM / CCDWidth);
-      cout << "  focal [px] computed: " << focalPX << endl;
+      cout << "  focal [px] computed: " << focalPX << "\n";
       return focalPX;
     }
   }
@@ -289,14 +279,14 @@ void writeFeaturesASCII(const string& dir,const ICamera& cam,bool convertDescrTo
   ofstream out(joinPaths(dir,cam.featsFilename()));
   if(!out.is_open())
   {
-    cerr << "writeFeaturesASCII: unable to open: " << cam.featsFilename() << " for writing" << endl;
+    cerr << "writeFeaturesASCII: unable to open: " << cam.featsFilename() << " for writing\n";
     return;
   }
   out.flags(std::ios::fixed);
   out << cam.nFeatures();
   if(cam.nFeatures() > 0)
   {
-    out << ' ' << cam.feature(0).descrDim() << endl;
+    out << ' ' << cam.feature(0).descrDim() << "\n";
     for(int i = 0; i < cam.nFeatures(); i++)
     {
       const IFeature& feat = cam.feature(i);
@@ -305,7 +295,7 @@ void writeFeaturesASCII(const string& dir,const ICamera& cam,bool convertDescrTo
       {
         if((j % 20) == 0)
         {
-          out << endl;
+          out << "\n";
         }
         if(convertDescrToUint)
         {
@@ -315,7 +305,7 @@ void writeFeaturesASCII(const string& dir,const ICamera& cam,bool convertDescrTo
           out << setprecision(8) << feat.descriptor(j) << ' ';
         }
       }
-      out << endl;
+      out << "\n";
     }
   }
   out.close();
@@ -337,7 +327,7 @@ void readFeaturesASCII(const string& dir,ICamera& cam)
   ifstream in(joinPaths(dir,cam.featsFilename()));
   if(!in.is_open())
   {
-    cerr << "readFeaturesASCII: unable to open: " << cam.featsFilename() << " for reading" << endl;
+    cerr << "readFeaturesASCII: unable to open: " << cam.featsFilename() << " for reading\n";
     return;
   }
   int nFeats,descrDim;
@@ -374,14 +364,14 @@ void writeKeysASCII(const string& dir,const ICamera& cam)
   ofstream out(joinPaths(dir,cam.featsFilename()));
   if(!out.is_open())
   {
-    cerr << "writeKeysASCII: unable to open: " << cam.featsFilename() << " for writing" << endl;
+    cerr << "writeKeysASCII: unable to open: " << cam.featsFilename() << " for writing\n";
     return;
   }
   out.flags(std::ios::fixed);
-  out << cam.nFeatures() << endl;
+  out << cam.nFeatures() << "\n";
   for(int i = 0; i < cam.nFeatures(); i++)
   {
-    out << setprecision(2) << cam.feature(i).y() << ' ' << setprecision(2) << cam.feature(i).x() << endl;
+    out << setprecision(2) << cam.feature(i).y() << ' ' << setprecision(2) << cam.feature(i).x() << "\n";
   }
   out.close();
 }
@@ -402,7 +392,7 @@ void readKeysASCII(const string& dir,ICamera& cam)
   ifstream in(joinPaths(dir,cam.featsFilename()));
   if(!in.is_open())
   {
-    cerr << "readKeysASCII: unable to open: " << cam.featsFilename() << " for reading" << endl;
+    cerr << "readKeysASCII: unable to open: " << cam.featsFilename() << " for reading" << "\n";
     return;
   }
   int nKeys;
@@ -433,7 +423,7 @@ void writeFeaturesBinary(const string& dir,const ICamera& cam)
   ofstream out(joinPaths(dir,cam.featsFilename()),std::ios::binary);
   if(!out.is_open())
   {
-    cerr << "writeFeaturesBinary: unable to open: " << cam.featsFilename() << " for binary writing" << endl;
+    cerr << "writeFeaturesBinary: unable to open: " << cam.featsFilename() << " for binary writing" << "\n";
     return;
   }
   int nFeatures = cam.nFeatures();
@@ -474,7 +464,7 @@ void readFeaturesBinary(const string& dir,ICamera& cam)
   ifstream in(joinPaths(dir,cam.featsFilename()),std::ios::binary);
   if(!in.is_open())
   {
-    cerr << "readFeaturesBinary: unable to open: " << cam.featsFilename()<< " for binary reading" << endl;
+    cerr << "readFeaturesBinary: unable to open: " << cam.featsFilename()<< " for binary reading" << "\n";
     return;
   }
   int nFeatures,descrDim;
@@ -507,22 +497,22 @@ void writeMatchesASCII(const string& filename,const pair_ptr_unordered_map<ICame
   ofstream out(filename);
   if(!out.is_open())
   {
-    cerr << "writeMatchesASCII: unable to open: " << filename << " for writing" << endl;
+    cerr << "writeMatchesASCII: unable to open: " << filename << " for writing" << "\n";
     return;
   }
   out.flags(std::ios::fixed);
-  out << pairs.size() << endl;
+  out << pairs.size() << "\n";
   for(const auto& entry : pairs)
   {
     IntPair idx = entry.first;
     const auto& pair = *(entry.second);
-    out << idx.first << ' ' << idx.second << endl;
-    out << pair.nMatches() << endl;
+    out << idx.first << ' ' << idx.second << "\n";
+    out << pair.nMatches() << "\n";
     for(int i = 0; i < pair.nMatches(); i++)
     {
       out << pair.match(i).first << ' ' <<
         pair.match(i).second << ' ' <<
-        setprecision(3) << pair.minScore(i) << endl;
+        setprecision(3) << pair.minScore(i) << "\n";
     }
   }
   out.close();
@@ -538,16 +528,16 @@ void writeTransformsASCII(const string& filename,const pair_ptr_unordered_map<IC
   ofstream out(filename);
   if(!out.is_open())
   {
-    cerr << "writeTransformsASCII: unable to open: " << filename << " for writing" << endl;
+    cerr << "writeTransformsASCII: unable to open: " << filename << " for writing" << "\n";
     return;
   }
-  out << pairs.size() << endl;
+  out << pairs.size() << "\n";
   for(const auto& entry : pairs)
   {
     IntPair idx = entry.first;
     const auto& pair = *(entry.second);
-    out << idx.first << ' ' << idx.second << endl;
-    out << pair.F() << endl;
+    out << idx.first << ' ' << idx.second << "\n";
+    out << pair.F() << "\n";
   }
   out.close();
 }
@@ -557,10 +547,10 @@ void writeTracksASCII(const string& filename,const vector<NViewMatch>& tracks)
   ofstream out(filename);
   if(!out.is_open())
   {
-    cerr << "writeTracksASCII: unable to open: " << filename << " for writing" << endl;
+    cerr << "writeTracksASCII: unable to open: " << filename << " for writing" << "\n";
     return;
   }
-  out << tracks.size() << endl;
+  out << tracks.size() << "\n";
   for(const auto& track : tracks)
   {
     out << track.size();
@@ -568,7 +558,7 @@ void writeTracksASCII(const string& filename,const vector<NViewMatch>& tracks)
     {
       out << " " << camKey.first << " " << camKey.second;
     }
-    out << endl;
+    out << "\n";
   }
   out.close();
 }
@@ -584,7 +574,7 @@ void readTracksASCII(const string& filename,vector<NViewMatch>& tracks,
   ifstream in(filename);
   if(!in.is_open())
   {
-    cerr << "readTracksASCII: unable to open: " << filename << " for reading" << endl;
+    cerr << "readTracksASCII: unable to open: " << filename << " for reading" << "\n";
     return;
   }
   int nTracks;
@@ -614,11 +604,11 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
   ofstream out(filename);
   if(!out.is_open())
   {
-    cerr << "writeSFMBundlerFormat: unable to open: " << filename << " for writing" << endl;
+    cerr << "writeSFMBundlerFormat: unable to open: " << filename << " for writing\n";
     return;
   }
-  out << "# Bundle file v0.3" << endl;
-  out << cams.size() << " " << points.numPts() << endl;
+  out << "# Bundle file v0.3\n";
+  out << cams.size() << " " << points.numPts() << "\n";
   
   vector<Vector2d> x0(cams.size());
   out.flags(std::ios::scientific);
@@ -627,7 +617,7 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
     if(reconstructedCams.count(i) == 0)
     {
       for(size_t i = 0; i < 5; i++)
-        out << "0 0 0" << endl;
+        out << "0 0 0\n";
     } else
     {
       Matrix3d K = cams[i]->K();
@@ -645,16 +635,16 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
       }
       x0[i] = K.block(0,2,2,1);
       // f k1 k2
-      out << f << " " << rad[0] << " " << rad[1] << endl;
+      out << f << " " << rad[0] << " " << rad[1] << "\n";
       // R
       Matrix3d R = cams[i]->R();
       R.bottomRows(1) *= -1; // make the -z axis the viewing direction
       for(size_t j = 0; j < 3; j++)
-        out << R(j,0) << " " << R(j,1) << " " << R(j,2) << endl;
+        out << R(j,0) << " " << R(j,1) << " " << R(j,2) << "\n";
       // t
       Vector3d C = cams[i]->C();
       Vector3d t = -R*C;
-      out << t(0) << " " << t(1) << " " << t(2) << endl;
+      out << t(0) << " " << t(1) << " " << t(2) << "\n";
     }
   }
   for(int i = 0; i < points.numPts(); i++)
@@ -662,10 +652,10 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
     out.flags(std::ios::scientific);
     // coordinates
     const auto& coord = points.ptCoord()[i];
-    out << coord(0) << " " << coord(1) << " " << coord(2) << endl;
+    out << coord(0) << " " << coord(1) << " " << coord(2) << "\n";
     out.flags(std::ios::fixed);
     // color
-    out << "0 0 0" << endl;
+    out << "0 0 0\n";
     // views
     vector<BundlerPointView> views;
     for(const auto& camKey : points.ptData()[i].reconstructed)
@@ -684,7 +674,7 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
       out << " " << view.camIdx << " " << view.keyIdx << " " <<
         view.x << " " << view.y;
     }
-    out << endl;    
+    out << "\n";    
   }
   out.close();
 }
@@ -702,19 +692,19 @@ void writeSFMPLYFormat(const string& filename,const unordered_set<int>& addedCam
   ofstream out(filename);
   if(!out.is_open())
   {
-    cerr << "writeSFMPLYFormat: unable to open: " << filename << " for writing" << endl;
+    cerr << "writeSFMPLYFormat: unable to open: " << filename << " for writing" << "\n";
     return;
   }
-  out << "ply" << endl
-    << "format ascii 1.0" << endl
-    << "element vertex " << (points.size() + 2 * cams.size()) << endl
-    << "property float x" << endl
-    << "property float y" << endl
-    << "property float z" << endl
-    << "property uchar diffuse_red" << endl
-    << "property uchar diffuse_green" << endl
-    << "property uchar diffuse_blue" << endl
-    << "end_header" << endl;
+  out << "ply" << "\n"
+    << "format ascii 1.0" << "\n"
+    << "element vertex " << (points.size() + 2 * cams.size()) << "\n"
+    << "property float x" << "\n"
+    << "property float y" << "\n"
+    << "property float z" << "\n"
+    << "property uchar diffuse_red" << "\n"
+    << "property uchar diffuse_green" << "\n"
+    << "property uchar diffuse_blue" << "\n"
+    << "end_header" << "\n";
 
   out.flags(std::ios::scientific);
   for(size_t i = 0; i < points.size(); i++)
@@ -731,7 +721,7 @@ void writeSFMPLYFormat(const string& filename,const unordered_set<int>& addedCam
       {
         out << "0 0 0";
       }
-      out << endl;
+      out << "\n";
     }
   }
   Vector3d ptCam; // this point is for showing symbolic direction
@@ -741,8 +731,8 @@ void writeSFMPLYFormat(const string& filename,const unordered_set<int>& addedCam
     const Vector3d& C = cam->C();
     Vector3d ptInFront = cam->R().transpose() * ptCam + C;
 
-    out << C(0) << " " << C(1) << " " << C(2) << " 0 255 0" << endl;
-    out << ptInFront(0) << " " << ptInFront(1) << " " << ptInFront(2) << " 255 255 0" << endl;
+    out << C(0) << " " << C(1) << " " << C(2) << " 0 255 0" << "\n";
+    out << ptInFront(0) << " " << ptInFront(1) << " " << ptInFront(2) << " 255 255 0" << "\n";
   }
   out.close();
 }
@@ -784,7 +774,7 @@ double findCCDWidthInDB(const string& dbFilename,const string& cameraMake,const 
   ifstream file(dbFilename);
   if(!file.is_open())
   {
-    cout << "error: could not open file: " << dbFilename << endl;
+    cout << "error: could not open file: " << dbFilename << "\n";
     return 0.;
   }
   string makeModel = cameraMake + " " + cameraModel;

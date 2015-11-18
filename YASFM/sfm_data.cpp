@@ -10,27 +10,11 @@
 #include "sfm_data.h"
 
 #include <iostream>
-#include <string>
-#include <vector>
-#include <memory>
-#include "Eigen/Dense"
-#include "ceres/ceres.h"
-#include "ceres/rotation.h"
 
-#include "utils.h"
-#include "utils_io.h"
-
-using std::cout;
-using std::string;
-using std::vector;
-using std::unique_ptr;
-using std::make_unique;
-using Eigen::Map;
-using Eigen::Matrix3d;
-using Eigen::Vector3d;
-using Eigen::Vector2d;
-using Eigen::ArrayXXf;
 using Eigen::ArrayXf;
+using Eigen::Map;
+using std::cerr;
+using std::cout;
 
 namespace yasfm
 {

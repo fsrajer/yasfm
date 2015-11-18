@@ -10,35 +10,23 @@
 
 #pragma once
 
-#include <cassert>
-#include <cfloat>
-#include <cmath>
-#include <cstdlib>
-#include <ctime>
-#include <algorithm>
-#include <iostream>
 #include <vector>
+
 #include "Eigen\Dense"
-#include "Eigen\Geometry"
-#include "Eigen\SVD"
 
 #include "defines.h"
 #include "options.h"
 #include "ransac.h"
 #include "sfm_data.h"
 
+using Eigen::ArrayXXi;
+using Eigen::Matrix3d;
+using Eigen::Vector2d;
 using Eigen::Vector3d;
 using Eigen::Vector4d;
 using Eigen::VectorXd;
-using Eigen::Matrix3d;
-using Eigen::Matrix4d;
-using Eigen::MatrixXd;
-using Eigen::JacobiSVD;
-using namespace yasfm;
-using std::cout;
-using std::endl;
 using std::vector;
-using std::string;
+using namespace yasfm;
 
 namespace yasfm
 {

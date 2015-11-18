@@ -5,6 +5,7 @@
 #include "utils.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
+using Eigen::Vector4d;
 using namespace yasfm;
 
 namespace yasfm_tests
@@ -235,7 +236,7 @@ Matrix34d generateRandomProjection()
       double factor = 0.8;
 
       vector<vector<IntPair>> cam2SceneMatches;
-      unordered_set<int> wellMatchedCams;
+      uset<int> wellMatchedCams;
       chooseWellMatchedCameras(minMatchesThresh,factor,cam2SceneMatches,&wellMatchedCams);
       Assert::IsTrue(wellMatchedCams.empty());
 

@@ -10,28 +10,17 @@
 
 #pragma once
 
-#include <list>
-#include <string>
-#include <unordered_map>
-#include <unordered_set>
 #include <vector>
 
 #include "Eigen\Dense"
 
 #include "defines.h"
-#include "options.h"
 #include "sfm_data.h"
 
+using Eigen::Vector2d;
 using Eigen::Vector3d;
-using Eigen::Vector4d;
-using Eigen::Matrix3d;
-using Eigen::Matrix4d;
-using namespace yasfm;
-using std::list;
-using std::string;
 using std::vector;
-using std::unordered_map; 
-using std::unordered_set;
+using namespace yasfm;
 
 namespace yasfm
 {

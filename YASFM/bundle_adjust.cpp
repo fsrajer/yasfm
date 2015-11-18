@@ -11,30 +11,11 @@
 #include "bundle_adjust.h"
 
 #include <iostream>
-#include <string>
-#include <unordered_set>
-#include <vector>
 
-#include "Eigen/Dense"
-#include "Eigen/Geometry"
 #include "ceres/ceres.h"
 
-#include "defines.h"
-#include "options.h"
-#include "sfm_data.h"
-
-using Eigen::Vector3d;
-using Eigen::Vector4d;
-using Eigen::Matrix3d;
-using Eigen::Matrix4d;
-using Eigen::Quaterniond;
-using namespace yasfm;
-using std::cout;
-using std::endl;
 using std::cerr;
-using std::string;
-using std::unordered_set;
-using std::vector;
+using std::cout;
 
 namespace yasfm
 {
