@@ -41,7 +41,7 @@ void bundleAdjustPoints(const OptionsBundleAdjustment& opt,ptr_vector<Camera> *p
 void bundleAdjust(const OptionsBundleAdjustment& opt,const vector<bool>& constantCams,
   const vector<bool>& constantPoints,ptr_vector<Camera> *pcams,Points *ppts)
 {
-  cout << "Preparing for bundle adjustment\n";
+  cout << "Running bundle adjustment\n";
   auto& cams = *pcams;
   auto& pts = *ppts;
 
@@ -92,7 +92,6 @@ void bundleAdjust(const OptionsBundleAdjustment& opt,const vector<bool>& constan
     }
   }
 
-  cout << "Running bundle adjustment\n";
   ceres::Solver::Summary summary;
   ceres::Solve(opt.solverOptions,&problem,&summary);
   //std::cout << summary.FullReport() << "\n";
@@ -109,14 +108,14 @@ void bundleAdjust(const OptionsBundleAdjustment& opt,const vector<bool>& constan
 void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,int camIdx,Camera *pcam,
   Points *ppts)
 {
-  vector<bool> constantPts(ppts->numPts(),false);
+  vector<bool> constantPts(ppts->numPts(),true);
   bundleAdjustOneCam(opt,camIdx,constantPts,pcam,ppts);
 }
 
 void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,
   int camIdx,const vector<bool>& constantPoints,Camera *pcam,Points *ppts)
 {
-  cout << "Preparing for bundle adjustment\n";
+  cout << "Running bundle adjustment\n";
   auto& cam = *pcam;
   auto& pts = *ppts;
 
@@ -158,7 +157,6 @@ void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,
       &camParams[0]);
   }
 
-  cout << "Running bundle adjustment\n";
   ceres::Solver::Summary summary;
   ceres::Solve(opt.solverOptions,&problem,&summary);
   //std::cout << summary.FullReport() << "\n";
