@@ -38,140 +38,6 @@ using std::string;
 using std::unordered_set;
 using std::vector;
 
-
-#include <fstream>
-using std::ifstream;
-
-void readFeaturesASCII(const string& fn,Camera *cam)
-{
-  ifstream in(fn);
-  if(!in.is_open())
-  {
-    cerr << "readFeaturesASCII: unable to open: " << fn << " for reading\n";
-    return;
-  }
-  int nFeats,descrDim;
-  in >> nFeats >> descrDim;
-  cam->reserveFeatures(nFeats,descrDim);
-  float *descr = new float[descrDim];
-  string s;
-  for(int i = 0; i < nFeats; i++)
-  {
-    double x,y,dummy;
-    in >> y >> x >> dummy >> dummy;
-    for(int i = 0; i < 8; i++)
-    {
-      std::getline(in,s);
-    }
-    cam->addFeature(x,y,descr);
-  }
-  delete[] descr;
-  in.close();
-  cam->clearDescriptors();
-}
-
-void readTracksASCII(const string& filename,vector<NViewMatch> *ptracks)
-{
-  auto& tracks = *ptracks;
-  ifstream in(filename);
-  if(!in.is_open())
-  {
-    cerr << "readTracksASCII: unable to open: " << filename << " for reading" << "\n";
-    return;
-  }
-  int nTracks;
-  in >> nTracks;
-  tracks.resize(nTracks);
-  for(int i = 0; i < nTracks; i++)
-  {
-    int trackSize;
-    in >> trackSize;
-    tracks[i].reserve(trackSize);
-    for(int j = 0; j < trackSize; j++)
-    {
-      int camIdx,keyIdx;
-      in >> camIdx >> keyIdx;
-      tracks[i][camIdx] = keyIdx;
-    }
-  }
-  in.close();
-}
-
-void readMatchesASCII(const string& filename,pair_umap<CameraPair> *ppairs)
-{
-  auto& pairs = *ppairs;
-  ifstream in(filename);
-  if(!in.is_open())
-  {
-    cerr << "readMatchesASCII: unable to open: " << filename << " for reading" << "\n";
-    return;
-  }
-  int dummy;
-  in >> dummy;
-  string dummy2;
-  while(!in.eof())
-  {
-    int img1,img2,nMatches;
-    in >> img1 >> img2 >> nMatches;
-    auto& pair = pairs[IntPair(img1,img2)];
-    pair.matches.reserve(nMatches);
-    pair.dists.reserve(nMatches);
-    for(int iMatch = 0; iMatch < nMatches; iMatch++)
-    {
-      int i,j;
-      double dist;
-      in >> i >> j >> dist;
-      pair.matches.emplace_back(i,j);
-      pair.dists.push_back(dist);
-    }
-    //std::getline(in,dummy2);
-    std::getline(in,dummy2);
-  }
-  in.close();
-}
-
-void readCMPSFMPrestate(const Options& opt,Dataset *pdata)
-{
-  auto& data = *pdata;
-  string dir = "C:/Users/Filip/Workspace/cmp/Data/daliborka";
-  //string listTracks = joinPaths(dir,"tracks_.txt");
-  //string listMatches = joinPaths(dir,"matches.eg.txt");
-  string listMatches = joinPaths(dir,"matches.init.txt");
-  string listImgs = joinPaths(dir,"list_imgs.txt");
- 
-
-  double focalConstraintWeight = 0.0001;
-  double radialConstraint = 0.;
-  double radialConstraintWeight = 100.;
-
-  data = Dataset(dir);
-  data.addCameras<StandardCameraRadial>("imgs");
-  vector<double> focals(data.cams().size());
-  findFocalLengthInEXIF(opt.ccdDBFilename_,data.cams(),&focals);
-  for(int i = 0; i < data.numCams(); i++)
-  {
-    StandardCameraRadial *cam = static_cast<StandardCameraRadial *>(&data.cam(i));
-    vector<double> radConstraints(2,radialConstraint),radWeights(2,radialConstraintWeight);
-    cam->constrainRadial(&radConstraints[0],&radWeights[0]);
-    if(focals[i] > 0.)
-    {
-      data.cam(i).setFocal(focals[i]);
-      cam->constrainFocal(focals[i],focalConstraintWeight);
-    }
-  }
-
-  for(int i = 0; i < data.numCams(); i++)
-  {
-    string fn = data.cam(i).imgFilename();
-    fn[fn.size()-3] = 'k';
-    fn[fn.size()-2] = 'e';
-    fn[fn.size()-1] = 'y';
-    readFeaturesASCII(fn,&data.cam(i));
-  }
-  readMatchesASCII(listMatches,&data.pairs());
-  //readTracksASCII(listTracks,&data.points().matchesToReconstruct());
-}
-
 int main(int argc, const char* argv[])
 {
   Options opt;
@@ -186,15 +52,6 @@ int main(int argc, const char* argv[])
   string dir(argv[1]);
   string imgsSubdir(argv[2]);
 
-  /*Dataset data("");
-  readCMPSFMPrestate(opt,&data);
-  verifyMatchesGeometrically(opt,data.cams(),&data.pairs());
-  removePoorlyMatchedPairs(opt.minNumMatches_,&data.pairs());
-  twoViewMatchesToNViewMatches(data.cams(),data.pairs(),
-    &data.points().matchesToReconstruct());
-  IntPair initPair(0,18);
-  initReconstructionFromCalibratedCamPair(opt,initPair,&data);
-  /**/
   Dataset data(dir);
   data.addCameras<StandardCameraRadial>(imgsSubdir);
   // -> the principal point is always set to the
@@ -246,7 +103,6 @@ int main(int argc, const char* argv[])
   }
   
   bundleAdjust(opt.ba_,&data.cams(),&data.points());
-  //writeSFMBundlerFormat(joinPaths(data.dir(), "yasfm/bundle2.out"), data);
 
   uset<int> exploredCams;
   exploredCams.insert(initPair.first);
@@ -281,14 +137,7 @@ int main(int argc, const char* argv[])
         unzipPairsVectorSecond(camToSceneMatches[camIdx],&ptIdxs);
         data.markCamAsReconstructed(camIdx,ptIdxs,inliers);
 
-        //writeSFMBundlerFormat(joinPaths(data.dir(),"yasfm/bundle" +
-        //  std::to_string(exploredCams.size()) + "a.out"),data);
-
         bundleAdjustOneCam(opt.ba_,camIdx,&data.cam(camIdx),&data.points());
-
-
-        //writeSFMBundlerFormat(joinPaths(data.dir(),"yasfm/bundle" +
-        //  std::to_string(exploredCams.size()) + "b.out"),data);
       } else
       {
         cout << "camera could not be added.\n";
@@ -302,17 +151,7 @@ int main(int argc, const char* argv[])
       &data.points().matchesToReconstruct(),&matchesToReconstructNow);
 
     reconstructPoints(data.cams(),matchesToReconstructNow,&data.points());
-
-
-    //writeSFMBundlerFormat(joinPaths(data.dir(),"yasfm/bundle" +
-    //  std::to_string(exploredCams.size()) + "c.out"),data);
-
-
     removeHighReprojErrorPoints(opt.pointsReprojErrorThresh_,data.cams(),&data.points());
-
-    //writeSFMBundlerFormat(joinPaths(data.dir(),"yasfm/bundle" +
-    //  std::to_string(exploredCams.size()) + "d.out"),data);
-
 
     int prevPts;
     do
@@ -321,16 +160,178 @@ int main(int argc, const char* argv[])
       bundleAdjust(opt.ba_,&data.cams(),&data.points());
       removeHighReprojErrorPoints(opt.pointsReprojErrorThresh_,data.cams(),&data.points());
     } while(prevPts > data.points().numPts());
-    
-    //writeSFMBundlerFormat(joinPaths(data.dir(),"yasfm/bundle" +
-    //  std::to_string(exploredCams.size()) + "e.out"),data);
-
 
     removeIllConditionedPoints(0.5*opt.rayAngleThresh_,data.cams(),&data.points());
 
-    //writeSFMBundlerFormat(joinPaths(data.dir(),"yasfm/bundle" + 
-    //  std::to_string(exploredCams.size()) + "g.out"),data);
+    writeSFMBundlerFormat(joinPaths(data.dir(),"yasfm/bundle" + 
+      std::to_string(exploredCams.size()) + ".out"),data);
   }
 
   writeSFMBundlerFormat(joinPaths(data.dir(),"bundle_final.out"),data);
 }
+
+/*
+
+
+
+#include <fstream>
+using std::ifstream;
+using std::ofstream;
+
+void readFeaturesASCII(const string& fn,Camera *cam)
+{
+ifstream in(fn);
+if(!in.is_open())
+{
+cerr << "readFeaturesASCII: unable to open: " << fn << " for reading\n";
+return;
+}
+int nFeats,descrDim;
+in >> nFeats >> descrDim;
+cam->reserveFeatures(nFeats,descrDim);
+float *descr = new float[descrDim];
+string s;
+for(int i = 0; i < nFeats; i++)
+{
+double x,y,dummy;
+in >> y >> x >> dummy >> dummy;
+for(int i = 0; i < 8; i++)
+{
+std::getline(in,s);
+}
+cam->addFeature(x,y,descr);
+}
+delete[] descr;
+in.close();
+cam->clearDescriptors();
+}
+
+void readTracksASCII(const string& filename,vector<NViewMatch> *ptracks)
+{
+auto& tracks = *ptracks;
+ifstream in(filename);
+if(!in.is_open())
+{
+cerr << "readTracksASCII: unable to open: " << filename << " for reading" << "\n";
+return;
+}
+int nTracks;
+in >> nTracks;
+tracks.resize(nTracks);
+for(int i = 0; i < nTracks; i++)
+{
+int trackSize;
+in >> trackSize;
+tracks[i].reserve(trackSize);
+for(int j = 0; j < trackSize; j++)
+{
+int camIdx,keyIdx;
+in >> camIdx >> keyIdx;
+tracks[i][camIdx] = keyIdx;
+}
+}
+in.close();
+}
+
+void readMatchesASCII(const string& filename,pair_umap<CameraPair> *ppairs)
+{
+auto& pairs = *ppairs;
+ifstream in(filename);
+if(!in.is_open())
+{
+cerr << "readMatchesASCII: unable to open: " << filename << " for reading" << "\n";
+return;
+}
+int dummy;
+in >> dummy;
+string dummy2;
+while(!in.eof())
+{
+int img1,img2,nMatches;
+in >> img1 >> img2 >> nMatches;
+auto& pair = pairs[IntPair(img1,img2)];
+pair.matches.reserve(nMatches);
+pair.dists.reserve(nMatches);
+for(int iMatch = 0; iMatch < nMatches; iMatch++)
+{
+int i,j;
+double dist;
+in >> i >> j >> dist;
+pair.matches.emplace_back(i,j);
+pair.dists.push_back(dist);
+}
+//std::getline(in,dummy2);
+std::getline(in,dummy2);
+}
+in.close();
+}
+
+void readCMPSFMPrestate(const Options& opt,Dataset *pdata)
+{
+auto& data = *pdata;
+string dir = "C:/Users/Filip/Workspace/cmp/Data/daliborka";
+//string listTracks = joinPaths(dir,"tracks-.txt");
+//string listMatches = joinPaths(dir,"matches.eg.txt");
+string listMatches = joinPaths(dir,"matches.init.txt");
+string listImgs = joinPaths(dir,"list_imgs.txt");
+
+
+double focalConstraintWeight = 0.0001;
+double radialConstraint = 0.;
+double radialConstraintWeight = 100.;
+
+data = Dataset(dir);
+data.addCameras<StandardCameraRadial>("imgs");
+vector<double> focals(data.cams().size());
+findFocalLengthInEXIF(opt.ccdDBFilename_,data.cams(),&focals);
+for(int i = 0; i < data.numCams(); i++)
+{
+StandardCameraRadial *cam = static_cast<StandardCameraRadial *>(&data.cam(i));
+vector<double> radConstraints(2,radialConstraint),radWeights(2,radialConstraintWeight);
+cam->constrainRadial(&radConstraints[0],&radWeights[0]);
+if(focals[i] > 0.)
+{
+data.cam(i).setFocal(focals[i]);
+cam->constrainFocal(focals[i],focalConstraintWeight);
+}
+}
+
+for(int i = 0; i < data.numCams(); i++)
+{
+string fn = data.cam(i).imgFilename();
+fn[fn.size()-3] = 'k';
+fn[fn.size()-2] = 'e';
+fn[fn.size()-1] = 'y';
+readFeaturesASCII(fn,&data.cam(i));
+}
+readMatchesASCII(listMatches,&data.pairs());
+//readTracksASCII(listTracks,&data.points().matchesToReconstruct());
+}
+
+void writeMatchesASCII(const string& filename,const pair_umap<CameraPair>& pairs)
+{
+ofstream out(filename);
+if(!out.is_open())
+{
+cerr << "writeMatchesASCII: unable to open: " << filename << " for writing" << "\n";
+return;
+}
+out.flags(std::ios::fixed);
+out << pairs.size() << "\n";
+for(const auto& entry : pairs)
+{
+IntPair idx = entry.first;
+const auto& pair = entry.second;
+out << idx.first << ' ' << idx.second << "\n";
+out << pair.matches.size() << "\n";
+for(int i = 0; i < pair.matches.size(); i++)
+{
+out << pair.matches[i].first << ' ' <<
+pair.matches[i].second << ' ' <<
+std::setprecision(3) << pair.dists[i] << "\n";
+}
+out << Eigen::Matrix3d::Zero() << "\n";
+}
+out.close();
+}
+*/
