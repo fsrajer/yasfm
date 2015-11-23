@@ -205,6 +205,11 @@ private:
   Matrix3d invK1_,invK2_;
 };
 
+// Symmetric epipolar distance (see Hartley & Zisserman p. 278).
+// MIND THE ORDER of the input points (pts2'*F*pts1 = 0).
+double computeSymmetricEpipolarSquaredDistanceFundMat(const Vector2d& pt2,const Matrix3d& F,
+  const Vector2d& pt1);
+
 // First-order geometric error (Sampson distance) for
 // pts2'*F*pts1 = 0. MIND THE ORDER of the input points.
 double computeSampsonSquaredDistanceFundMat(const Vector2d& pt2,const Matrix3d& F,

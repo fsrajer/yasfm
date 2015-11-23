@@ -477,7 +477,7 @@ void Mediator7ptPROSAC::computeTransformation(const vector<int>& idxs,vector<Mat
 double Mediator7ptPROSAC::computeSquaredError(const Matrix3d& F,int matchIdx) const
 {
   IntPair match = pair_.matches[matchIdx];
-  return computeSampsonSquaredDistanceFundMat(
+  return computeSymmetricEpipolarSquaredDistanceFundMat(
     keys2_[match.second],
     F,
     keys1_[match.first]);
@@ -524,7 +524,7 @@ void Mediator7ptRANSAC::computeTransformation(const vector<int>& idxs,vector<Mat
 double Mediator7ptRANSAC::computeSquaredError(const Matrix3d& F,int matchIdx) const
 {
   IntPair match = matches_[matchIdx];
-  return computeSampsonSquaredDistanceFundMat(
+  return computeSymmetricEpipolarSquaredDistanceFundMat(
     keys2_[match.second],
     F,
     keys1_[match.first]);
@@ -576,7 +576,7 @@ void Mediator5ptRANSAC::computeTransformation(const vector<int>& idxs,vector<Mat
 
 double Mediator5ptRANSAC::computeSquaredError(const Matrix3d& F,int matchIdx) const
 {
-  return computeSampsonSquaredDistanceFundMat(
+  return computeSymmetricEpipolarSquaredDistanceFundMat(
     cam2_.key(matches_[matchIdx].second),
     F,
     cam1_.key(matches_[matchIdx].first));
@@ -598,6 +598,18 @@ bool Mediator5ptRANSAC::isPermittedSelection(const vector<int>& idxs) const
 {
   // TODO: Should we exclude some cases?
   return true;
+}
+
+double computeSymmetricEpipolarSquaredDistanceFundMat(const Vector2d& pt2,const Matrix3d& F,
+  const Vector2d& pt1)
+{
+  Vector3d Fpt1 = F*pt1.homogeneous();
+  Vector3d FTpt2 = F.transpose()*pt2.homogeneous();
+
+  double pt2Fpt1 = pt2.homogeneous().dot(Fpt1);
+
+  return (pt2Fpt1*pt2Fpt1) *
+    (1. / Fpt1.topRows(2).squaredNorm() + 1. / FTpt2.topRows(2).squaredNorm());
 }
 
 // dist = (pt2'*F*pt1)^2/((F*pt1)^2_1 + (F*pt1)^2_2 + (FT*pt2)^2_1 + (FT*pt2)^2_2)
