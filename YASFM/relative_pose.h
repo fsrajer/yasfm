@@ -137,27 +137,6 @@ YASFM_API void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
 namespace
 {
 
-class Mediator7ptPROSAC : public MediatorPROSAC<Matrix3d>
-{
-public:
-  // Mind the order of points. We estimate such F that pts2'*F*pts1 = 0.
-  Mediator7ptPROSAC(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
-    const CameraPair& pair);
-  virtual int numMatches() const;
-  virtual int minMatches() const;
-  virtual void computeTransformation(const vector<int>& idxs,vector<Matrix3d> *Fs) const;
-  virtual double computeSquaredError(const Matrix3d& F,int matchIdx) const;
-  virtual void refine(const vector<int>& inliers,Matrix3d *F) const;
-  virtual bool isPermittedSelection(const vector<int>& idxs) const;
-  virtual void computeFeaturesOrdering(vector<int>& order) const;
-
-private:
-  const int minMatches_;
-  const vector<Vector2d>& keys1_;
-  const vector<Vector2d>& keys2_;
-  const CameraPair& pair_;
-};
-
 class Mediator7ptRANSAC : public MediatorRANSAC<Matrix3d>
 {
 public:

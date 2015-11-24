@@ -317,8 +317,10 @@ bool estimateRelativePose7ptPROSAC(const OptionsRANSAC& opt,
   const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const CameraPair& pair,
   Matrix3d *F,vector<int> *inliers)
 {
-  Mediator7ptPROSAC m(keys1,keys2,pair);
-  int nInliers = estimateTransformPROSAC(m,opt,F,inliers);
+  Mediator7ptRANSAC m(keys1,keys2,pair.matches);
+  vector<int> matchesOrder;
+  yasfm::quicksort(pair.dists,&matchesOrder);
+  int nInliers = estimateTransformPROSAC(m,opt,matchesOrder,F,inliers);
   return (nInliers > 0);
 }
 
@@ -453,55 +455,8 @@ void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
 namespace
 {
 
-Mediator7ptPROSAC::Mediator7ptPROSAC(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
-  const CameraPair& pair)
-  : minMatches_(7),keys1_(keys1),keys2_(keys2),pair_(pair)
-{
-}
-
-int Mediator7ptPROSAC::numMatches() const
-{ return static_cast<int>(pair_.matches.size()); }
-
-int Mediator7ptPROSAC::minMatches() const
-{ return minMatches_; }
-
-void Mediator7ptPROSAC::computeTransformation(const vector<int>& idxs,vector<Matrix3d> *Fs) const
-{
-  vector<IntPair> selectedMatches;
-  selectedMatches.reserve(minMatches_);
-  for(int idx : idxs)
-    selectedMatches.push_back(pair_.matches[idx]);
-  estimateRelativePose7pt(keys1_,keys2_,selectedMatches,Fs);
-}
-
-double Mediator7ptPROSAC::computeSquaredError(const Matrix3d& F,int matchIdx) const
-{
-  IntPair match = pair_.matches[matchIdx];
-  return computeSymmetricEpipolarSquaredDistanceFundMat(
-    keys2_[match.second],
-    F,
-    keys1_[match.first]);
-}
-
-void Mediator7ptPROSAC::refine(const vector<int>& inliers,Matrix3d *F) const
-{
-  // TODO: Find LM lib for non-linear minimization (cost will be sampson distance)
-  // according to H&Z book
-}
-
-bool Mediator7ptPROSAC::isPermittedSelection(const vector<int>& idxs) const
-{
-  // TODO: Should we exclude some cases?
-  return true;
-}
-
-void Mediator7ptPROSAC::computeFeaturesOrdering(vector<int>& order) const
-{
-  yasfm::quicksort(pair_.dists,&order);
-}
-
-Mediator7ptRANSAC::Mediator7ptRANSAC(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
-  const vector<IntPair>& matches)
+Mediator7ptRANSAC::Mediator7ptRANSAC(const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const vector<IntPair>& matches)
   : minMatches_(7),keys1_(keys1),keys2_(keys2),matches_(matches)
 {
 }

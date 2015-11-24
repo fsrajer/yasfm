@@ -43,23 +43,14 @@ public:
   { return true; }
 };
 
-template<typename MatType>
-class MediatorPROSAC : public MediatorRANSAC<MatType>
-{
-public:
-  // Order is a vector of indices of matches which are sorted 
-  // according to some score (the best score comes first).
-  virtual void computeFeaturesOrdering(vector<int>& order) const = 0;
-};
-
 // Returns number of inliers.
 template<typename MatType>
 int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC& opt,
   MatType *M,vector<int> *inliers = nullptr);
 // Returns number of inliers.
 template<typename MatType>
-int estimateTransformPROSAC(const MediatorPROSAC<MatType>& m, const OptionsRANSAC& opt,
-  MatType *M,vector<int> *inliers = nullptr);
+int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC& opt,
+  const vector<int>& matchesOrder,MatType *M,vector<int> *inliers = nullptr);
 
 // Returns number of inliers and also returns 
 // all inliers if inliers vector is not null
@@ -150,8 +141,8 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
 }
 
 template<typename MatType>
-int estimateTransformPROSAC(const MediatorPROSAC<MatType>& m,const OptionsRANSAC& opt,
-  MatType *pM,vector<int> *inliers)
+int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC& opt,
+  const vector<int>& matchesOrder,MatType *pM,vector<int> *inliers)
 {
   int minMatches = m.minMatches();
   int nMatches = m.numMatches();
@@ -163,9 +154,6 @@ int estimateTransformPROSAC(const MediatorPROSAC<MatType>& m,const OptionsRANSAC
     M.setZero();
     return -1;
   }
-
-  vector<int> order;
-  m.computeFeaturesOrdering(order);
 
   int ransacRounds = opt.ransacRounds_;
   double sqThresh = opt.errorThresh_ * opt.errorThresh_;
@@ -200,7 +188,7 @@ int estimateTransformPROSAC(const MediatorPROSAC<MatType>& m,const OptionsRANSAC
       for(size_t i = 0; i < idxs.size(); i++)
       {
         // map the pseudo-indices to the real indices
-        idxs[i] = order[idxs[i]];
+        idxs[i] = matchesOrder[idxs[i]];
       }
     }
 
