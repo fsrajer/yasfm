@@ -15,39 +15,39 @@ namespace yasfm_tests
     TEST_METHOD(chooseInitialCameraPairTest)
     {
       int minMatches = 1;
-      vector<NViewMatch> matches(3);
+      double minScore = 1.;
       int numCams = 4;
-      ArrayXXi matchesOfPairs(ArrayXXi::Zero(numCams,numCams));
+      ArrayXXi numMatches(ArrayXXi::Zero(numCams,numCams));
+      ArrayXXd scores(ArrayXXd::Zero(numCams,numCams));
+      uset<int> camsToUse;
 
-      vector<int> priority(numCams,0);
-      priority[0] = 1;
-      priority[1] = 1;
-
-      IntPair initPair = chooseInitialCameraPair(minMatches,matches,numCams);
+      IntPair initPair = chooseInitialCameraPair(minMatches,minScore,camsToUse,numMatches,
+        scores);
       Assert::IsTrue(initPair.first == -1 && initPair.second == -1);
 
-      initPair = chooseInitialCameraPair(minMatches,matches,priority);
+      camsToUse.insert(0);
+      camsToUse.insert(1);
+      initPair = chooseInitialCameraPair(minMatches,minScore,camsToUse,numMatches,
+        scores);
       Assert::IsTrue(initPair.first == -1 && initPair.second == -1);
 
-      initPair = chooseInitialCameraPair(minMatches,matchesOfPairs,priority);
-      Assert::IsTrue(initPair.first == -1 && initPair.second == -1);
+      numMatches(1,0) = numMatches(0,1) = 1;
+      numMatches(2,1) = numMatches(1,2) = 2;
+      scores(1,0) = scores(0,1) = 1.;
+      scores(2,1) = scores(1,2) = 2.;
 
-      matchesOfPairs(0,1) = 1;
-      matchesOfPairs(1,2) = 2;
-      matches[0].emplace(0,0);
-      matches[0].emplace(1,0);
-      matches[1].emplace(1,0);
-      matches[1].emplace(2,0);
-      matches[2].emplace(1,0);
-      matches[2].emplace(2,0);
-
-      initPair = chooseInitialCameraPair(minMatches,matches,numCams);
-      Assert::IsTrue(initPair.first == 1 && initPair.second == 2);
-
-      initPair = chooseInitialCameraPair(minMatches,matches,priority);
+      initPair = chooseInitialCameraPair(minMatches,minScore,camsToUse,numMatches,
+        scores);
       Assert::IsTrue(initPair.first == 0 && initPair.second == 1);
 
-      initPair = chooseInitialCameraPair(minMatches,matchesOfPairs,priority);
+      camsToUse.insert(2);
+      initPair = chooseInitialCameraPair(minMatches,minScore,camsToUse,numMatches,
+        scores);
+      Assert::IsTrue(initPair.first == 1 && initPair.second == 2);
+
+      scores(2,1) = scores(1,2) = .5;
+      initPair = chooseInitialCameraPair(minMatches,minScore,camsToUse,numMatches,
+        scores);
       Assert::IsTrue(initPair.first == 0 && initPair.second == 1);
     }
     
