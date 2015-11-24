@@ -300,6 +300,7 @@ bool isWellConditioned(double rayAngleThresh,const ptr_vector<Camera>& cams,
   const NViewMatch& pointViews)
 {
   auto camKey1 = pointViews.begin();
+  double rayAngleThreshRadians = deg2Rad(rayAngleThresh);
   for(; camKey1 != pointViews.end(); ++camKey1)
   {
     const auto& cam1 = *cams[camKey1->first];
@@ -310,7 +311,7 @@ bool isWellConditioned(double rayAngleThresh,const ptr_vector<Camera>& cams,
       const auto& cam2 = *cams[camKey2->first];
       double angle = computeRayAngle(cam1,camKey1->second,
         cam2,camKey2->second);
-      if(rad2Deg(angle) > rayAngleThresh)
+      if(angle > rayAngleThreshRadians)
         return true;
     }
   }

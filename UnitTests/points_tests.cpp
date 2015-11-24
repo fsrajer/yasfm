@@ -419,8 +419,8 @@ namespace yasfm_tests
         views.emplace(i,0);
       }
 
-      Vector3d ray1 = pt - cams[0]->C();
-      Vector3d ray2 = pt - cams[1]->C();
+      Vector3d ray1 = cams[0]->R().transpose() * cams[0]->keyNormalized(0).homogeneous();
+      Vector3d ray2 = cams[1]->R().transpose() * cams[1]->keyNormalized(0).homogeneous();
       double angle = rad2Deg(acos(ray1.dot(ray2) / (ray1.norm() * ray2.norm())));
 
       rayAngleThresh = angle-1;
