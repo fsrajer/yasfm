@@ -437,8 +437,7 @@ void removeHighReprojErrorPoints(double avgReprojErrThresh,const ptr_vector<Came
     {
       const auto& cam = *cams[camKey.first];
       const auto& key = cam.key(camKey.second);
-      Vector2d proj;
-      cam.project(pts.ptCoord()[iPt],&proj);
+      Vector2d proj = cam.project(pts.ptCoord()[iPt]);
       err += (proj - key).norm();
     }
     err /= reconstructPointViews.size();

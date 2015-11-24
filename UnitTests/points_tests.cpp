@@ -381,14 +381,13 @@ namespace yasfm_tests
         views[i].observedPart.emplace(1,i);
       }
       float dummy;
-      Vector2d p;
-      cams[0]->project(coord[0],&p);
+      Vector2d p = cams[0]->project(coord[0]);
       cams[0]->addFeature(p(0),p(1),&dummy);
-      cams[1]->project(coord[0],&p);
+      p = cams[1]->project(coord[0]);
       cams[1]->addFeature(p(0),p(1),&dummy);
-      cams[0]->project(coord[1],&p);
+      p = cams[0]->project(coord[1]);
       cams[0]->addFeature(p(0),p(1),&dummy);
-      cams[1]->project(coord[1],&p);
+      p = cams[1]->project(coord[1]);
       p(0) += 100;
       cams[1]->addFeature(p(0),p(1),&dummy);
       views[1].unobservedPart.emplace(11,1);
@@ -412,8 +411,7 @@ namespace yasfm_tests
         cams.push_back(make_unique<StandardCamera>(""));
         cams[i]->setParams(generateRandomProjection());
         cams[i]->reserveFeatures(1,0);
-        Vector2d p;
-        cams[i]->project(pt,&p);
+        Vector2d p = cams[i]->project(pt);
         float dummy;
         cams[i]->addFeature(p(0),p(1),&dummy);
         views.emplace(i,0);

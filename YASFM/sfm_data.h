@@ -72,7 +72,7 @@ public:
   YASFM_API virtual const ArrayXXf& descr() const;
 
   // to be implemented by derived classes
-  YASFM_API virtual void project(const Vector3d& pt,Vector2d *proj) const {}
+  YASFM_API virtual Vector2d project(const Vector3d& pt) const { return Vector2d::Zero(); }
   YASFM_API virtual ceres::CostFunction* costFunction(int keyIdx) const { return nullptr; }
   YASFM_API virtual ceres::CostFunction* constraintsCostFunction() const { return nullptr; }
   YASFM_API virtual void params(vector<double> *params) const {}
@@ -122,7 +122,7 @@ public:
   // { return make_unique<DerivedCamera>(*this); }
   YASFM_API virtual unique_ptr<Camera> clone() const;
 
-  YASFM_API virtual void project(const Vector3d& pt,Vector2d *proj) const;
+  YASFM_API virtual Vector2d project(const Vector3d& pt) const;
   YASFM_API virtual ceres::CostFunction* costFunction(int keyIdx) const;
   YASFM_API virtual ceres::CostFunction* constraintsCostFunction() const;
   // 3 rotation, 3 translation, 1 focal length
@@ -205,7 +205,7 @@ public:
   // { return make_unique<DerivedCamera>(*this); }
   YASFM_API virtual unique_ptr<Camera> clone() const;
 
-  YASFM_API virtual void project(const Vector3d& pt,Vector2d *proj) const;
+  YASFM_API virtual Vector2d project(const Vector3d& pt) const;
   YASFM_API virtual ceres::CostFunction* costFunction(int keyIdx) const;
   YASFM_API virtual ceres::CostFunction* constraintsCostFunction() const;
   // Return key with undone calibration parameters.

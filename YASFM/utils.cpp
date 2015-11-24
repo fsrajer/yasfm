@@ -151,8 +151,7 @@ double computeAverageReprojectionError(const ptr_vector<Camera>& cams,
     {
       const auto& cam = *cams[camKey.first];
       const auto& key = cam.key(camKey.second);
-      Vector2d proj;
-      cam.project(points.ptCoord()[iPt],&proj);
+      Vector2d proj = cam.project(points.ptCoord()[iPt]);
       cumulativeError += (proj - key).norm();
       observationsCount++;
     }

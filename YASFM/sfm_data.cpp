@@ -85,10 +85,10 @@ void StandardCamera::constrainFocal(double constraint,double weigtht)
   paramsConstraints_[fIdx_] = constraint;
   paramsConstraintsWeights_[fIdx_] = weigtht;
 }
-void StandardCamera::project(const Vector3d& pt,Vector2d *proj) const
+Vector2d StandardCamera::project(const Vector3d& pt) const
 {
   Vector2d ptCam = (rot_ * (pt - C_)).hnormalized();
-  *proj = f_ * ptCam + x0_;
+  return f_ * ptCam + x0_;
 }
 void StandardCamera::setParams(const Matrix34d& P)
 {
@@ -222,12 +222,12 @@ void StandardCameraRadial::constrainRadial(double *constraints,double *weigthts)
   paramsConstraintsWeights_[radIdx_ + 0] = weigthts[0];
   paramsConstraintsWeights_[radIdx_ + 1] = weigthts[1];
 }
-void StandardCameraRadial::project(const Vector3d& pt,Vector2d *proj) const
+Vector2d StandardCameraRadial::project(const Vector3d& pt) const
 {
   Vector2d ptCam = (rot_ * (pt - C_)).hnormalized();
   double r2 = ptCam.squaredNorm();
   double distortion = 1. + r2 * (radParams_[0] + r2 * radParams_[1]);
-  *proj = f_ * distortion * ptCam + x0_;
+  return f_ * distortion * ptCam + x0_;
 }
 Vector2d StandardCameraRadial::keyNormalized(int i) const
 {
