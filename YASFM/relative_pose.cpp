@@ -449,6 +449,35 @@ void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
   }
 }
 
+void estimateHomographyMinimal(const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
+  const vector<IntPair>& matches,Matrix3d *H)
+{
+  if(matches.size() < 4)
+  {
+    cout << "estimateHomography: Cannot estimate homography from " <<
+      matches.size() << " matches\n";
+    H->setZero();
+  }
+
+  MatrixXd A(MatrixXd::Zero(8,9));
+  for(int i = 0; i < 4; i++)
+  {
+    const auto& pt1 = pts1[matches[i].first];
+    const auto& pt2 = pts2[matches[i].second];
+    
+    A.block(i,0,1,3) = pt1.homogeneous().transpose();
+    A.block(i+4,3,1,3) = pt1.homogeneous().transpose();
+    A.block(i,6,1,3) = -pt2(0) * pt1.homogeneous().transpose();
+    A.block(i+4,6,1,3) = -pt2(1) * pt1.homogeneous().transpose();
+  }
+
+  JacobiSVD<MatrixXd> svd(A,Eigen::ComputeThinU | Eigen::ComputeFullV);
+  VectorXd h = svd.matrixV().rightCols(1);
+  H->row(0) = h.topRows(3).transpose();
+  H->row(1) = h.middleRows(3,3).transpose();
+  H->row(2) = h.bottomRows(3).transpose();
+}
+
 } // namespace yasfm
 
 

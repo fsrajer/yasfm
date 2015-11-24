@@ -132,6 +132,11 @@ YASFM_API void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
   const vector<Vector3d>& pts2Norm,const vector<IntPair>& matches,
   vector<Matrix3d> *Es);
 
+// Computes homography H from four matches using svd decomposition.
+// H*pt1 = lambda*pt2.
+YASFM_API void estimateHomographyMinimal(const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
+  const vector<IntPair>& matches,Matrix3d *H);
+
 } // namespace yasfm
 
 namespace
