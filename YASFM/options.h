@@ -140,6 +140,7 @@ public:
   //   errorThresh_: 1.25
   //   minInliers_: 10
   OptionsRANSAC relativePose_;
+  OptionsRANSAC homography_;
   // Min number of matches defining a poorly matched pair. Default: 16.
   int minNumMatches_;
   // chooseWellMatchedCameras finds the camera with most matches, say N

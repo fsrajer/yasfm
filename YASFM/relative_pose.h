@@ -95,8 +95,8 @@ YASFM_API void verifyMatchesGeometrically(const Options& opt, const ptr_vector<C
 // Returns false if the estimated hypothesis was not supported by
 // enough inliers.
 YASFM_API bool estimateRelativePose7ptPROSAC(const OptionsRANSAC& opt,
-  const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const CameraPair& pair,Matrix3d *F,
-  vector<int> *inliers = nullptr);
+  const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const CameraPair& pair,
+  Matrix3d *F,vector<int> *inliers = nullptr);
 
 // Robust estimator, which finds such a fundamental matrix that
 // pts2'*F*pts1 = 0 using 7 point algorithm as a minimal solver. 
@@ -112,8 +112,8 @@ YASFM_API bool estimateRelativePose7ptRANSAC(const OptionsRANSAC& opt,
 // There are 1 to 3 solutions which are all possible and need to be 
 // verified by computing support.
 // Takes only the first 7 matches if the matches vector would contain more.
-YASFM_API void estimateRelativePose7pt(const vector<Vector2d>& keys1, const vector<Vector2d>& keys2,
-  const vector<IntPair>& matches,vector<Matrix3d> *Fs);
+YASFM_API void estimateRelativePose7pt(const vector<Vector2d>& keys1, 
+  const vector<Vector2d>& keys2,const vector<IntPair>& matches,vector<Matrix3d> *Fs);
 
 // Robust estimator, which finds such an essential matrix that
 // (inv(K)*pts2)'*E*(inv(K2)*pts1) = 0 using 5 point algorithm. 
@@ -134,8 +134,24 @@ YASFM_API void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
 
 // Computes homography H from four matches using svd decomposition.
 // H*pt1 = lambda*pt2.
-YASFM_API void estimateHomographyMinimal(const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
-  const vector<IntPair>& matches,Matrix3d *H);
+// Returns false if the estimated hypothesis was not supported by
+// enough inliers.
+YASFM_API bool estimateHomographyRANSAC(const OptionsRANSAC& opt,const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,Matrix3d *H,
+  vector<int> *inliers = nullptr);
+
+// Computes homography H from four matches using svd decomposition.
+// H*pt1 = lambda*pt2.
+// Returns false if the estimated hypothesis was not supported by
+// enough inliers.
+YASFM_API bool estimateHomographyPROSAC(const OptionsRANSAC& opt,const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const CameraPair& pair,Matrix3d *H,
+  vector<int> *inliers = nullptr);
+
+// Computes homography H from four matches using svd decomposition.
+// H*pt1 = lambda*pt2.
+YASFM_API void estimateHomographyMinimal(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,Matrix3d *H);
 
 } // namespace yasfm
 
@@ -187,6 +203,26 @@ private:
   vector<Vector3d> pts1Norm_,pts2Norm_;
   const vector<IntPair>& matches_;
   Matrix3d invK1_,invK2_;
+};
+
+class MediatorHomographyRANSAC : public MediatorRANSAC<Matrix3d>
+{
+public:
+  // Mind the order of points. We estimate such F that pts2'*F*pts1 = 0.
+  MediatorHomographyRANSAC(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const vector<IntPair>& matches);
+  virtual int numMatches() const;
+  virtual int minMatches() const;
+  virtual void computeTransformation(const vector<int>& idxs,vector<Matrix3d> *Hs) const;
+  virtual double computeSquaredError(const Matrix3d& H,int matchIdx) const;
+  virtual void refine(const vector<int>& inliers,Matrix3d *H) const;
+  virtual bool isPermittedSelection(const vector<int>& idxs) const;
+
+private:
+  const int minMatches_;
+  const vector<Vector2d>& keys1_;
+  const vector<Vector2d>& keys2_;
+  const vector<IntPair>& matches_;
 };
 
 // Symmetric epipolar distance (see Hartley & Zisserman p. 278).

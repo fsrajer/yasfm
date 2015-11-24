@@ -449,6 +449,26 @@ void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
   }
 }
 
+bool estimateHomographyRANSAC(const OptionsRANSAC& opt,const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,Matrix3d *H,
+  vector<int> *inliers = nullptr)
+{
+  MediatorHomographyRANSAC m(pts1,pts2,matches);
+  int nInliers = estimateTransformRANSAC(m,opt,H,inliers);
+  return (nInliers > 0);
+}
+
+bool estimateHomographyPROSAC(const OptionsRANSAC& opt,const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const CameraPair& pair,Matrix3d *H,
+  vector<int> *inliers = nullptr)
+{
+  MediatorHomographyRANSAC m(pts1,pts2,pair.matches);
+  vector<int> matchesOrder;
+  yasfm::quicksort(pair.dists,&matchesOrder);
+  int nInliers = estimateTransformPROSAC(m,opt,matchesOrder,H,inliers);
+  return (nInliers > 0);
+}
+
 void estimateHomographyMinimal(const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
   const vector<IntPair>& matches,Matrix3d *H)
 {
@@ -579,6 +599,50 @@ void Mediator5ptRANSAC::refine(const vector<int>& inliers,Matrix3d *F) const
 }
 
 bool Mediator5ptRANSAC::isPermittedSelection(const vector<int>& idxs) const
+{
+  // TODO: Should we exclude some cases?
+  return true;
+}
+
+MediatorHomographyRANSAC::MediatorHomographyRANSAC(const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const vector<IntPair>& matches)
+  : minMatches_(4),keys1_(keys1),keys2_(keys2),matches_(matches)
+{
+}
+
+int MediatorHomographyRANSAC::numMatches() const
+{
+  return static_cast<int>(matches_.size());
+}
+
+int MediatorHomographyRANSAC::minMatches() const
+{
+  return minMatches_;
+}
+
+void MediatorHomographyRANSAC::computeTransformation(const vector<int>& idxs,
+  vector<Matrix3d> *Hs) const
+{
+  vector<IntPair> selectedMatches;
+  selectedMatches.reserve(minMatches_);
+  for(int idx : idxs)
+    selectedMatches.push_back(matches_[idx]);
+  Hs->resize(1);
+  estimateHomographyMinimal(keys1_,keys2_,selectedMatches,&(*Hs)[0]);
+}
+
+double MediatorHomographyRANSAC::computeSquaredError(const Matrix3d& H,int matchIdx) const
+{
+  IntPair match = matches_[matchIdx];
+  Vector3d pt = H * keys1_[match.first].homogeneous();
+  return (pt.hnormalized() - keys2_[match.second]).squaredNorm();
+}
+
+void MediatorHomographyRANSAC::refine(const vector<int>& inliers,Matrix3d *H) const
+{
+}
+
+bool MediatorHomographyRANSAC::isPermittedSelection(const vector<int>& idxs) const
 {
   // TODO: Should we exclude some cases?
   return true;
