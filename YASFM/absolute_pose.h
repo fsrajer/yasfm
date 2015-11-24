@@ -63,7 +63,7 @@ YASFM_API bool resectCamera6ptLSRANSAC(const OptionsRANSAC& opt,
 // Least squares solver for projection matrix.
 YASFM_API void resectCameraLS(const vector<Vector2d>& keys,
   const vector<Vector3d>& points,const vector<IntPair>& camToSceneMatches,
-  vector<Matrix34d> *Ps);
+  Matrix34d *P);
 
 } // namespace yasfm
 

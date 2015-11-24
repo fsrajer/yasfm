@@ -109,7 +109,7 @@ bool resectCamera6ptLSRANSAC(const OptionsRANSAC& opt,
 }
 
 void resectCameraLS(const vector<Vector2d>& keys,const vector<Vector3d>& points,
-  const vector<IntPair>& camToSceneMatches,vector<Matrix34d> *Ps)
+  const vector<IntPair>& camToSceneMatches,Matrix34d *pP)
 {
   const size_t minPts = 6;
   if(camToSceneMatches.size() < minPts)
@@ -136,8 +136,7 @@ void resectCameraLS(const vector<Vector2d>& keys,const vector<Vector3d>& points,
 
   MatrixXd X = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
 
-  Ps->resize(1);
-  auto& P = (*Ps)[0];
+  auto& P = (*pP);
   P.row(0) = X.topRows(4).transpose();
   P.row(1) = X.middleRows(4,4).transpose();
   P.row(2).leftCols(3) = X.bottomRows(3).transpose();
@@ -225,7 +224,8 @@ void MediatorResectioning6ptLSRANSAC::computeTransformation(const vector<int>& i
   selectedMatches.reserve(minMatches_);
   for(int idx : idxs)
     selectedMatches.push_back(camToSceneMatches_[idx]);
-  resectCameraLS(keys_,points_,selectedMatches,Ps);
+  Ps->resize(1);
+  resectCameraLS(keys_,points_,selectedMatches,&(*Ps)[0]);
 }
 
 } // namespace
