@@ -19,6 +19,7 @@
 #include "ransac.h"
 #include "sfm_data.h"
 
+using Eigen::ArrayXXd;
 using Eigen::ArrayXXi;
 using Eigen::Matrix3d;
 using Eigen::Vector2d;
@@ -31,22 +32,33 @@ using namespace yasfm;
 namespace yasfm
 {
 
-// All cameras with the same priority. Returns (-1,-1) when there are no good matches.
-YASFM_API IntPair chooseInitialCameraPair(int minMatches,
-  const vector<NViewMatch>& nViewMatches,int numCams);
-// A priority level is chosen such that at least one pair has more than
-// minMatches. A pair having the most matches among pairs with the chosen
-// priority is chosen. Choose priority in interval [0,10].
+// Find camera pair with the most matches. Returns (-1,-1) when there are no good matches.
+YASFM_API IntPair chooseInitialCameraPair(int minMatches,int nCams,
+  const vector<NViewMatch>& nViewMatches);
+
+// First try to find calibrated pair and if not found then try to find any camera pair.
 // Returns (-1,-1) when there are no good matches.
 YASFM_API IntPair chooseInitialCameraPair(int minMatches,
-  const vector<NViewMatch>& nViewMatches,const vector<int>& camsPriority);
-// A priority level is chosen such that at least one pair has more than
-// minMatches. A pair having the most matches among pairs with the chosen
-// priority is chosen. Choose priority in interval [0,10].
-// numMatchesOfPairs should be symmetric. Returns (-1,-1) when there are 
-// no good matches.
-YASFM_API IntPair chooseInitialCameraPair(int minMatches,
-  const ArrayXXi& numMatchesOfPairs,const vector<int>& camsPriority);
+  const vector<bool>& isCalibrated,const vector<NViewMatch>& nViewMatches);
+
+// First try to find a calibrated camera pair and if not found then try to find
+// any camera pair.
+// Returns (-1,-1) when there are no good matches.
+YASFM_API IntPair chooseInitialCameraPair(int minMatches,double minScore,
+  const vector<bool>& isCalibrated,const vector<NViewMatch>& nViewMatches,
+  const ArrayXXd& scores);
+
+// First try to find a calibrated camera pair and if not found then try to find
+// any camera pair.
+// Returns (-1,-1) when there are no good matches.
+YASFM_API IntPair chooseInitialCameraPair(int minMatches,double minScore,
+  const vector<bool>& isCalibrated,const ArrayXXi& numMatches,const ArrayXXd& scores);
+
+// First try to find a camera pair with maximum matches and at least minimum 
+// score and if none exists then try to find a camera pair with at least 
+// minimum number of matches and maximum score.
+YASFM_API IntPair chooseInitialCameraPair(int minMatches,double minScore,
+  const uset<int>& camsToUse,const ArrayXXi& numMatches,const ArrayXXd& scores);
 
 // 1) Initialize their cameras based on their 
 // relative position estimated from common n-view matches.
@@ -131,6 +143,13 @@ YASFM_API bool estimateRelativePose5ptRANSAC(const OptionsRANSAC& opt,
 YASFM_API void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
   const vector<Vector3d>& pts2Norm,const vector<IntPair>& matches,
   vector<Matrix3d> *Es);
+
+// Estimate homography for every camera pair and save the proportion
+// numInliers/numPoints into proportion. By convention
+// unmatched camera pairs have the proportion 1.
+YASFM_API void computeHomographyInliersProportion(const OptionsRANSAC& opt,
+  const ptr_vector<Camera>& cams,const pair_umap<CameraPair>& pairs,
+  ArrayXXd *proportion);
 
 // Computes homography H from four matches using svd decomposition.
 // H*pt1 = lambda*pt2.

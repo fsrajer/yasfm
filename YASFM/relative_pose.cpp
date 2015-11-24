@@ -25,17 +25,27 @@ using std::cout;
 namespace yasfm
 {
 
-IntPair chooseInitialCameraPair(int minMatches,
-  const vector<NViewMatch>& nViewMatches,int numCams)
+IntPair chooseInitialCameraPair(int minMatches,int nCams,
+  const vector<NViewMatch>& nViewMatches)
 {
-  vector<int> priority(numCams,0);
-  return chooseInitialCameraPair(minMatches,nViewMatches,priority);
+  vector<bool> isCalibrated(nCams,false);
+  return chooseInitialCameraPair(minMatches,isCalibrated,nViewMatches);
 }
 
 IntPair chooseInitialCameraPair(int minMatches,
-  const vector<NViewMatch>& nViewMatches,const vector<int>& camsPriority)
+  const vector<bool>& isCalibrated,const vector<NViewMatch>& nViewMatches)
 {
-  size_t nCams = camsPriority.size();
+  ArrayXXd scores(ArrayXXd::Zero(isCalibrated.size(),isCalibrated.size()));
+  double minScore = -1.;
+  return chooseInitialCameraPair(minMatches,minScore,isCalibrated,nViewMatches,
+    scores);
+}
+
+IntPair chooseInitialCameraPair(int minMatches,double minScore,
+  const vector<bool>& isCalibrated,const vector<NViewMatch>& nViewMatches,
+  const ArrayXXd& scores)
+{
+  size_t nCams = isCalibrated.size();
   ArrayXXi numMatches(ArrayXXi::Zero(nCams,nCams));
 
   for(const auto& nViewMatch : nViewMatches)
@@ -53,40 +63,69 @@ IntPair chooseInitialCameraPair(int minMatches,
       }
     }
   }
-  return chooseInitialCameraPair(minMatches,numMatches,camsPriority);
+  return chooseInitialCameraPair(minMatches,minScore,isCalibrated,numMatches,
+    scores);
 }
 
-IntPair chooseInitialCameraPair(int minMatches,
-  const ArrayXXi& numMatchesOfPairs,
-  const vector<int>& camsPriority)
+IntPair chooseInitialCameraPair(int minMatches,double minScore,
+  const vector<bool>& isCalibrated,const ArrayXXi& numMatches,const ArrayXXd& scores)
 {
   cout << "Choosing initial pair ... ";
-  int maxMatches = 0;
-  int nCams = static_cast<int>(numMatchesOfPairs.cols());
-  IntPair best;
-  for(int priority = 10; priority >= 0; priority--)
+  int nCams = static_cast<int>(isCalibrated.size());
+  uset<int> camsToUse;
+  for(int i = 0; i < nCams; i++)
+    if(isCalibrated[i])
+      camsToUse.insert(i);
+
+  IntPair best = chooseInitialCameraPair(minMatches,minScore,camsToUse,
+    numMatches,scores);
+
+  if(best.first == -1 || best.second == -1)
   {
     for(int i = 0; i < nCams; i++)
+      if(!isCalibrated[i])
+        camsToUse.insert(i);
+
+    best = chooseInitialCameraPair(minMatches,minScore,camsToUse,
+      numMatches,scores);
+  }
+
+  cout << "[" << best.first << "," << best.second << "]\n";
+  return best;
+}
+
+IntPair chooseInitialCameraPair(int minMatches,double minScore,
+  const uset<int>& camsToUse,const ArrayXXi& numMatches,const ArrayXXd& scores)
+{
+  int maxMatchesPrimary = 0;
+  double maxScoreSecondary = DBL_MIN;
+  IntPair bestPrimary,bestSecondary;
+  for(auto it1 = camsToUse.begin(); it1 != camsToUse.end(); ++it1)
+  {
+    int i = *it1;
+    auto it2 = it1;
+    ++it2;
+    for(; it2 != camsToUse.end(); ++it2)
     {
-      for(int j = i+1; j < nCams; j++)
+      int j = *it2;
+      if(numMatches(i,j) > maxMatchesPrimary && scores(i,j) >= minScore)
       {
-        if(camsPriority[i] >= priority &&
-          camsPriority[j] >= priority &&
-          numMatchesOfPairs(i,j) > maxMatches)
-        {
-          maxMatches = numMatchesOfPairs(i,j);
-          best = IntPair(i,j);
-        }
+        bestPrimary = IntPair(i,j);
+        maxMatchesPrimary = numMatches(i,j);
+      }
+      if(numMatches(i,j) >= minMatches && scores(i,j) > maxScoreSecondary)
+      {
+        bestSecondary = IntPair(i,j);
+        maxScoreSecondary = scores(i,j);
       }
     }
-    if(maxMatches >= minMatches)
-    {
-      cout << "[" << best.first << "," << best.second << "]\n";
-      return best;
-    }
   }
-  cout << "no suitable pair found\n";
-  return IntPair(-1,-1);
+  if(maxMatchesPrimary >= minMatches)
+    return bestPrimary;
+  else if(maxScoreSecondary >= minScore)
+    return bestSecondary;
+  else
+    return IntPair(-1,-1);
 }
 
 void initReconstructionFromCamPair(const Options& opt,
@@ -449,9 +488,34 @@ void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
   }
 }
 
+void computeHomographyInliersProportion(const OptionsRANSAC& opt,
+  const ptr_vector<Camera>& cams,const pair_umap<CameraPair>& pairs,
+  ArrayXXd *pproportion)
+{
+  auto& proportion = *pproportion;
+  proportion.resize(cams.size(),cams.size());
+  proportion.fill(1.);
+  for(const auto& entry : pairs)
+  {
+    int i = entry.first.first;
+    int j = entry.first.second;
+    const auto& pair = entry.second;
+
+    Matrix3d H;
+    vector<int> inliers;
+    bool success = estimateHomographyPROSAC(opt,cams[i]->keys(),
+      cams[j]->keys(),pair,&H,&inliers);
+    if(success && pair.matches.size() > 0)
+    {
+      proportion(i,j) = static_cast<double>(inliers.size()) / pair.matches.size();
+      proportion(j,i) = proportion(i,j);
+    }
+  }
+}
+
 bool estimateHomographyRANSAC(const OptionsRANSAC& opt,const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,Matrix3d *H,
-  vector<int> *inliers = nullptr)
+  vector<int> *inliers)
 {
   MediatorHomographyRANSAC m(pts1,pts2,matches);
   int nInliers = estimateTransformRANSAC(m,opt,H,inliers);
@@ -460,7 +524,7 @@ bool estimateHomographyRANSAC(const OptionsRANSAC& opt,const vector<Vector2d>& p
 
 bool estimateHomographyPROSAC(const OptionsRANSAC& opt,const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const CameraPair& pair,Matrix3d *H,
-  vector<int> *inliers = nullptr)
+  vector<int> *inliers)
 {
   MediatorHomographyRANSAC m(pts1,pts2,pair.matches);
   vector<int> matchesOrder;

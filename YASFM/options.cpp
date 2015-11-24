@@ -53,7 +53,7 @@ Options::Options()
   relativePose_(512,1.25,10),homography_(256,5.,10),verbosityLevel_(1),
   minNumMatches_(16),
   wellMatchedCamsFactor_(0.75),minNumCam2SceneMatches_(16),
-  pointsReprojErrorThresh_(8),rayAngleThresh_(2.)
+  pointsReprojErrorThresh_(8),rayAngleThresh_(2.),minInitPairHomographyProportion_(0.5)
 {
 }
 

@@ -81,15 +81,33 @@ int main(int argc, const char* argv[])
   verifyMatchesGeometrically(opt,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumMatches_,&data.pairs());
 
+  ArrayXXd homographyProportion;
+  computeHomographyInliersProportion(opt.homography_,data.cams(),data.pairs(),
+    &homographyProportion);
+
   twoViewMatchesToNViewMatches(data.cams(),data.pairs(),
     &data.points().matchesToReconstruct());
 
-  vector<int> camsPriority(data.numCams(),0);
-  for(size_t i = 0; i < camsPriority.size(); i++)
+  vector<bool> isCalibrated(data.numCams(),false);
+  for(size_t i = 0; i < isCalibrated.size(); i++)
     if(focals[i] > 0.)
-      camsPriority[i] = 1;
-  IntPair initPair = chooseInitialCameraPair(opt.minNumMatches_,
-    data.points().matchesToReconstruct(),camsPriority);
+      isCalibrated[i] = true;
+
+  double minPairScore = 1. / opt.minInitPairHomographyProportion_;
+  ArrayXXd homographyScores(homographyProportion.rows(),homographyProportion.cols());
+  for(int c = 0; c < homographyProportion.cols(); c++)
+  {
+    for(int r = 0; r < homographyProportion.rows(); r++)
+    {
+      if(homographyProportion(r,c) == 0.)
+        homographyScores(r,c) = DBL_MAX;
+      else
+        homographyScores(r,c) = 1. / homographyProportion(r,c);
+    }
+  }
+  IntPair initPair = chooseInitialCameraPair(opt.minNumMatches_,minPairScore,
+    isCalibrated,data.points().matchesToReconstruct(),homographyScores);
+    
 
   if(initPair.first < 0 || initPair.second < 0)
     return EXIT_FAILURE;

@@ -160,6 +160,8 @@ public:
   double rayAngleThresh_;
   // Up to 4. Default is 1.
   int verbosityLevel_;
+  // Default: 0.5
+  double minInitPairHomographyProportion_;
 };
 
 }
