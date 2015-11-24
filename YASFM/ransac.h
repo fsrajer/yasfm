@@ -62,6 +62,10 @@ int findInliers(const MediatorRANSAC<MatType>& m,const MatType& M,
 // the interval [0,numOverall-1].
 void generateRandomIndices(int numToGenerate,int numOverall,vector<int>& idxs);
 
+// Determine sufficient number of rounds that must happen.
+int sufficientNumberOfRounds(int nInliers,int nPoints,int sampleSize,
+  double confidence);
+
 // PROSAC auxiliary functions to find out from which sample set
 // to generate random indices.
 double computeInitAvgSamplesDrawnPROSAC(int ransacRounds,int nMatches,int minMatches);
@@ -114,12 +118,8 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
         maxInliers = nInliers;
         M = Mcurr;
 
-        double inlierAmount = static_cast<double>(maxInliers) / nMatches;
-        if(inlierAmount > opt.inliersEnough_)
-        {
-          ransacRounds = 0;
-          break;
-        }
+        ransacRounds = std::min(ransacRounds,
+          sufficientNumberOfRounds(maxInliers,nMatches,minMatches,opt.confidence_));
       }
     }
   }
@@ -206,12 +206,8 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
         maxInliers = nInliers;
         M = Mcurr;
 
-        double inlierAmount = static_cast<double>(maxInliers) / nMatches;
-        if(inlierAmount > opt.inliersEnough_)
-        {
-          ransacRounds = 0;
-          break;
-        }
+        ransacRounds = std::min(ransacRounds,
+          sufficientNumberOfRounds(maxInliers,nMatches,minMatches,opt.confidence_));
       }
     }
   }

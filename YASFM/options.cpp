@@ -36,14 +36,14 @@ bool OptionsFLANN::filterByRatio() const { return ratioThresh_ >= 0; }
 OptionsRANSAC::OptionsRANSAC(int ransacRounds,double errorThresh,
   int minInliers)
   : ransacRounds_(ransacRounds),errorThresh_(errorThresh),
-  minInliers_(minInliers),inliersEnough_(1.)
+  minInliers_(minInliers),confidence_(.95)
 {
 }
 
 OptionsRANSAC::OptionsRANSAC(int ransacRounds,double errorThresh,
   int minInliers,double inliersEnough)
   : ransacRounds_(ransacRounds),errorThresh_(errorThresh),
-  minInliers_(minInliers),inliersEnough_(inliersEnough)
+  minInliers_(minInliers),confidence_(confidence_)
 {
 }
 

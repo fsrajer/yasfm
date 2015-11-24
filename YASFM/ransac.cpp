@@ -43,6 +43,24 @@ void generateRandomIndices(int numToGenerate,int numOverall,vector<int>& idxs)
   }
 }
 
+int sufficientNumberOfRounds(int nInliers,int nPoints,int sampleSize,
+  double confidence)
+{
+  double _nInliers = nInliers;
+  double q = 1.;
+  for(int i = 0; i < sampleSize; i++)
+  {
+    q *= static_cast<double>(nInliers - i) / (nPoints - i);
+  }
+  if(q <= 0.)
+  {
+    return INT_MAX;
+  } else
+  {
+    return static_cast<int>(log(1. - confidence) / log(1. - q));
+  }
+}
+
 double computeInitAvgSamplesDrawnPROSAC(int ransacRounds,int nMatches,int minMatches)
 {
   double res = ransacRounds;

@@ -89,7 +89,7 @@ public:
   // inliersEnough is the amount of inliers which, if found, 
   // stops the algorithm immediately. The values are from range [0,1].
   // Default: 1.0
-  double inliersEnough_;
+  double confidence_;
 };
 
 typedef struct YASFM_API OptionsBundleAdjustment
