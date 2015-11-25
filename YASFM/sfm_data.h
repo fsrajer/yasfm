@@ -36,6 +36,7 @@ using std::unique_ptr;
 using std::vector;
 using std::ofstream;
 using std::ostream;
+using std::istream;
 
 namespace yasfm
 {
@@ -43,6 +44,10 @@ namespace yasfm
 ////////////////////////////////////////////////////
 ///////////////   Declarations   ///////////////////
 ////////////////////////////////////////////////////
+
+// Forward declaration
+template<class T>
+class CameraRegister;
 
 // Base class for all cameras. This class implements handling of 
 // image data as well as features. All of its functions involving
@@ -59,7 +64,14 @@ public:
     NoFeatures
   };
 
+  enum ReadMode
+  {
+    ReadAll,
+    SkipDescriptors
+  };
+
   YASFM_API Camera(const string& imgFilename);
+  YASFM_API Camera(istream& file,ReadMode mode,const string& featuresDir);
   // Destructor has to be virtual (even if it was empty) 
   // because of use of ptr_vector. It ensures that all the items
   // will be correctly deleted.
@@ -126,6 +138,8 @@ private:
 
   vector<Vector2d> keys_; // keypoints' coordinates
   ArrayXXf descr_; // descriptors; column is one descriptor
+
+  static CameraRegister<Camera> reg_;
 };
 
 // Standard camera with parameters the following parameters:
@@ -136,6 +150,7 @@ class StandardCamera : public Camera
 {
 public:
   YASFM_API StandardCamera(const string& imgFilename);
+  YASFM_API StandardCamera(istream& file,ReadMode mode,const string& featuresDir);
   // Destructor has to be virtual (even if it was empty) 
   // because of use of ptr_vector. It ensures that all the items
   // will be correctly deleted.
@@ -212,6 +227,8 @@ private:
   };
 
   static const int nParams_ = 7;
+
+  static CameraRegister<StandardCamera> reg_;
 };
 
 // Standard camera with parameters the following parameters:
@@ -223,6 +240,7 @@ class StandardCameraRadial : public StandardCamera
 {
 public:
   YASFM_API StandardCameraRadial(const string& imgFilename);
+  YASFM_API StandardCameraRadial(istream& file,ReadMode mode,const string& featuresDir);
   // Destructor has to be virtual (even if it was empty) 
   // because of use of ptr_vector. It ensures that all the items
   // will be correctly deleted.
@@ -275,6 +293,8 @@ private:
     const StandardCameraRadial& cam_;
     double keyX_,keyY_;
   };
+
+  static CameraRegister<StandardCameraRadial> reg_;
 };
 
 typedef struct
@@ -320,8 +340,8 @@ public:
     const vector<int>& correspondingPoints,
     const vector<int>& correspondingPointsInliers);
 
-  YASFM_API void writeASCII(const string& filename) const;
   YASFM_API void writeASCII(ostream& file) const;
+  YASFM_API void readASCII(istream& file);
 
   // Accessors
   YASFM_API const vector<NViewMatch>& matchesToReconstruct() const;
@@ -363,6 +383,10 @@ public:
   YASFM_API void writeASCII(const string& filename,Camera::WriteMode mode,
     const string& featuresDir) const;
 
+  YASFM_API void readASCII(const string& filename,Camera::ReadMode mode);
+  YASFM_API void readASCII(const string& filename,Camera::ReadMode mode,
+    const string& featuresDir);
+
   // accessors
   YASFM_API const string& dir() const;
   YASFM_API const Camera& cam(int idx) const;
@@ -388,6 +412,33 @@ private:
   uset<int> reconstructedCams_;
   Points points_;
 };
+
+class CameraFactory
+{
+public:
+  static unique_ptr<Camera> createInstance(const string& className,
+    istream& file,Camera::ReadMode mode,const string& featuresDir);
+
+protected:
+  typedef umap<string,unique_ptr<Camera>(*)(istream&,Camera::ReadMode,
+    const string&)> MapType;
+
+  static MapType& map();
+
+private:
+  static MapType *map_;
+};
+
+template<class T>
+class CameraRegister : private CameraFactory
+{
+public:
+  CameraRegister(const string& className);
+};
+
+template<class T>
+unique_ptr<Camera> createCamera(istream& file,Camera::ReadMode mode,
+  const string& featuresDir);
 
 ////////////////////////////////////////////////////
 ///////////////   Definitions   ////////////////////
@@ -495,6 +546,19 @@ void Dataset::addCameras(const string& imgsDir,bool isSubdir)
   {
     cams_.push_back(make_unique<T>(joinPaths(imgsDirAbs,filenames[i])));
   }
+}
+
+template<class T>
+unique_ptr<Camera> createCamera(istream& file,Camera::ReadMode mode,
+  const string& featuresDir)
+{
+  return make_unique<T>(file,mode,featuresDir);
+}
+
+template<class T>
+CameraRegister<T>::CameraRegister(const string& className)
+{
+  map()[className] = &createCamera<T>;
 }
 
 } // namespace yasfm

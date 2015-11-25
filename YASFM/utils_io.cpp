@@ -753,6 +753,21 @@ ostream& operator<<(ostream& file,const NViewMatch& m)
   return file;
 }
 
+istream& operator>>(istream& file,NViewMatch& m)
+{
+  int n;
+  file >> n;
+  m.clear();
+  m.reserve(n);
+  int key;
+  for(int i = 0; i < n; i++)
+  {
+    file >> key;
+    file >> m[key];
+  }
+  return file;
+}
+
 } // namespace yasfm
 
 namespace

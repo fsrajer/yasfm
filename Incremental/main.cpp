@@ -54,7 +54,7 @@ int main(int argc, const char* argv[])
   string imgsSubdir(argv[2]);
 
   Dataset data(dir);
-  data.addCameras<StandardCameraRadial>(imgsSubdir);
+  /*data.addCameras<StandardCameraRadial>(imgsSubdir);
   // -> the principal point is always set to the
   // image center in StandardCamera
  
@@ -82,6 +82,10 @@ int main(int argc, const char* argv[])
   verifyMatchesGeometrically(opt,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumMatches_,&data.pairs());
 
+  data.writeASCII("matched.txt",Camera::WriteMode::ConvertNormalizedSIFTToUint);
+  */
+  data.readASCII("matched.txt",Camera::ReadMode::SkipDescriptors);
+
   ArrayXXd homographyProportion;
   computeHomographyInliersProportion(opt.homography_,data.cams(),data.pairs(),
     &homographyProportion);
@@ -91,9 +95,11 @@ int main(int argc, const char* argv[])
   data.pairs().clear(); // No need for 2 view matches anymore.
 
   vector<bool> isCalibrated(data.numCams(),false);
-  for(size_t i = 0; i < isCalibrated.size(); i++)
-    if(focals[i] > 0.)
-      isCalibrated[i] = true;
+  for(int i = 0; i < data.numCams(); i++)
+  {
+    StandardCamera *cam = static_cast<StandardCamera *>(&data.cam(i));
+    isCalibrated[i] = cam->f() > 0.;
+  }      
 
   double minPairScore = 1. / opt.minInitPairHomographyProportion_;
   ArrayXXd homographyScores(homographyProportion.rows(),homographyProportion.cols());
@@ -114,7 +120,7 @@ int main(int argc, const char* argv[])
   if(initPair.first < 0 || initPair.second < 0)
     return EXIT_FAILURE;
     
-  if(focals[initPair.first] > 0. && focals[initPair.second] > 0.)
+  if(isCalibrated[initPair.first] && isCalibrated[initPair.second])
   {
     initReconstructionFromCalibratedCamPair(opt,initPair,&data);
   } else

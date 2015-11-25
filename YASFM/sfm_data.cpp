@@ -17,9 +17,16 @@ using Eigen::Map;
 using std::cerr;
 using std::cout;
 using std::setprecision;
+using std::getline;
+using std::ifstream;
+using std::stoi;
 
 namespace yasfm
 {
+
+CameraRegister<Camera> Camera::reg_("Camera");
+CameraRegister<StandardCamera> StandardCamera::reg_("StandardCamera");
+CameraRegister<StandardCameraRadial> StandardCameraRadial::reg_("StandardCameraRadial");
 
 Camera::Camera(const string& imgFilename)
   : imgWidth_(-1),imgHeight_(-1),imgFilename_(imgFilename)
@@ -27,6 +34,51 @@ Camera::Camera(const string& imgFilename)
   imgFilename_ = imgFilename;
   getImgDims(imgFilename,&imgWidth_,&imgHeight_);
 }
+
+Camera::Camera(istream& file,ReadMode mode,const string& featuresDir)
+{
+  file >> imgFilename_;
+  file >> imgWidth_ >> imgHeight_;
+
+  string fn = featuresFilename(featuresDir);
+  ifstream featuresFile(fn);
+  if(!featuresFile.is_open())
+  {
+    cerr << "Camera::Camera: unable to open: " << fn << " for reading\n";
+    return;
+  }
+  int nKeys,descrDim;
+  featuresFile >> nKeys >> descrDim;
+  
+  keys_.resize(nKeys);
+  if(mode == SkipDescriptors)
+    descr_.resize(0,0);
+  else
+    descr_.resize(descrDim,nKeys);
+
+  double dummy;
+  for(int i = 0; i < nKeys; i++)
+  {
+    featuresFile >> keys_[i](1) >> keys_[i](0) >> dummy >> dummy;
+    if(mode == SkipDescriptors)
+    {
+      int nLines = static_cast<int>(ceil(descrDim / 20.)) + 1;
+      for(int j = 0; j < nLines; j++)
+      {
+        string s;
+        getline(featuresFile,s);
+      }
+    } else
+    {
+      for(int d = 0; d < descrDim; d++)
+      {
+        featuresFile >> descr_(d,i);
+      }
+    }
+  }
+  featuresFile.close();
+}
+
 Camera::~Camera()
 {
 }
@@ -141,6 +193,23 @@ StandardCamera::StandardCamera(const string& imgFilename)
   // assume the image center to be the principal point
   x0_(0) = 0.5 * (imgWidth() - 1);
   x0_(1) = 0.5 * (imgHeight() - 1);
+}
+
+StandardCamera::StandardCamera(istream& file,ReadMode mode,const string& featuresDir)
+  : Camera(file,mode,featuresDir)
+{
+  file >> rot_.angle() >> rot_.axis()(0) >> rot_.axis()(1) >> rot_.axis()(2);
+  file >> C_(0) >> C_(1) >> C_(2);
+  file >> f_;
+  file >> x0_(0) >> x0_(1);
+  int nConstraints;
+  file >> nConstraints;
+  paramsConstraints_.resize(nConstraints);
+  paramsConstraintsWeights_.resize(nConstraints);
+  for(int i = 0; i < nConstraints; i++)
+  {
+    file >> paramsConstraints_[i] >> paramsConstraintsWeights_[i];
+  }
 }
 StandardCamera::~StandardCamera()
 {
@@ -306,6 +375,17 @@ StandardCameraRadial::StandardCameraRadial(const string& imgFilename)
   radParams_[1] = 0.;
   invRadParams_.fill(0.);
 }
+
+StandardCameraRadial::StandardCameraRadial(istream& file,ReadMode mode,
+  const string& featuresDir)
+  : StandardCamera(file,mode,featuresDir)
+{
+  int n;
+  file >> n >> radParams_[0] >> radParams_[1];
+  file >> n >> invRadParams_[0] >> invRadParams_[1] >> invRadParams_[2]
+    >> invRadParams_[3];
+}
+
 StandardCameraRadial::~StandardCameraRadial()
 {
 }
@@ -473,35 +553,70 @@ void Points::markCamAsReconstructed(int camIdx,
   }
 }
 
-void Points::writeASCII(const string& filename) const
-{
-  ofstream file(filename);
-  if(!file.is_open())
-  {
-    cerr << "Points::writeASCII: unable to open: " << filename << " for writing\n";
-    return;
-  }
-  writeASCII(file);
-  file.close();
-}
-
 void Points::writeASCII(ostream& file) const
 {
   const int nFields = 3;
   const int nFieldsPointData = 2;
 
-  file << "nFields " << nFields << "\n";
+  file << nFields << "\n";
   file << "matchesToReconstruct_ " << matchesToReconstruct_.size() << "\n";
   for(const auto& match : matchesToReconstruct_)
     file << match << "\n";
   file << "ptCoord_ " << ptCoord_.size() << "\n";
   for(const auto& coord : ptCoord_)
     file << coord(0) << " " << coord(1) << " " << coord(2) << "\n";
-  file << "ptData_ " << ptData_.size() << " nFields " << nFieldsPointData << "\n";
+  file << "ptData_ " << ptData_.size() << " " << nFieldsPointData << "\n";
   file << "reconstructed\n";
   file << "toReconstruct\n";
   for(const auto& data : ptData_)
     file << data.reconstructed << " " << data.toReconstruct << "\n";
+}
+
+void Points::readASCII(istream& file)
+{
+  int nFields;
+  file >> nFields;
+  string s;
+  for(int iField = 0; iField < nFields; iField++)
+  {
+    file >> s;
+    if(s == "matchesToReconstruct_")
+    {
+      int nMatches;
+      file >> nMatches;
+      matchesToReconstruct_.resize(nMatches);
+      for(auto& match : matchesToReconstruct_)
+        file >> match;
+    } else if(s == "ptCoord_")
+    {
+      int n;
+      file >> n;
+      ptCoord_.resize(n);
+      for(auto& coord : ptCoord_)
+        file >> coord(0) >> coord(1) >> coord(2);
+    } else if(s == "ptData_")
+    {
+      int n,nFieldsPointData;
+      file >> n >> nFieldsPointData;
+      int format = 0;
+      for(int i = 0; i < nFieldsPointData; i++)
+      {
+        file >> s;
+        if(s == "reconstructed")
+          format |= 1;
+        else if(s == "toReconstruct")
+          format |= 2;
+      }
+      ptData_.resize(n);
+      for(auto& data: ptData_)
+      {
+        if(format & 1)
+          file >> data.reconstructed;
+        if(format & 2)
+          file >> data.toReconstruct;
+      }
+    }
+  }
 }
 
 const vector<NViewMatch>& Points::matchesToReconstruct() const { return matchesToReconstruct_; }
@@ -594,7 +709,7 @@ void Dataset::writeASCII(const string& filename,Camera::WriteMode mode,
     << "# num unreconstructed n-view matches: "
       << points_.matchesToReconstruct().size() << "\n"
     << "############################\n";
-  file << "nFields " << nFields << "\n";
+  file << nFields << "\n";
 
   file << "dir_\n" << dir_ << "\n";
 
@@ -613,7 +728,7 @@ void Dataset::writeASCII(const string& filename,Camera::WriteMode mode,
   file << "points_\n";
   points_.writeASCII(file);
 
-  file << "pairs_ " << pairs_.size() << " nFields " << nFieldsCameraPair << "\n";
+  file << "pairs_ " << pairs_.size() << " " << nFieldsCameraPair << "\n";
   file << "matches\n";
   file << "dists\n";
   for(const auto& entry : pairs_)
@@ -632,6 +747,119 @@ void Dataset::writeASCII(const string& filename,Camera::WriteMode mode,
   file.close();
 }
 
+void Dataset::readASCII(const string& filename,Camera::ReadMode mode)
+{
+  string featuresDir = joinPaths(dir_,"keys");
+  readASCII(filename,mode,featuresDir);
+}
+
+void Dataset::readASCII(const string& filename,Camera::ReadMode mode,
+  const string& featuresDir)
+{
+  string fn = joinPaths(dir(),filename);
+  ifstream file(fn);
+  if(!file.is_open())
+  {
+    cerr << "Dataset::readASCII: unable to open: " << fn << " for reading\n";
+    return;
+  }
+  while(!file.eof())
+  {
+    string s;
+    file >> s;
+    if(s.empty())
+    {
+      continue;
+    }else if(s[0] == '#')
+    {
+      getline(file,s);
+      continue;
+    } else
+    {
+      int nFields = stoi(s);
+      for(int iField = 0; iField < nFields; iField++)
+      {
+        file >> s;
+        if(s == "dir_")
+        {
+          file >> dir_;
+        } else if(s == "reconstructedCams_")
+        {
+          int n,idx;
+          file >> n;
+          reconstructedCams_.clear();
+          reconstructedCams_.reserve(n);
+          for(int i = 0; i < n; i++)
+          {
+            file >> idx;
+            reconstructedCams_.insert(idx);
+          }
+        } else if(s == "cams_")
+        {
+          int n;
+          file >> n;
+          cams_.clear();
+          cams_.reserve(n);
+          for(int i = 0; i < n; i++)
+          {
+            string className;
+            file >> className;
+            getline(file,s);
+            cams_.push_back(CameraFactory::createInstance(className,file,mode,
+              featuresDir));
+          }
+        } else if(s == "points_")
+        {
+          points_.readASCII(file);
+        } else if(s == "pairs_")
+        {
+          int nPairs,nFieldsCameraPair;
+          file >> nPairs >> nFieldsCameraPair;
+          int format = 0;
+          for(int i = 0; i < nFieldsCameraPair; i++)
+          {
+            file >> s;
+            if(s == "matches")
+              format |= 1;
+            else if(s == "dists")
+              format |= 2;
+          }
+          pairs_.clear();
+          pairs_.reserve(nPairs);
+          for(int iPair = 0; iPair < nPairs; iPair++)
+          {
+            IntPair idx;
+            file >> idx.first >> idx.second;
+            auto& pair = pairs_[idx];
+            if(format & 1)
+            {
+              int nMatches;
+              file >> nMatches;
+              pair.matches.resize(nMatches);
+              for(int iMatch = 0; iMatch < nMatches; iMatch++)
+              {
+                auto& match = pair.matches[iMatch];
+                file >> match.first >> match.second;
+              }
+            }
+            if(format & 2)
+            {
+              int nDists;
+              file >> nDists;
+              pair.dists.resize(nDists);
+              for(int iDist = 0; iDist < nDists; iDist++)
+              {
+                file >> pair.dists[iDist];
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  file.close();
+}
+
 const string& Dataset::dir() const { return dir_; }
 const Camera& Dataset::cam(int idx) const { return *cams_[idx]; }
 const Camera& Dataset::cam(size_t idx) const { return *cams_[idx]; }
@@ -644,5 +872,19 @@ pair_umap<CameraPair>& Dataset::pairs() { return pairs_; }
 const uset<int>& Dataset::reconstructedCams() const { return reconstructedCams_; }
 const Points& Dataset::points() const { return points_; }
 Points& Dataset::points() { return points_; }
+
+CameraFactory::MapType* CameraFactory::map_;
+
+unique_ptr<Camera> CameraFactory::createInstance(const string& className,
+  istream& file,Camera::ReadMode mode,const string& featuresDir)
+{
+  return (*map_)[className](file,mode,featuresDir);
+}
+
+CameraFactory::MapType& CameraFactory::map()
+{
+  if(!map_) map_ = new MapType;
+  return (*map_);
+}
 
 } // namespace yasfm
