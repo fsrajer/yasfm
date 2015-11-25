@@ -34,6 +34,24 @@ string joinPaths(const string& p1, const string& p2)
   return out;
 }
 
+string extractPath(const string& filepath)
+{
+  size_t idx = filepath.find_last_of("/\\");
+  if(idx == string::npos)
+    return "";
+  else
+    return filepath.substr(0,idx);
+}
+
+string extractFilename(const string& filepath)
+{
+  size_t idx = filepath.find_last_of("/\\");
+  if(idx == string::npos)
+    return filepath;
+  else
+    return filepath.substr(idx+1);
+}
+
 void crossProdMat(const Vector3d& vec,Matrix3d *mat)
 {
   *mat <<  0,       -vec(2), vec(1),

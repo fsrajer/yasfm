@@ -38,6 +38,8 @@ class Points;
 class Dataset;
 
 YASFM_API string joinPaths(const string& p1, const string& p2);
+YASFM_API string extractPath(const string& filepath);
+YASFM_API string extractFilename(const string& filepath);
 
 inline double deg2Rad(double d);
 inline double rad2Deg(double r);

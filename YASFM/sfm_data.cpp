@@ -10,11 +10,13 @@
 #include "sfm_data.h"
 
 #include <iostream>
+#include <direct.h>
 
 using Eigen::ArrayXf;
 using Eigen::Map;
 using std::cerr;
 using std::cout;
+using std::setprecision;
 
 namespace yasfm
 {
@@ -59,9 +61,82 @@ unique_ptr<Camera> Camera::clone() const
   return make_unique<Camera>(*this);
 }
 
+void Camera::writeASCII(ostream& file,WriteMode mode) const
+{
+  string featuresDir = joinPaths(extractPath(imgFilename()),"keys");
+  _mkdir(featuresDir.c_str());
+  writeASCII(file,mode,featuresDir);
+}
+
+void Camera::writeASCII(ostream& file,WriteMode mode,
+  const string& featuresDir) const
+{
+  writeASCII(file);
+  if(mode != NoFeatures)
+  {
+    string fn = featuresFilename(featuresDir);
+    ofstream featuresFile(fn);
+    if(!featuresFile.is_open())
+    {
+      cerr << "Camera::writeASCII: unable to open: " << fn << " for writing\n";
+      return;
+    }
+    featuresFile.flags(std::ios::fixed);
+    featuresFile << keys_.size() << " ";
+    if(mode == NoDescriptors)
+      featuresFile << "0\n";
+    else
+      featuresFile << descr_.rows() << "\n";
+    for(size_t i = 0; i < keys_.size(); i++)
+    {
+      // save in format y, x, 0, 0
+      featuresFile << setprecision(2) << keys_[i](1) << " " << keys_[i](0) << " 0 0\n";
+      if((mode == WriteAll || mode == ConvertNormalizedSIFTToUint) && descr_.cols() != 0)
+      {
+        featuresFile << setprecision(8);
+        for(int r = 0; r < descr_.rows(); r++)
+        {
+          if(mode == ConvertNormalizedSIFTToUint)
+            featuresFile << " " << ((unsigned int)floor(0.5+512.0f*descr_(r,i)));
+          else
+            featuresFile << " " << descr_(r,i);
+
+          if((r+1) % 20 == 0)
+            featuresFile << "\n";
+        }
+        featuresFile << "\n";
+      }
+    }
+    featuresFile.close();
+  }
+}
+
+void Camera::writeASCII(ostream& file) const
+{
+  file << imgFilename_ << "\n";
+  file << imgWidth_ << " " << imgHeight_ << "\n";
+}
+
+string Camera::className() const
+{
+  return "Camera";
+}
+
+string Camera::featuresFilename(const string& featuresDir) const
+{
+  string fn = joinPaths(featuresDir,extractFilename(imgFilename()));
+  if(fn.size() >= 3)
+  {
+    fn[fn.size() - 3] = 'k';
+    fn[fn.size() - 2] = 'e';
+    fn[fn.size() - 1] = 'y';
+  }
+  return fn;
+}
+
 StandardCamera::StandardCamera(const string& imgFilename)
-  : Camera(imgFilename),C_(Vector3d::Zero()),f_(0),
-  paramsConstraints_(nParams_,0.),paramsConstraintsWeights_(nParams_,0.)
+  : Camera(imgFilename),rot_(0.,Vector3d::UnitX()),C_(Vector3d::Zero()),
+  f_(0),paramsConstraints_(nParams_,0.),paramsConstraintsWeights_(nParams_,0.)
 {
   // assume the image center to be the principal point
   x0_(0) = 0.5 * (imgWidth() - 1);
@@ -191,6 +266,29 @@ void StandardCamera::setParamsConstraints(const vector<double>& constraints,
   }
 }
 
+void StandardCamera::writeASCII(ostream& file) const
+{
+  Camera::writeASCII(file);
+  file << rot_.angle() << " "
+    << rot_.axis()(0) << " "
+    << rot_.axis()(1) << " "
+    << rot_.axis()(2) << "\n";
+  file << C_(0) << " " << C_(1) << " " << C_(2) << "\n";
+  file << f_ << "\n";
+  file << x0_(0) << " " << x0_(1) << "\n";
+  file << paramsConstraints_.size();
+  for(size_t i = 0; i < paramsConstraints_.size(); i++)
+  {
+    file << " " << paramsConstraints_[i] << " " << paramsConstraintsWeights_[i];
+  }
+  file << "\n";
+}
+
+string StandardCamera::className() const
+{
+  return "StandardCamera";
+}
+
 Vector3d StandardCamera::C() const { return C_; }
 
 const AngleAxisd& StandardCamera::rot() const { return rot_; }
@@ -287,6 +385,21 @@ ceres::CostFunction* StandardCameraRadial::constraintsCostFunction() const
     &paramsConstraintsWeights_[0]);
 }
 
+void StandardCameraRadial::writeASCII(ostream& file) const
+{
+  StandardCamera::writeASCII(file);
+  file << "2 " << radParams_[0] << " " << radParams_[1] << "\n";
+  file << "4 " << invRadParams_[0] << " "
+    << invRadParams_[1] << " "
+    << invRadParams_[2] << " "
+    << invRadParams_[3] << "\n";
+}
+
+string StandardCameraRadial::className() const
+{
+  return "StandardCameraRadial";
+}
+
 const double* const StandardCameraRadial::radParams() const { return &radParams_[0]; }
 
 
@@ -360,6 +473,37 @@ void Points::markCamAsReconstructed(int camIdx,
   }
 }
 
+void Points::writeASCII(const string& filename) const
+{
+  ofstream file(filename);
+  if(!file.is_open())
+  {
+    cerr << "Points::writeASCII: unable to open: " << filename << " for writing\n";
+    return;
+  }
+  writeASCII(file);
+  file.close();
+}
+
+void Points::writeASCII(ostream& file) const
+{
+  const int nFields = 3;
+  const int nFieldsPointData = 2;
+
+  file << "nFields " << nFields << "\n";
+  file << "matchesToReconstruct_ " << matchesToReconstruct_.size() << "\n";
+  for(const auto& match : matchesToReconstruct_)
+    file << match << "\n";
+  file << "ptCoord_ " << ptCoord_.size() << "\n";
+  for(const auto& coord : ptCoord_)
+    file << coord(0) << " " << coord(1) << " " << coord(2) << "\n";
+  file << "ptData_ " << ptData_.size() << " nFields " << nFieldsPointData << "\n";
+  file << "reconstructed\n";
+  file << "toReconstruct\n";
+  for(const auto& data : ptData_)
+    file << data.reconstructed << " " << data.toReconstruct << "\n";
+}
+
 const vector<NViewMatch>& Points::matchesToReconstruct() const { return matchesToReconstruct_; }
 vector<NViewMatch>& Points::matchesToReconstruct() { return matchesToReconstruct_; }
 const vector<Vector3d>& Points::ptCoord() const { return ptCoord_; }
@@ -420,6 +564,72 @@ void Dataset::markCamAsReconstructed(int camIdx,
 int Dataset::numCams() const
 {
   return static_cast<int>(cams_.size());
+}
+
+void Dataset::writeASCII(const string& filename,Camera::WriteMode mode) const
+{
+  string featuresDir = joinPaths(dir_,"keys");
+  _mkdir(featuresDir.c_str());
+  writeASCII(filename,mode,featuresDir);
+}
+
+void Dataset::writeASCII(const string& filename,Camera::WriteMode mode,
+  const string& featuresDir) const
+{
+  string fn = joinPaths(dir(),filename);
+  ofstream file(fn);
+  if(!file.is_open())
+  {
+    cerr << "Dataset::writeASCII: unable to open: " << fn << " for writing\n";
+    return;
+  }
+
+  const int nFields = 5;
+  const int nFieldsCameraPair = 2;
+
+  file << "########### INFO ###########\n"
+    << "# num cams: " << numCams() << "\n"
+    << "# num reconstructed cams: " << reconstructedCams_.size() << "\n"
+    << "# num points: " << points_.numPts() << "\n"
+    << "# num unreconstructed n-view matches: "
+      << points_.matchesToReconstruct().size() << "\n"
+    << "############################\n";
+  file << "nFields " << nFields << "\n";
+
+  file << "dir_\n" << dir_ << "\n";
+
+  file << "reconstructedCams_ " << reconstructedCams_.size() << "\n";
+  for(int camIdx : reconstructedCams_)
+    file << " " << camIdx;
+  file << "\n";
+
+  file << "cams_ " << cams_.size() << "\n";
+  for(int i = 0; i < numCams(); i++)
+  {
+    file << cam(i).className() << " id: " << i << "\n";
+    cam(i).writeASCII(file,mode,featuresDir);
+  }
+
+  file << "points_\n";
+  points_.writeASCII(file);
+
+  file << "pairs_ " << pairs_.size() << " nFields " << nFieldsCameraPair << "\n";
+  file << "matches\n";
+  file << "dists\n";
+  for(const auto& entry : pairs_)
+  {
+    IntPair idxs = entry.first;
+    const auto& pair = entry.second;
+    file << idxs.first << " " << idxs.second << "\n";
+    file << pair.matches.size() << "\n";
+    for(IntPair match : pair.matches)
+      file << match.first << " " << match.second << "\n";
+    file << pair.dists.size() << "\n";
+    for(double dist : pair.dists)
+      file << dist << "\n";
+  }
+
+  file.close();
 }
 
 const string& Dataset::dir() const { return dir_; }

@@ -11,6 +11,7 @@
 #pragma once
 
 #include <array>
+#include <fstream>
 #include <memory>
 #include <string>
 #include <vector>
@@ -33,6 +34,8 @@ using std::make_unique;
 using std::string;
 using std::unique_ptr;
 using std::vector;
+using std::ofstream;
+using std::ostream;
 
 namespace yasfm
 {
@@ -48,6 +51,14 @@ namespace yasfm
 class Camera
 {
 public:
+  enum WriteMode
+  {
+    WriteAll,
+    ConvertNormalizedSIFTToUint,
+    NoDescriptors,
+    NoFeatures
+  };
+
   YASFM_API Camera(const string& imgFilename);
   // Destructor has to be virtual (even if it was empty) 
   // because of use of ptr_vector. It ensures that all the items
@@ -61,6 +72,12 @@ public:
   YASFM_API virtual void addFeature(double x,double y,const float* const descr);
   // remove descriptors from memory
   YASFM_API virtual void clearDescriptors();
+
+  // Most of the data will be stored in the mainFile but keys nad descriptors
+  // will be stored in a separate file.
+  YASFM_API void writeASCII(ostream& file,WriteMode mode,
+    const string& featuresDir) const;
+  YASFM_API void writeASCII(ostream& file,WriteMode mode) const;
 
   // accessors
   YASFM_API virtual const string& imgFilename() const;
@@ -97,6 +114,11 @@ public:
   YASFM_API virtual void setFocal(double f) {}
   YASFM_API virtual void setParamsConstraints(const vector<double>& constraints,
     const vector<double>& weights) {}
+  YASFM_API virtual string className() const;
+
+protected:
+  virtual string featuresFilename(const string& featuresDir) const;
+  virtual void writeASCII(ostream& file) const;
 
 private:
   string imgFilename_;
@@ -138,6 +160,8 @@ public:
   YASFM_API virtual void setParamsConstraints(const vector<double>& constraints,
     const vector<double>& weights);
 
+  YASFM_API virtual string className() const;
+
   // accessors
   // 3 rotation, 3 translation, 1 focal length
   YASFM_API virtual void params(vector<double> *params) const;
@@ -158,6 +182,8 @@ public:
   YASFM_API virtual const Vector2d& x0() const;
 
 protected:
+  virtual void writeASCII(ostream& file) const;
+  
   AngleAxisd rot_;
   Vector3d C_;
   double f_;
@@ -217,12 +243,16 @@ public:
   // try constraints 0 and weights 100
   YASFM_API virtual void constrainRadial(double *constraints,double *weigthts);
 
+  YASFM_API virtual string className() const;
+
   // accessors
   // 3 rotation, 3 translation, 1 focal length, 2 radial distortion
   YASFM_API virtual void params(vector<double> *params) const;
   YASFM_API virtual const double* const radParams() const;
 
 protected:
+  virtual void writeASCII(ostream& file) const;
+
   array<double,2> radParams_;
   array<double,4> invRadParams_;
   static const int nParams_ = 9;
@@ -290,6 +320,9 @@ public:
     const vector<int>& correspondingPoints,
     const vector<int>& correspondingPointsInliers);
 
+  YASFM_API void writeASCII(const string& filename) const;
+  YASFM_API void writeASCII(ostream& file) const;
+
   // Accessors
   YASFM_API const vector<NViewMatch>& matchesToReconstruct() const;
   YASFM_API vector<NViewMatch>& matchesToReconstruct();
@@ -325,6 +358,10 @@ public:
   YASFM_API void markCamAsReconstructed(int camIdx,
     const vector<int>& correspondingPoints,
     const vector<int>& correspondingPointsInliers);
+  // Write out.
+  YASFM_API void writeASCII(const string& filename,Camera::WriteMode mode) const;
+  YASFM_API void writeASCII(const string& filename,Camera::WriteMode mode,
+    const string& featuresDir) const;
 
   // accessors
   YASFM_API const string& dir() const;

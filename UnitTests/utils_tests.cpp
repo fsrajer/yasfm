@@ -74,6 +74,30 @@ Matrix34d generateRandomProjection()
       assertStringEquality("foo\\bar",joinPaths("foo\\","bar"));
     }
 
+    TEST_METHOD(extractPathTest)
+    {
+      string filepath("a.txt");
+      Assert::IsTrue(extractPath(filepath) == "");
+
+      filepath = "xx/a.txt";
+      Assert::IsTrue(extractPath(filepath) == "xx");
+
+      filepath = "xx\\a.txt";
+      Assert::IsTrue(extractPath(filepath) == "xx");
+    }
+
+    TEST_METHOD(extractFilenameTest)
+    {
+      string filepath("a.txt");
+      Assert::IsTrue(extractFilename(filepath) == "a.txt");
+
+      filepath = "xx/a.txt";
+      Assert::IsTrue(extractFilename(filepath) == "a.txt");
+
+      filepath = "x/xx\\a.txt";
+      Assert::IsTrue(extractFilename(filepath) == "a.txt");
+    }
+
     TEST_METHOD(quicksortTest)
     {
       vector<int> arr,order;

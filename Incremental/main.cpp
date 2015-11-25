@@ -11,6 +11,7 @@
 #include <cstdlib>
 #include <ctime>
 
+#include <algorithm>
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -56,7 +57,7 @@ int main(int argc, const char* argv[])
   data.addCameras<StandardCameraRadial>(imgsSubdir);
   // -> the principal point is always set to the
   // image center in StandardCamera
-
+ 
   // Initialize calibration for every camera
   vector<double> focals(data.cams().size());
   findFocalLengthInEXIF(opt.ccdDBFilename_,data.cams(),&focals);
@@ -87,6 +88,7 @@ int main(int argc, const char* argv[])
 
   twoViewMatchesToNViewMatches(data.cams(),data.pairs(),
     &data.points().matchesToReconstruct());
+  data.pairs().clear(); // No need for 2 view matches anymore.
 
   vector<bool> isCalibrated(data.numCams(),false);
   for(size_t i = 0; i < isCalibrated.size(); i++)
@@ -119,7 +121,7 @@ int main(int argc, const char* argv[])
   {
     initReconstructionFromCamPair(opt,initPair,&data);
   }
-  
+
   bundleAdjust(opt.ba_,&data.cams(),&data.points());
 
   uset<int> exploredCams;
@@ -139,6 +141,7 @@ int main(int argc, const char* argv[])
 
     for(int camIdx : wellMatchedCams)
     {
+      exploredCams.insert(camIdx);
       vector<int> inliers;
       cout << "trying to resect camera " << camIdx << " using " << 
         camToSceneMatches[camIdx].size() << " matches ... ";
@@ -147,8 +150,10 @@ int main(int argc, const char* argv[])
       bool success = resectCamera6ptLSRANSAC(opt.absolutePose_,camToSceneMatches[camIdx],
         data.points().ptCoord(),&data.cam(camIdx),&inliers);
 
-      exploredCams.insert(camIdx);
-      if(success) 
+
+      StandardCamera *cam = static_cast<StandardCamera *>(&data.cam(camIdx));
+      int maxDim = std::max(cam->imgWidth(),cam->imgHeight());
+      if(success && (cam->f() > 0.1*maxDim))
       {
         cout << "camera successfully added.\n";
         vector<int> ptIdxs;
@@ -186,6 +191,7 @@ int main(int argc, const char* argv[])
   }
 
   writeSFMBundlerFormat(joinPaths(data.dir(),"bundle_final.out"),data);
+  data.writeASCII("out.txt",Camera::NoFeatures);
 }
 
 /*

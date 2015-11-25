@@ -19,6 +19,7 @@
 #include "sfm_data.h"
 
 using std::ifstream;
+using std::ostream;
 using std::string;
 using std::vector;
 using namespace yasfm;
@@ -194,6 +195,8 @@ YASFM_API void writeSFMPLYFormat(const string& filename,const unordered_set<int>
 YASFM_API void writeSFMPLYFormat(const string& filename,const IDataset& dts,
   const vector<Vector3uc> *pointColors = nullptr);
 */
+
+ostream& operator<<(ostream& file,const NViewMatch& m);
 
 } // namespace yasfm
 

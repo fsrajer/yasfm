@@ -745,6 +745,14 @@ void writeSFMPLYFormat(const string& filename,const IDataset& dts,
 }
 */
 
+ostream& operator<<(ostream& file,const NViewMatch& m)
+{
+  file << m.size();
+  for(const auto& entry : m)
+    file << " " << entry.first << " " << entry.second;
+  return file;
+}
+
 } // namespace yasfm
 
 namespace
