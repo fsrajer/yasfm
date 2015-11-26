@@ -64,14 +64,14 @@ YASFM_API IntPair chooseInitialCameraPair(int minMatches,double minScore,
 // relative position estimated from common n-view matches.
 // Use 7-pt algorithm.
 // 2) Triangulate the common n-view matches.
-YASFM_API void initReconstructionFromCamPair(const Options& opt,
-  const IntPair& initPair,Dataset *data);
+YASFM_API void initReconstructionFromCamPair(const OptionsRANSAC& solverOpt,
+  double pointsReprojErrorThresh,const IntPair& initPair,Dataset *data);
 // 1) Initialize thei cameras based on their 
 // relative position estimated from common n-view matches.
 // Use 5-pt algorithm.
 // 2) Triangulate the common n-view matches.
-YASFM_API void initReconstructionFromCalibratedCamPair(const Options& opt,
-  const IntPair& initPair,Dataset *data);
+YASFM_API void initReconstructionFromCalibratedCamPair(const OptionsRANSAC& solverOpt,
+  double pointsReprojErrorThresh,const IntPair& initPair,Dataset *data);
 
 // Initializes projection matrices of a pair of cameras
 // from their fundamental matrix. The first camera P1 is assumed to be:
@@ -96,8 +96,8 @@ YASFM_API void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
 // using PROSAC (that is why we need dists). Then, only matches
 // which are inliers to the fundamental matrix are kept. (as well as
 // corresponding dists.
-YASFM_API void verifyMatchesGeometrically(const Options& opt, const ptr_vector<Camera>& cams,
-  pair_umap<CameraPair> *pairs);
+YASFM_API void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt, 
+  const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs);
 
 // Robust estimator, which finds such a fundamental matrix that
 // pts2'*F*pts1 = 0 using 7 point algorithm as a minimal solver. 

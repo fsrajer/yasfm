@@ -82,7 +82,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& 
   {
     if(queries[j].empty())
       continue; // no reason to build the trees
-    flann::Index<flann::L2<float>> index(descr[j],opt.indexParams_);
+    flann::Index<flann::L2<float>> index(descr[j],opt.indexParams);
     index.buildIndex();
     for(int i : queries[j])
     {
@@ -107,8 +107,8 @@ void matchFeatFLANN(const OptionsFLANN& opt,const flann::Index<flann::L2<float>>
 
   if(opt.filterByRatio())
   {
-    float sqThresh = opt.ratioThresh_*opt.ratioThresh_; // flann returns squared distances
-    index.knnSearch(queryDescr,nearestNeighbors.data,dists.data,2,opt.searchParams_);
+    float sqThresh = opt.ratioThresh*opt.ratioThresh; // flann returns squared distances
+    index.knnSearch(queryDescr,nearestNeighbors.data,dists.data,2,opt.searchParams);
     for(int i = 0; i < numQueries; i++)
     {
       // Ratio of the distance to the nearest neighbor over the distance 
@@ -124,7 +124,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const flann::Index<flann::L2<float>>
   {
     outMatches.reserve(numQueries);
     outDists.reserve(numQueries);
-    index.knnSearch(queryDescr,nearestNeighbors.data,dists.data,1,opt.searchParams_);
+    index.knnSearch(queryDescr,nearestNeighbors.data,dists.data,1,opt.searchParams);
     for(int i = 0; i < numQueries; i++)
     {
       outMatches.emplace_back(i,static_cast<int>(nearestNeighbors.data[i][0]));
@@ -133,7 +133,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const flann::Index<flann::L2<float>>
   }
 
   vector<bool> unique; // empty means that the unique option is turned off
-  if(opt.onlyUniques_)
+  if(opt.onlyUniques)
   {
     findUniqueMatches(outMatches,index.size(),&unique);
   }

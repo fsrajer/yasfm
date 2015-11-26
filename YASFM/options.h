@@ -29,70 +29,95 @@ using std::string;
 namespace yasfm
 {
 
-class OptionsSIFT
+struct OptionsSIFTGPU
 {
-public:
-  YASFM_API OptionsSIFT();
+  YASFM_API OptionsSIFTGPU()
+  {
+    firstOctave = -1;
+    detectUprightSIFT = false;
 
-  YASFM_API bool isSetMaxWorkingDimension() const;
-  YASFM_API bool isSetMaxOctaves() const;
-  YASFM_API bool isSetDogLevelsInAnOctave() const;
-  YASFM_API bool isSetDogThresh() const;
-  YASFM_API bool isSetEdgeThresh() const;
+    // let SIFTGPU autoselect these
+    maxWorkingDimension = -1;
+    maxOctaves = -1;
+    dogLevelsInAnOctave = -1;
+    dogThresh = -1;
+    edgeThresh = -1;
+  }
+
+  bool isSetMaxWorkingDimension() const;
+  bool isSetMaxOctaves() const;
+  bool isSetDogLevelsInAnOctave() const;
+  bool isSetDogThresh() const;
+  bool isSetEdgeThresh() const;
 
   // Images larger than this will be downsampled. 
   // Negative value selects default: 3200.
-  int maxWorkingDimension_;
+  int maxWorkingDimension;
   // Min is -1. Default: -1 (TODO: automatic estimation).
-  int firstOctave_;
+  int firstOctave;
   // Negative value selects default: no limit.
-  int maxOctaves_;
+  int maxOctaves;
   // Negative value selects default: 3.
-  int dogLevelsInAnOctave_;
+  int dogLevelsInAnOctave;
   // Negative value selects default: 0.02/3.
-  float dogThresh_;
+  float dogThresh;
   // Negative value selects default: 10.
-  float edgeThresh_;
+  float edgeThresh;
   // Only one fixed orientation per keypoint location. Default: false.
-  bool detectUprightSIFT_;
+  bool detectUprightSIFT;
 };
 
-class OptionsFLANN
+struct OptionsFLANN
 {
-public:
-  YASFM_API OptionsFLANN();
-  YASFM_API bool filterByRatio() const;
+  YASFM_API OptionsFLANN()
+  {
+    indexParams = flann::KDTreeIndexParams();
+    searchParams = flann::SearchParams();
+    ratioThresh = 0.8f;
+    onlyUniques = true;
+  }
+  bool filterByRatio() const;
   // What method to use for searching. See FLANN for more details.
   // Default is 4 randomized kd-trees.
-  flann::IndexParams indexParams_;
+  flann::IndexParams indexParams;
   // Search parameters, eg. num of checks. See FLANN for more details.
-  flann::SearchParams searchParams_;
+  flann::SearchParams searchParams;
   // Threshold of the ratio d1/d2, where di is distance to the i-th nearest neighbor
-  // Negative values disable this filter. Default: 0.8.
-  float ratioThresh_;
+  // Negative values disable this filter and only the nearest neighbor is
+  // searched for. Default: 0.8.
+  float ratioThresh;
   // Discards non-unique matches, i.e., those for which two or more 
   // different features in feats1 matched to the same feature in feats2
   // Default is true.
-  bool onlyUniques_;
+  bool onlyUniques;
 };
 
-class OptionsRANSAC
+struct OptionsRANSAC
 {
-public:
-  YASFM_API OptionsRANSAC(int ransacRounds, double errorThresh,
-    int minInliers);
-  YASFM_API OptionsRANSAC(int ransacRounds,double errorThresh,
-    int minInliers,double confidence);
-  int ransacRounds_;
-  double errorThresh_;
-  int minInliers_;
-  // inliersEnough is the amount of inliers which, if found, 
-  // stops the algorithm immediately. The values are from range [0,1].
-  // Default: 1.0
-  double confidence_;
+  YASFM_API OptionsRANSAC(int maxRounds,double errorThresh,
+    int minInliers) 
+    : maxRounds(maxRounds),errorThresh(errorThresh),
+    minInliers(minInliers)
+  {
+    confidence = 0.95;
+  }
+  YASFM_API OptionsRANSAC(int maxRounds,double errorThresh,
+    int minInliers,double confidence)
+    : maxRounds(maxRounds),errorThresh(errorThresh),
+    minInliers(minInliers),confidence(confidence)
+  {
+  }
+  // Maximum number of iterations.
+  int maxRounds;
+  double errorThresh;
+  int minInliers;
+  // Finds a good hypothesis with probability confidence. 
+  // The values are from range [0,1].
+  // Default: 0.95
+  double confidence;
 };
 
-typedef struct YASFM_API OptionsBundleAdjustment
+struct YASFM_API OptionsBundleAdjustment
 {
   OptionsBundleAdjustment()
   {
@@ -111,57 +136,6 @@ typedef struct YASFM_API OptionsBundleAdjustment
   // of L2 norm, more robust to outliers.
   // Default: false.
   bool robustify;
-}OptionsBundleAdjustment;
-
-class Options
-{
-public:
-  YASFM_API Options();
-  string ccdDBFilename_;
-  OptionsSIFT sift_;
-  OptionsFLANN matchingFLANN_;
-  // Even though geometric verification uses relative pose algorithms,
-  // this options overrides the relativePose_
-  // The error is sampson distance. Units are pixels.
-  // Defaults: 
-  //   ransacRounds_: 2048
-  //   errorThresh_: 4.0
-  //   minInliers_: 16
-  OptionsRANSAC geometricVerification_;
-  // The error is reprojection error. Units are pixels.
-  // Defaults: 
-  //   ransacRounds_: 4096
-  //   errorThresh_: 4.0
-  //   minInliers_: 16
-  OptionsRANSAC absolutePose_;
-  // Units of the error are pixels.
-  // Defaults: 
-  //   ransacRounds_: 512
-  //   errorThresh_: 1.25
-  //   minInliers_: 10
-  OptionsRANSAC relativePose_;
-  OptionsRANSAC homography_;
-  // Min number of matches defining a poorly matched pair. Default: 16.
-  int minNumMatches_;
-  // chooseWellMatchedCameras finds the camera with most matches, say N
-  // and then finds all cameras with N*wellMatchedCamsFactor_ matches. Default: 0.75
-  double wellMatchedCamsFactor_;
-  // Default: 16.
-  int minNumCam2SceneMatches_;
-  OptionsBundleAdjustment ba_;
-  // Default: 16.
-  double pointsReprojErrorThresh_;
-  // Consider a ray from a camera center through a keypoint.
-  // Consider next, the largest angle between all such rays
-  // corresponding to one track/3d point.
-  // This threshold is used for that angle.
-  // Use degrees.
-  // Default: 2.0.
-  double rayAngleThresh_;
-  // Up to 4. Default is 1.
-  int verbosityLevel_;
-  // Default: 0.5
-  double minInitPairHomographyProportion_;
 };
 
 }

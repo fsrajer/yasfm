@@ -13,48 +13,12 @@
 namespace yasfm
 {
 
-OptionsSIFT::OptionsSIFT() 
-  : maxWorkingDimension_(-1),firstOctave_(-1), maxOctaves_(-1),
-  dogLevelsInAnOctave_(-1),dogThresh_(-1), edgeThresh_(-1), detectUprightSIFT_(false)
-{
-}
+bool OptionsSIFTGPU::isSetMaxWorkingDimension() const { return maxWorkingDimension >= 0; }
+bool OptionsSIFTGPU::isSetMaxOctaves() const { return maxOctaves >= 0; }
+bool OptionsSIFTGPU::isSetDogLevelsInAnOctave() const { return dogLevelsInAnOctave >= 0; }
+bool OptionsSIFTGPU::isSetDogThresh() const { return dogThresh >= 0; }
+bool OptionsSIFTGPU::isSetEdgeThresh() const { return edgeThresh >= 0; }
 
-bool OptionsSIFT::isSetMaxWorkingDimension() const { return maxWorkingDimension_ >= 0; }
-bool OptionsSIFT::isSetMaxOctaves() const { return maxOctaves_ >= 0; }
-bool OptionsSIFT::isSetDogLevelsInAnOctave() const { return dogLevelsInAnOctave_ >= 0; }
-bool OptionsSIFT::isSetDogThresh() const { return dogThresh_ >= 0; }
-bool OptionsSIFT::isSetEdgeThresh() const { return edgeThresh_ >= 0; }
-
-OptionsFLANN::OptionsFLANN() 
-  : indexParams_(flann::KDTreeIndexParams()), searchParams_(),
-  ratioThresh_(0.8f), onlyUniques_(true)
-{
-}
-
-bool OptionsFLANN::filterByRatio() const { return ratioThresh_ >= 0; }
-
-OptionsRANSAC::OptionsRANSAC(int ransacRounds,double errorThresh,
-  int minInliers)
-  : ransacRounds_(ransacRounds),errorThresh_(errorThresh),
-  minInliers_(minInliers),confidence_(.95)
-{
-}
-
-OptionsRANSAC::OptionsRANSAC(int ransacRounds,double errorThresh,
-  int minInliers,double confidence)
-  : ransacRounds_(ransacRounds),errorThresh_(errorThresh),
-  minInliers_(minInliers),confidence_(confidence)
-{
-}
-
-Options::Options() 
-  : ccdDBFilename_("../resources/camera_ccd_widths.txt"),sift_(),
-  matchingFLANN_(),geometricVerification_(2048,sqrt(5.),16),absolutePose_(4096,4.,16,0.999999),
-  relativePose_(512,1.25,10),homography_(256,5.,10),verbosityLevel_(1),
-  minNumMatches_(16),
-  wellMatchedCamsFactor_(0.75),minNumCam2SceneMatches_(16),
-  pointsReprojErrorThresh_(8),rayAngleThresh_(2.),minInitPairHomographyProportion_(0.5)
-{
-}
+bool OptionsFLANN::filterByRatio() const { return ratioThresh >= 0.f; }
 
 }

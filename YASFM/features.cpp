@@ -24,7 +24,7 @@ using namespace yasfm;
 namespace yasfm
 {
 
-void detectSiftGPU(const OptionsSIFT& opt,ptr_vector<Camera> *cams)
+void detectSiftGPU(const OptionsSIFTGPU& opt,ptr_vector<Camera> *cams)
 {
   int maxWidth = -1;
   int maxHeight = -1;
@@ -104,37 +104,37 @@ bool SiftGPUAutoMemRelease::isLoadedDLL() const
   return (siftgpuHandle != nullptr && sift != nullptr);
 }
 
-void SiftGPUAutoMemRelease::setParams(const OptionsSIFT& opt)
+void SiftGPUAutoMemRelease::setParams(const OptionsSIFTGPU& opt)
 {
   vector<string> opts;
   opts.push_back("-fo");
-  opts.push_back(to_string(opt.firstOctave_));
+  opts.push_back(to_string(opt.firstOctave));
   if(opt.isSetMaxWorkingDimension())
   {
     opts.push_back("-maxd");
-    opts.push_back(to_string(opt.maxWorkingDimension_));
+    opts.push_back(to_string(opt.maxWorkingDimension));
   }
   if(opt.isSetMaxOctaves())
   {
     opts.push_back("-no");
-    opts.push_back(to_string(opt.maxOctaves_));
+    opts.push_back(to_string(opt.maxOctaves));
   }
   if(opt.isSetDogLevelsInAnOctave())
   {
     opts.push_back("-d");
-    opts.push_back(to_string(opt.dogLevelsInAnOctave_));
+    opts.push_back(to_string(opt.dogLevelsInAnOctave));
   }
   if(opt.isSetDogThresh())
   {
     opts.push_back("-t");
-    opts.push_back(to_string(opt.dogThresh_));
+    opts.push_back(to_string(opt.dogThresh));
   }
   if(opt.isSetEdgeThresh())
   {
     opts.push_back("-e");
-    opts.push_back(to_string(opt.edgeThresh_));
+    opts.push_back(to_string(opt.edgeThresh));
   }
-  if(opt.detectUprightSIFT_)
+  if(opt.detectUprightSIFT)
   {
     // fix orientation
     opts.push_back("-ofix");
@@ -162,7 +162,7 @@ void SiftGPUAutoMemRelease::setParams(const OptionsSIFT& opt)
   delete[] argv;
 }
 
-bool SiftGPUAutoMemRelease::initialize(const OptionsSIFT& opt,int maxWidth,int maxHeight)
+bool SiftGPUAutoMemRelease::initialize(const OptionsSIFTGPU& opt,int maxWidth,int maxHeight)
 {
   setParams(opt);
 

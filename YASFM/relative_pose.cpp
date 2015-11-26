@@ -128,8 +128,8 @@ IntPair chooseInitialCameraPair(int minMatches,double minScore,
     return IntPair(-1,-1);
 }
 
-void initReconstructionFromCamPair(const Options& opt,
-  const IntPair& initPair,Dataset *data)
+void initReconstructionFromCamPair(const OptionsRANSAC& solverOpt,
+  double pointsReprojErrorThresh,const IntPair& initPair,Dataset *data)
 {
   cout << "Estimating projection matrices of the initial pair ... ";
   auto& cam0 = data->cam(initPair.first);
@@ -144,7 +144,7 @@ void initReconstructionFromCamPair(const Options& opt,
     &initPairMatches,&nViewMatchesIdxs);
 
   Matrix3d F;
-  bool success = estimateRelativePose7ptRANSAC(opt.relativePose_,
+  bool success = estimateRelativePose7ptRANSAC(solverOpt,
     cam0.keys(),cam1.keys(),initPairMatches,&F);
 
   if(success)
@@ -155,15 +155,15 @@ void initReconstructionFromCamPair(const Options& opt,
     cam0.setParams(Matrix34d::Identity());
     cam1.setParams(P1);
     reconstructPoints(initPair,cam0,cam1,nViewMatchesIdxs,&data->points());
-    removeHighReprojErrorPoints(opt.pointsReprojErrorThresh_,data->cams(),&data->points());
+    removeHighReprojErrorPoints(pointsReprojErrorThresh,data->cams(),&data->points());
   } else
   {
     cout << "unsuccessful\n";
   }
 }
 
-void initReconstructionFromCalibratedCamPair(const Options& opt,
-  const IntPair& initPair,Dataset *data)
+void initReconstructionFromCalibratedCamPair(const OptionsRANSAC& solverOpt,
+  double pointsReprojErrorThresh,const IntPair& initPair,Dataset *data)
 {
   cout << "Estimating camera poses of the initial pair ... ";
   auto& cam0 = data->cam(initPair.first);
@@ -178,7 +178,7 @@ void initReconstructionFromCalibratedCamPair(const Options& opt,
     &initPairMatches,&nViewMatchesIdxs);
 
   Matrix3d E;
-  bool success = estimateRelativePose5ptRANSAC(opt.relativePose_,
+  bool success = estimateRelativePose5ptRANSAC(solverOpt,
     cam0,cam1,initPairMatches,&E);
 
   if(success)
@@ -193,7 +193,7 @@ void initReconstructionFromCalibratedCamPair(const Options& opt,
     cam1.setC(C);
 
     reconstructPoints(initPair,cam0,cam1,nViewMatchesIdxs,&data->points());
-    removeHighReprojErrorPoints(opt.pointsReprojErrorThresh_,data->cams(),&data->points());
+    removeHighReprojErrorPoints(pointsReprojErrorThresh,data->cams(),&data->points());
   } else
   {
     cout << "unsuccessful\n";
@@ -320,8 +320,8 @@ void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
   }
 }
 
-void verifyMatchesGeometrically(const Options& opt,const ptr_vector<Camera>& cams,
-  pair_umap<CameraPair> *pairs)
+void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt,
+  const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
 {
   for(auto it = pairs->begin(); it != pairs->end();)
   {
@@ -334,7 +334,7 @@ void verifyMatchesGeometrically(const Options& opt,const ptr_vector<Camera>& cam
 
     Matrix3d F;
     vector<int> inliers;
-    bool success = estimateRelativePose7ptPROSAC(opt.geometricVerification_,
+    bool success = estimateRelativePose7ptPROSAC(solverOpt,
       cams[camsIdx.first]->keys(),cams[camsIdx.second]->keys(),pair,&F,&inliers);
     if(success)
     {

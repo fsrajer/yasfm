@@ -95,8 +95,8 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     return -1;
   }
 
-  int ransacRounds = opt.ransacRounds_;
-  double sqThresh = opt.errorThresh_ * opt.errorThresh_;
+  int ransacRounds = opt.maxRounds;
+  double sqThresh = opt.errorThresh * opt.errorThresh;
   int maxInliers = -1;
   vector<int> idxs;
   idxs.resize(minMatches);
@@ -119,12 +119,12 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
         M = Mcurr;
 
         ransacRounds = std::min(ransacRounds,
-          sufficientNumberOfRounds(maxInliers,nMatches,minMatches,opt.confidence_));
+          sufficientNumberOfRounds(maxInliers,nMatches,minMatches,opt.confidence));
       }
     }
   }
 
-  if(maxInliers >= opt.minInliers_)
+  if(maxInliers >= opt.minInliers)
   {
     vector<int> tentativeInliers;
     findInliers(m,M,sqThresh,&tentativeInliers);
@@ -155,8 +155,8 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     return -1;
   }
 
-  int ransacRounds = opt.ransacRounds_;
-  double sqThresh = opt.errorThresh_ * opt.errorThresh_;
+  int ransacRounds = opt.maxRounds;
+  double sqThresh = opt.errorThresh * opt.errorThresh;
   int maxInliers = -1;
   vector<int> idxs;
   idxs.resize(minMatches);
@@ -207,12 +207,12 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
         M = Mcurr;
 
         ransacRounds = std::min(ransacRounds,
-          sufficientNumberOfRounds(maxInliers,nMatches,minMatches,opt.confidence_));
+          sufficientNumberOfRounds(maxInliers,nMatches,minMatches,opt.confidence));
       }
     }
   }
 
-  if(maxInliers >= opt.minInliers_)
+  if(maxInliers >= opt.minInliers)
   {
     vector<int> tentativeInliers;
     findInliers(m,M,sqThresh,&tentativeInliers);

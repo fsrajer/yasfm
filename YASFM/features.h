@@ -35,7 +35,7 @@ namespace yasfm
 {
 
 // Loads input from images as well as saves output into them.
-YASFM_API void detectSiftGPU(const OptionsSIFT& opt,ptr_vector<Camera> *cams);
+YASFM_API void detectSiftGPU(const OptionsSIFTGPU& opt,ptr_vector<Camera> *cams);
 
 } // namespace yasfm
 
@@ -52,11 +52,11 @@ public:
   ~SiftGPUAutoMemRelease();
 
   bool isLoadedDLL() const;
-  bool initialize(const OptionsSIFT& opt, int maxWidth, int maxHeight);
+  bool initialize(const OptionsSIFTGPU& opt,int maxWidth,int maxHeight);
 
   SiftGPU* sift;
 private:
-  void setParams(const OptionsSIFT& opt);
+  void setParams(const OptionsSIFTGPU& opt);
 
 #ifdef _WIN32
   HMODULE siftgpuHandle; // nullptr value means that loading was unsuccessful

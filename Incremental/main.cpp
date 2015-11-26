@@ -39,16 +39,68 @@ using std::string;
 using std::unordered_set;
 using std::vector;
 
+struct Options
+{
+  Options()
+    :
+    ccdDBFilename("../resources/camera_ccd_widths.txt"),
+    sift(),
+    matchingFLANN(),
+    minNumPairwiseMatches(16),
+    geometricVerification(2048,sqrt(5.),minNumPairwiseMatches),
+    initialPairRelativePose(512,1.25,10),
+    homography(512,5.,10),
+    minInitPairHomographyProportion(0.5),
+    absolutePose(4096,4.,16,0.999999),
+    minNumCamToSceneMatches(minNumPairwiseMatches),
+    wellMatchedCamsFactor(0.75),
+    bundleAdjust(),
+    pointsReprojErrorThresh(8.),
+    rayAngleThresh(2.),
+    focalConstraintWeight(0.0001),
+    radialConstraint(0.),
+    radialConstraintWeight(100.)
+  {
+  }
+
+  string ccdDBFilename;
+  OptionsSIFTGPU sift;
+  OptionsFLANN matchingFLANN;
+  // Min number of matches defining a poorly matched pair. Default: 16.
+  int minNumPairwiseMatches;
+  // The error is symmetric distance. Units are pixels.
+  OptionsRANSAC geometricVerification;
+  // Units of the error are pixels.
+  OptionsRANSAC initialPairRelativePose;
+  // Units of the error are pixels.
+  OptionsRANSAC homography;
+  double minInitPairHomographyProportion;
+  // The error is reprojection error. Units are pixels.
+  OptionsRANSAC absolutePose;
+  int minNumCamToSceneMatches;
+  // chooseWellMatchedCameras finds the camera with most matches, say N
+  // and then finds all cameras with N*wellMatchedCamsFactor matches. Default: 0.75
+  double wellMatchedCamsFactor;
+  OptionsBundleAdjustment bundleAdjust;
+  double pointsReprojErrorThresh;
+  // Consider a ray from a camera center through a keypoint.
+  // Consider next, the largest angle between all such rays
+  // corresponding to one track/3d point.
+  // This threshold is used for that angle.
+  // Use degrees.
+  double rayAngleThresh;
+  double focalConstraintWeight;
+  double radialConstraint;
+  double radialConstraintWeight;
+
+};
+
 int main(int argc, const char* argv[])
 {
   Options opt;
-  opt.sift_.firstOctave_ = 0;
+  opt.bundleAdjust.solverOptions.num_threads = 8;
   if(argc >= 4)
-    opt.sift_.firstOctave_ = atoi(argv[3]);
-  opt.ba_.solverOptions.num_threads = 8;
-  double focalConstraintWeight = 0.0001;
-  double radialConstraint = 0.;
-  double radialConstraintWeight = 100.;
+    opt.sift.firstOctave = atoi(argv[3]);  
 
   string dir(argv[1]);
   string imgsSubdir(argv[2]);
@@ -60,36 +112,38 @@ int main(int argc, const char* argv[])
  
   // Initialize calibration for every camera
   vector<double> focals(data.cams().size());
-  findFocalLengthInEXIF(opt.ccdDBFilename_,data.cams(),&focals);
+  findFocalLengthInEXIF(opt.ccdDBFilename,data.cams(),&focals);
   for(int i = 0; i < data.numCams(); i++)
   {
     StandardCameraRadial *cam = static_cast<StandardCameraRadial *>(&data.cam(i));
-    vector<double> radConstraints(2,radialConstraint),radWeights(2,radialConstraintWeight);
+    vector<double> radConstraints(2,opt.radialConstraint),
+      radWeights(2,opt.radialConstraintWeight);
     cam->constrainRadial(&radConstraints[0],&radWeights[0]);
     if(focals[i] > 0.)
     {
       data.cam(i).setFocal(focals[i]);
-      cam->constrainFocal(focals[i],focalConstraintWeight);
+      cam->constrainFocal(focals[i],opt.focalConstraintWeight);
     }
   }
 
-  detectSiftGPU(opt.sift_,&data.cams());
+  detectSiftGPU(opt.sift,&data.cams());
   data.readKeysColors();
   data.writeASCII("init.txt",Camera::WriteAll | Camera::WriteConvertNormalizedSIFTToUint);
 
-  matchFeatFLANN(opt.matchingFLANN_,data.cams(),&data.pairs());
-  removePoorlyMatchedPairs(opt.minNumMatches_,&data.pairs());
+  matchFeatFLANN(opt.matchingFLANN,data.cams(),&data.pairs());
+  removePoorlyMatchedPairs(opt.minNumPairwiseMatches,&data.pairs());
 
-  verifyMatchesGeometrically(opt,data.cams(),&data.pairs());
-  removePoorlyMatchedPairs(opt.minNumMatches_,&data.pairs());
+  verifyMatchesGeometrically(opt.geometricVerification,data.cams(),&data.pairs());
+  removePoorlyMatchedPairs(opt.minNumPairwiseMatches,&data.pairs());
   
   data.writeASCII("matched.txt",Camera::WriteNoFeatures);
   data.clearDescriptors();
   */
+
   data.readASCII("matched.txt",Camera::ReadNoDescriptors);
 
   ArrayXXd homographyProportion;
-  computeHomographyInliersProportion(opt.homography_,data.cams(),data.pairs(),
+  computeHomographyInliersProportion(opt.homography,data.cams(),data.pairs(),
     &homographyProportion);
 
   twoViewMatchesToNViewMatches(data.cams(),data.pairs(),
@@ -103,7 +157,7 @@ int main(int argc, const char* argv[])
     isCalibrated[i] = cam->f() > 0.;
   }
 
-  double minPairScore = 1. / opt.minInitPairHomographyProportion_;
+  double minPairScore = 1. / opt.minInitPairHomographyProportion;
   ArrayXXd homographyScores(homographyProportion.rows(),homographyProportion.cols());
   for(int c = 0; c < homographyProportion.cols(); c++)
   {
@@ -115,7 +169,7 @@ int main(int argc, const char* argv[])
         homographyScores(r,c) = 1. / homographyProportion(r,c);
     }
   }
-  IntPair initPair = chooseInitialCameraPair(opt.minNumMatches_,minPairScore,
+  IntPair initPair = chooseInitialCameraPair(opt.minNumPairwiseMatches,minPairScore,
     isCalibrated,data.points().matchesToReconstruct(),homographyScores);
     
 
@@ -124,13 +178,15 @@ int main(int argc, const char* argv[])
     
   if(isCalibrated[initPair.first] && isCalibrated[initPair.second])
   {
-    initReconstructionFromCalibratedCamPair(opt,initPair,&data);
+    initReconstructionFromCalibratedCamPair(opt.initialPairRelativePose,
+      opt.pointsReprojErrorThresh,initPair,&data);
   } else
   {
-    initReconstructionFromCamPair(opt,initPair,&data);
+    initReconstructionFromCamPair(opt.initialPairRelativePose,
+      opt.pointsReprojErrorThresh,initPair,&data);
   }
 
-  bundleAdjust(opt.ba_,&data.cams(),&data.points());
+  bundleAdjust(opt.bundleAdjust,&data.cams(),&data.points());
 
   uset<int> exploredCams;
   exploredCams.insert(initPair.first);
@@ -141,7 +197,7 @@ int main(int argc, const char* argv[])
     findCamToSceneMatches(exploredCams,data.numCams(),data.points(),&camToSceneMatches);
 
     uset<int> wellMatchedCams;
-    chooseWellMatchedCameras(opt.minNumCam2SceneMatches_,opt.wellMatchedCamsFactor_,
+    chooseWellMatchedCameras(opt.minNumCamToSceneMatches,opt.wellMatchedCamsFactor,
       camToSceneMatches,&wellMatchedCams);
 
     if(wellMatchedCams.empty())
@@ -155,7 +211,7 @@ int main(int argc, const char* argv[])
         camToSceneMatches[camIdx].size() << " matches ... ";
       //bool success = resectCamera5AndHalfPtRANSAC(opt.absolutePose_,camToSceneMatches[camIdx],
       //  data.points().ptCoord(),&data.cam(camIdx),&inliers);
-      bool success = resectCamera6ptLSRANSAC(opt.absolutePose_,camToSceneMatches[camIdx],
+      bool success = resectCamera6ptLSRANSAC(opt.absolutePose,camToSceneMatches[camIdx],
         data.points().ptCoord(),&data.cam(camIdx),&inliers);
 
 
@@ -168,7 +224,7 @@ int main(int argc, const char* argv[])
         unzipPairsVectorSecond(camToSceneMatches[camIdx],&ptIdxs);
         data.markCamAsReconstructed(camIdx,ptIdxs,inliers);
 
-        bundleAdjustOneCam(opt.ba_,camIdx,&data.cam(camIdx),&data.points());
+        bundleAdjustOneCam(opt.bundleAdjust,camIdx,&data.cam(camIdx),&data.points());
       } else
       {
         cout << "camera could not be added.\n";
@@ -177,22 +233,22 @@ int main(int argc, const char* argv[])
 
     int minObservingCams = 2;
     vector<SplitNViewMatch> matchesToReconstructNow;
-    extractCandidateNewPoints(minObservingCams,opt.rayAngleThresh_,
+    extractCandidateNewPoints(minObservingCams,opt.rayAngleThresh,
       data.reconstructedCams(),data.cams(),
       &data.points().matchesToReconstruct(),&matchesToReconstructNow);
 
     reconstructPoints(data.cams(),matchesToReconstructNow,&data.points());
-    removeHighReprojErrorPoints(opt.pointsReprojErrorThresh_,data.cams(),&data.points());
+    removeHighReprojErrorPoints(opt.pointsReprojErrorThresh,data.cams(),&data.points());
 
     int prevPts;
     do
     {
       prevPts = data.points().numPts();
-      bundleAdjust(opt.ba_,&data.cams(),&data.points());
-      removeHighReprojErrorPoints(opt.pointsReprojErrorThresh_,data.cams(),&data.points());
+      bundleAdjust(opt.bundleAdjust,&data.cams(),&data.points());
+      removeHighReprojErrorPoints(opt.pointsReprojErrorThresh,data.cams(),&data.points());
     } while(prevPts > data.points().numPts());
 
-    removeIllConditionedPoints(0.5*opt.rayAngleThresh_,data.cams(),&data.points());
+    removeIllConditionedPoints(0.5*opt.rayAngleThresh,data.cams(),&data.points());
 
     writeSFMBundlerFormat(joinPaths(data.dir(),"yasfm/bundle" + 
       std::to_string(exploredCams.size()) + ".out"),data);
