@@ -150,9 +150,8 @@ void findUniqueMatches(const vector<IntPair>& matches,size_t numFeats2,
   vector<bool> *puniqueMatches)
 {
   auto& uniqueMatches = *puniqueMatches;
-  vector<int> target2match;
   // -1 means that a feature from feats2 was not matched to any from feats1
-  target2match.resize(numFeats2,-1);
+  vector<int> target2match(numFeats2,-1);
 
   int numMatches = static_cast<int>(matches.size());
   uniqueMatches.resize(numMatches,true);

@@ -75,13 +75,15 @@ int main(int argc, const char* argv[])
 
   detectSiftGPU(opt.sift_,&data.cams());
 
+  data.writeASCII("init.txt",Camera::WriteMode::ConvertNormalizedSIFTToUint);
+
   matchFeatFLANN(opt.matchingFLANN_,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumMatches_,&data.pairs());
 
   verifyMatchesGeometrically(opt,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumMatches_,&data.pairs());
 
-  data.writeASCII("matched.txt",Camera::WriteMode::ConvertNormalizedSIFTToUint);
+  data.writeASCII("matched.txt",Camera::WriteMode::NoFeatures);
   data.clearDescriptors();
   */
   data.readASCII("matched.txt",Camera::ReadMode::SkipDescriptors);
@@ -93,7 +95,7 @@ int main(int argc, const char* argv[])
   twoViewMatchesToNViewMatches(data.cams(),data.pairs(),
     &data.points().matchesToReconstruct());
   data.pairs().clear(); // No need for 2 view matches anymore.
-
+  
   vector<bool> isCalibrated(data.numCams(),false);
   for(int i = 0; i < data.numCams(); i++)
   {

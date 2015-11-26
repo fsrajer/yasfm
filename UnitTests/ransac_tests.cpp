@@ -15,7 +15,9 @@ namespace UnitTests
 		
     TEST_METHOD(sufficientNumberOfRoundsTest)
 		{
-      Assert::IsTrue(sufficientNumberOfRounds(50,100,5,.95) == 104);
+      Assert::AreEqual(104,sufficientNumberOfRounds(50,100,5,.95));
+      Assert::AreEqual(INT_MAX,sufficientNumberOfRounds(50,100,5,1.));
+      Assert::AreEqual(INT_MAX,sufficientNumberOfRounds(1,100000,5,.95));
 		}
 
 	};
