@@ -100,6 +100,8 @@ public:
   YASFM_API virtual int imgHeight() const;
   YASFM_API virtual const vector<Vector2d>& keys() const;
   YASFM_API virtual const Vector2d& key(int i) const;
+  YASFM_API virtual const vector<Vector3uc>& keysColors() const;
+  YASFM_API virtual const Vector3uc& keyColor(int i) const;
   // One column is one descriptor.
   YASFM_API virtual const ArrayXXf& descr() const;
 
@@ -318,15 +320,16 @@ public:
   {
     NViewMatch reconstructed;
     NViewMatch toReconstruct;
+    Vector3uc color;
   } PointData;
 
   // Add new points created from corresponding matchesToReconstructIdxs.
   // The corresponding matchesToReconstruct are erased so NOTE that indices
   // to matchesToReconstruct you might have get invalidated.
   YASFM_API void addPoints(const IntPair& camsIdxs,const vector<int>& matchesToReconstructIdxs,
-    const vector<Vector3d>& coord);
+    const vector<Vector3d>& coord,const vector<Vector3uc>& colors);
   // Add new points. pointCoord and pointViews should have the same size.
-  YASFM_API void addPoints(const vector<Vector3d>& pointCoord,
+  YASFM_API void addPoints(const vector<Vector3d>& pointCoord,const vector<Vector3uc>& colors,
     const vector<SplitNViewMatch>& pointViews);
   // This invalidates the indices to points you might have.
   YASFM_API void removePoints(const vector<bool>& keep);
@@ -387,10 +390,10 @@ public:
   YASFM_API void writeASCII(const string& filename,int camWriteMode,
     const string& featuresDir) const;
 
+  YASFM_API void readKeysColors();
+  YASFM_API void readASCII(const string& filename,int camReadMode);
   YASFM_API void readASCII(const string& filename,int camReadMode,
-    bool readKeyColorsOfReconstructedCams = true);
-  YASFM_API void readASCII(const string& filename,int camReadMode,
-    const string& featuresDir,bool readKeyColorsOfReconstructedCams = true);
+    const string& featuresDir);
 
   // accessors
   YASFM_API const string& dir() const;

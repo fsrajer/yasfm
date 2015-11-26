@@ -106,28 +106,32 @@ void reconstructPoints(const IntPair& camsIdxs,const Camera& cam1,const Camera& 
   const vector<int>& nViewMatchIdxs,Points *points)
 {
   cout << "Reconstructing " << nViewMatchIdxs.size() << " points\n";
-  vector<Vector3d> coord;
-  coord.reserve(nViewMatchIdxs.size());
+  vector<Vector3d> coord(nViewMatchIdxs.size());
+  vector<Vector3uc> colors(coord.size());
   Matrix34d Rt1 = cam1.pose();
   Matrix34d Rt2 = cam2.pose();
   vector<bool> isInFrontOfBoth(nViewMatchIdxs.size(),true);
   for(size_t i = 0; i < nViewMatchIdxs.size(); i++)
   {
     const auto& nViewMatch = points->matchesToReconstruct()[nViewMatchIdxs[i]];
-    Vector2d key1 = cam1.keyNormalized(nViewMatch.at(camsIdxs.first));
-    Vector2d key2 = cam2.keyNormalized(nViewMatch.at(camsIdxs.second));
+    int key1Idx = nViewMatch.at(camsIdxs.first);
+    int key2Idx = nViewMatch.at(camsIdxs.second);
+    Vector2d key1 = cam1.keyNormalized(key1Idx);
+    Vector2d key2 = cam2.keyNormalized(key2Idx);
 
-    coord.emplace_back();
-    auto& pt = coord.back();
+    auto& pt = coord[i];
     triangulate(Rt1,Rt2,key1,key2,&pt);
 
     isInFrontOfBoth[i] = isInFrontNormalizedP(Rt1,pt) && isInFront(Rt2,pt);
+
+    colors[i] = cam1.keyColor(key1Idx);
   }
 
   vector<int> nViewMatchIdxsFiltered = nViewMatchIdxs;
   filterVector(isInFrontOfBoth,&nViewMatchIdxsFiltered);
   filterVector(isInFrontOfBoth,&coord);
-  points->addPoints(camsIdxs,nViewMatchIdxsFiltered,coord);
+  filterVector(isInFrontOfBoth,&colors);
+  points->addPoints(camsIdxs,nViewMatchIdxsFiltered,coord,colors);
 }
 
 void reconstructPoints(const ptr_vector<Camera>& cams,
@@ -137,6 +141,7 @@ void reconstructPoints(const ptr_vector<Camera>& cams,
   vector<Matrix34d> Rts(cams.size());
   vector<bool> RtsValid(cams.size(),false);
   vector<Vector3d> ptCoord(matchesToReconstruct.size());
+  vector<Vector3uc> colors(ptCoord.size());
   vector<bool> isInFrontOfAll(ptCoord.size(),true);
 
   for(size_t iMatch = 0; iMatch < matchesToReconstruct.size(); iMatch++)
@@ -170,12 +175,16 @@ void reconstructPoints(const ptr_vector<Camera>& cams,
         break;
       }
     }
+
+    const auto& camKey = *(match.observedPart.begin());
+    colors[iMatch] = cams[camKey.first]->keyColor(camKey.second);
   }
 
   vector<SplitNViewMatch> matchesToReconstructFiltered = matchesToReconstruct;
   filterVector(isInFrontOfAll,&matchesToReconstructFiltered);
   filterVector(isInFrontOfAll,&ptCoord);
-  points->addPoints(ptCoord,matchesToReconstructFiltered);
+  filterVector(isInFrontOfAll,&colors);
+  points->addPoints(ptCoord,colors,matchesToReconstructFiltered);
 }
 
 void triangulate(const Matrix34d& P1,const Matrix34d& P2,const vector<Vector2d>& keys1,

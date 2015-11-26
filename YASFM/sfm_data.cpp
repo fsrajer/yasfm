@@ -77,6 +77,8 @@ Camera::Camera(istream& file,int mode,const string& featuresDir)
     }
   }
   featuresFile.close();
+
+  readKeysColors();
 }
 
 Camera::~Camera()
@@ -111,6 +113,8 @@ int Camera::imgHeight() const { return imgHeight_; }
 const vector<Vector2d>& Camera::keys() const { return keys_; }
 const Vector2d& Camera::key(int i) const { return keys_[i]; }
 const ArrayXXf& Camera::descr() const { return descr_; }
+const vector<Vector3uc>& Camera::keysColors() const { return keysColors_; }
+const Vector3uc& Camera::keyColor(int i) const { return keysColors_[i]; }
 
 unique_ptr<Camera> Camera::clone() const
 {
@@ -488,7 +492,7 @@ const double* const StandardCameraRadial::radParams() const { return &radParams_
 
 
 void Points::addPoints(const IntPair& camsIdxs,const vector<int>& matchesToReconstructIdxs,
-  const vector<Vector3d>& coord)
+  const vector<Vector3d>& coord,const vector<Vector3uc>& colors)
 {
   size_t sz = ptCoord_.size() + coord.size();
   ptCoord_.reserve(sz);
@@ -507,10 +511,11 @@ void Points::addPoints(const IntPair& camsIdxs,const vector<int>& matchesToRecon
     toReconstruct = nViewMatch;
     toReconstruct.erase(camsIdxs.first);
     toReconstruct.erase(camsIdxs.second);
+    ptData_.back().color = colors[i];
   }
   filterOutOutliers(matchesToReconstructIdxs,&matchesToReconstruct_);
 }
-void Points::addPoints(const vector<Vector3d>& pointCoord,
+void Points::addPoints(const vector<Vector3d>& pointCoord,const vector<Vector3uc>& colors,
   const vector<SplitNViewMatch>& pointViews)
 {
   ptCoord_.reserve(numPts() + pointCoord.size());
@@ -521,6 +526,7 @@ void Points::addPoints(const vector<Vector3d>& pointCoord,
     ptData_.emplace_back();
     ptData_.back().reconstructed = pointViews[i].observedPart;
     ptData_.back().toReconstruct = pointViews[i].unobservedPart;
+    ptData_.back().color = colors[i];
   }
 }
 
@@ -560,8 +566,8 @@ void Points::markCamAsReconstructed(int camIdx,
 void Points::writeASCII(ostream& file) const
 {
   const int nFields = 3;
-  const int nFieldsPointData = 2;
-
+  const int nFieldsPointData = 3;
+  
   file << nFields << "\n";
   file << "matchesToReconstruct_ " << matchesToReconstruct_.size() << "\n";
   for(const auto& match : matchesToReconstruct_)
@@ -572,8 +578,13 @@ void Points::writeASCII(ostream& file) const
   file << "ptData_ " << ptData_.size() << " " << nFieldsPointData << "\n";
   file << "reconstructed\n";
   file << "toReconstruct\n";
+  file << "color\n";
   for(const auto& data : ptData_)
-    file << data.reconstructed << " " << data.toReconstruct << "\n";
+  {
+    Eigen::Vector3i color = data.color.cast<int>();
+    file << data.reconstructed << " " << data.toReconstruct
+      << " " << color(0) << " " << color(1) << " " << color(1) << "\n";
+  }
 }
 
 void Points::readASCII(istream& file)
@@ -610,6 +621,8 @@ void Points::readASCII(istream& file)
           format |= 1;
         else if(s == "toReconstruct")
           format |= 2;
+        else if(s == "color")
+          format |= 4;
       }
       ptData_.resize(n);
       for(auto& data: ptData_)
@@ -618,6 +631,8 @@ void Points::readASCII(istream& file)
           file >> data.reconstructed;
         if(format & 2)
           file >> data.toReconstruct;
+        if(format & 4)
+          file >> data.color(0) >> data.color(1) >> data.color(2);
       }
     }
   }
@@ -751,15 +766,14 @@ void Dataset::writeASCII(const string& filename,int camWriteMode,
   file.close();
 }
 
-void Dataset::readASCII(const string& filename,int camReadMode,
-  bool readKeyColorsOfReconstructedCams)
+void Dataset::readASCII(const string& filename,int camReadMode)
 {
   string featuresDir = joinPaths(dir_,"keys");
-  readASCII(filename,camReadMode,featuresDir,readKeyColorsOfReconstructedCams);
+  readASCII(filename,camReadMode,featuresDir);
 }
 
 void Dataset::readASCII(const string& filename,int camReadMode,
-  const string& featuresDir,bool readKeyColorsOfReconstructedCams)
+  const string& featuresDir)
 {
   string fn = joinPaths(dir(),filename);
   ifstream file(fn);
@@ -863,14 +877,12 @@ void Dataset::readASCII(const string& filename,int camReadMode,
     }
   }
   file.close();
+}
 
-  if(readKeyColorsOfReconstructedCams)
-  {
-    for(int camIdx : reconstructedCams_)
-    {
-      cam(camIdx).readKeysColors();
-    }
-  }
+void Dataset::readKeysColors()
+{
+  for(const auto& cam : cams_)
+    cam->readKeysColors();
 }
 
 const string& Dataset::dir() const { return dir_; }

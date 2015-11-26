@@ -54,7 +54,7 @@ int main(int argc, const char* argv[])
   string imgsSubdir(argv[2]);
 
   Dataset data(dir);
-  data.addCameras<StandardCameraRadial>(imgsSubdir);
+  /*data.addCameras<StandardCameraRadial>(imgsSubdir);
   // -> the principal point is always set to the
   // image center in StandardCamera
  
@@ -74,7 +74,7 @@ int main(int argc, const char* argv[])
   }
 
   detectSiftGPU(opt.sift_,&data.cams());
-
+  data.readKeysColors();
   data.writeASCII("init.txt",Camera::WriteAll | Camera::WriteConvertNormalizedSIFTToUint);
 
   matchFeatFLANN(opt.matchingFLANN_,data.cams(),&data.pairs());
@@ -85,8 +85,8 @@ int main(int argc, const char* argv[])
   
   data.writeASCII("matched.txt",Camera::WriteNoFeatures);
   data.clearDescriptors();
-  
-  data.readASCII("matched.txt",Camera::ReadAll);
+  */
+  data.readASCII("matched.txt",Camera::ReadNoDescriptors);
 
   ArrayXXd homographyProportion;
   computeHomographyInliersProportion(opt.homography_,data.cams(),data.pairs(),
@@ -101,7 +101,7 @@ int main(int argc, const char* argv[])
   {
     StandardCamera *cam = static_cast<StandardCamera *>(&data.cam(i));
     isCalibrated[i] = cam->f() > 0.;
-  }      
+  }
 
   double minPairScore = 1. / opt.minInitPairHomographyProportion_;
   ArrayXXd homographyScores(homographyProportion.rows(),homographyProportion.cols());

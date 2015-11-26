@@ -646,7 +646,9 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
     out << coord(0) << " " << coord(1) << " " << coord(2) << "\n";
     out.flags(std::ios::fixed);
     // color
-    out << "0 0 0\n";
+    const auto& col = points.ptData()[i].color;
+    Eigen::Vector3i color = col.cast<int>();
+    out << color(0) << " " << color(1) << " " << color(2) << "\n";
     // views
     vector<BundlerPointView> views;
     for(const auto& camKey : points.ptData()[i].reconstructed)
