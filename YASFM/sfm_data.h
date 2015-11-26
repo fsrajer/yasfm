@@ -56,22 +56,24 @@ class CameraRegister;
 class Camera
 {
 public:
+  /// 0 are no features, 1 are keys, 2 are descriptors, 6 are descriptors+conversion
   enum WriteMode
   {
-    WriteAll,
-    ConvertNormalizedSIFTToUint,
-    NoDescriptors,
-    NoFeatures
+    WriteNoFeatures = 0,
+    WriteKeys = 1, ///< Writes only keypoints
+    WriteDescriptors = 2,
+    WriteAll = 3,
+    WriteConvertNormalizedSIFTToUint = 4
   };
 
   enum ReadMode
   {
-    ReadAll,
-    SkipDescriptors
+    ReadNoDescriptors = 0,
+    ReadAll = 1
   };
 
   YASFM_API Camera(const string& imgFilename);
-  YASFM_API Camera(istream& file,ReadMode mode,const string& featuresDir);
+  YASFM_API Camera(istream& file,int readMode,const string& featuresDir);
   // Destructor has to be virtual (even if it was empty) 
   // because of use of ptr_vector. It ensures that all the items
   // will be correctly deleted.
@@ -82,14 +84,15 @@ public:
 
   YASFM_API virtual void reserveFeatures(int num,int dim);
   YASFM_API virtual void addFeature(double x,double y,const float* const descr);
+  YASFM_API virtual void readKeysColors();
   // remove descriptors from memory
   YASFM_API virtual void clearDescriptors();
 
   // Most of the data will be stored in the mainFile but keys nad descriptors
   // will be stored in a separate file.
-  YASFM_API void writeASCII(ostream& file,WriteMode mode,
+  YASFM_API void writeASCII(ostream& file,int writeMode,
     const string& featuresDir) const;
-  YASFM_API void writeASCII(ostream& file,WriteMode mode) const;
+  YASFM_API void writeASCII(ostream& file,int writeMode) const;
 
   // accessors
   YASFM_API virtual const string& imgFilename() const;
@@ -137,6 +140,7 @@ private:
   int imgWidth_,imgHeight_;
 
   vector<Vector2d> keys_; // keypoints' coordinates
+  vector<Vector3uc> keysColors_;
   ArrayXXf descr_; // descriptors; column is one descriptor
 
   static CameraRegister<Camera> reg_;
@@ -150,7 +154,7 @@ class StandardCamera : public Camera
 {
 public:
   YASFM_API StandardCamera(const string& imgFilename);
-  YASFM_API StandardCamera(istream& file,ReadMode mode,const string& featuresDir);
+  YASFM_API StandardCamera(istream& file,int readMode,const string& featuresDir);
   // Destructor has to be virtual (even if it was empty) 
   // because of use of ptr_vector. It ensures that all the items
   // will be correctly deleted.
@@ -240,7 +244,7 @@ class StandardCameraRadial : public StandardCamera
 {
 public:
   YASFM_API StandardCameraRadial(const string& imgFilename);
-  YASFM_API StandardCameraRadial(istream& file,ReadMode mode,const string& featuresDir);
+  YASFM_API StandardCameraRadial(istream& file,int readMode,const string& featuresDir);
   // Destructor has to be virtual (even if it was empty) 
   // because of use of ptr_vector. It ensures that all the items
   // will be correctly deleted.
@@ -379,13 +383,14 @@ public:
     const vector<int>& correspondingPoints,
     const vector<int>& correspondingPointsInliers);
   // Write out.
-  YASFM_API void writeASCII(const string& filename,Camera::WriteMode mode) const;
-  YASFM_API void writeASCII(const string& filename,Camera::WriteMode mode,
+  YASFM_API void writeASCII(const string& filename,int camWriteMode) const;
+  YASFM_API void writeASCII(const string& filename,int camWriteMode,
     const string& featuresDir) const;
 
-  YASFM_API void readASCII(const string& filename,Camera::ReadMode mode);
-  YASFM_API void readASCII(const string& filename,Camera::ReadMode mode,
-    const string& featuresDir);
+  YASFM_API void readASCII(const string& filename,int camReadMode,
+    bool readKeyColorsOfReconstructedCams = true);
+  YASFM_API void readASCII(const string& filename,int camReadMode,
+    const string& featuresDir,bool readKeyColorsOfReconstructedCams = true);
 
   // accessors
   YASFM_API const string& dir() const;
@@ -417,10 +422,10 @@ class CameraFactory
 {
 public:
   static unique_ptr<Camera> createInstance(const string& className,
-    istream& file,Camera::ReadMode mode,const string& featuresDir);
+    istream& file,int camReadMode,const string& featuresDir);
 
 protected:
-  typedef umap<string,unique_ptr<Camera>(*)(istream&,Camera::ReadMode,
+  typedef umap<string,unique_ptr<Camera>(*)(istream&,int,
     const string&)> MapType;
 
   static MapType& map();
@@ -437,7 +442,7 @@ public:
 };
 
 template<class T>
-unique_ptr<Camera> createCamera(istream& file,Camera::ReadMode mode,
+unique_ptr<Camera> createCamera(istream& file,int camReadMode,
   const string& featuresDir);
 
 ////////////////////////////////////////////////////
@@ -549,10 +554,10 @@ void Dataset::addCameras(const string& imgsDir,bool isSubdir)
 }
 
 template<class T>
-unique_ptr<Camera> createCamera(istream& file,Camera::ReadMode mode,
+unique_ptr<Camera> createCamera(istream& file,int camReadMode,
   const string& featuresDir)
 {
-  return make_unique<T>(file,mode,featuresDir);
+  return make_unique<T>(file,camReadMode,featuresDir);
 }
 
 template<class T>

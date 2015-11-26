@@ -54,7 +54,7 @@ int main(int argc, const char* argv[])
   string imgsSubdir(argv[2]);
 
   Dataset data(dir);
-  /*data.addCameras<StandardCameraRadial>(imgsSubdir);
+  data.addCameras<StandardCameraRadial>(imgsSubdir);
   // -> the principal point is always set to the
   // image center in StandardCamera
  
@@ -75,18 +75,18 @@ int main(int argc, const char* argv[])
 
   detectSiftGPU(opt.sift_,&data.cams());
 
-  data.writeASCII("init.txt",Camera::WriteMode::ConvertNormalizedSIFTToUint);
+  data.writeASCII("init.txt",Camera::WriteAll | Camera::WriteConvertNormalizedSIFTToUint);
 
   matchFeatFLANN(opt.matchingFLANN_,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumMatches_,&data.pairs());
 
   verifyMatchesGeometrically(opt,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumMatches_,&data.pairs());
-
-  data.writeASCII("matched.txt",Camera::WriteMode::NoFeatures);
+  
+  data.writeASCII("matched.txt",Camera::WriteNoFeatures);
   data.clearDescriptors();
-  */
-  data.readASCII("matched.txt",Camera::ReadMode::SkipDescriptors);
+  
+  data.readASCII("matched.txt",Camera::ReadAll);
 
   ArrayXXd homographyProportion;
   computeHomographyInliersProportion(opt.homography_,data.cams(),data.pairs(),
@@ -199,7 +199,7 @@ int main(int argc, const char* argv[])
   }
 
   writeSFMBundlerFormat(joinPaths(data.dir(),"bundle_final.out"),data);
-  data.writeASCII("out.txt",Camera::NoFeatures);
+  data.writeASCII("out.txt",Camera::WriteNoFeatures);
 }
 
 /*

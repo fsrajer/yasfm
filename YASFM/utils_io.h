@@ -14,10 +14,13 @@
 #include <string>
 #include <vector>
 
+#include "Eigen/Dense"
+
 #include "defines.h"
 #include "options.h"
 #include "sfm_data.h"
 
+using Eigen::Vector2d;
 using std::ifstream;
 using std::istream;
 using std::ostream;
@@ -47,6 +50,12 @@ YASFM_API void listFilenames(const string& dir,
 
 YASFM_API void getImgDims(const string& filename,int *width,int *height);
 
+// Reads colors for features and optinally also returns image dimensions
+// IMPORTANT: This function requires features to return coordinates in 
+// the original image coordinate system.
+YASFM_API void readColors(const string& filename,const vector<Vector2d>& coord,
+  vector<Vector3uc> *colors);
+
 /*
 // Creates a file, where every line contains
 // one image filename. This is particularly useful
@@ -62,19 +71,6 @@ YASFM_API void writeFeatsFnsList(const string& listFilename,const ptr_vector<ICa
 // This function is just a "header" function taking IDataset.
 // It only calls overloaded function taking full spectrum of parameters.
 YASFM_API void writeFeatsFnsList(const string& listFilename,const IDataset& dts);
-*/
-
-/*
-// Reads colors for features and optinally also returns image dimensions
-// IMPORTANT: This function requires features to return coordinates in 
-// the original image coordinate system.
-YASFM_API void readFeatureColors(const string& dir,ICamera& cam,
-  int *width = nullptr,int *height = nullptr);
-// This function is just a "header" function taking IDataset.
-// It only calls overloaded function taking full spectrum of parameters.
-// IMPORTANT: This function requires features to return coordinates in 
-// the original image coordinate system.
-YASFM_API void readFeatureColors(IDataset& dts);
 */
 
 // focals are 0 when they were not found

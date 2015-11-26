@@ -35,7 +35,7 @@ Camera::Camera(const string& imgFilename)
   getImgDims(imgFilename,&imgWidth_,&imgHeight_);
 }
 
-Camera::Camera(istream& file,ReadMode mode,const string& featuresDir)
+Camera::Camera(istream& file,int mode,const string& featuresDir)
 {
   file >> imgFilename_;
   file >> imgWidth_ >> imgHeight_;
@@ -51,28 +51,28 @@ Camera::Camera(istream& file,ReadMode mode,const string& featuresDir)
   featuresFile >> nKeys >> descrDim;
   
   keys_.resize(nKeys);
-  if(mode == SkipDescriptors)
-    descr_.resize(0,0);
-  else
+  if(mode & ReadAll)
     descr_.resize(descrDim,nKeys);
+  else
+    descr_.resize(0,0);
 
   double dummy;
   for(int i = 0; i < nKeys; i++)
   {
     featuresFile >> keys_[i](1) >> keys_[i](0) >> dummy >> dummy;
-    if(mode == SkipDescriptors)
+    if(mode & ReadAll)
+    {
+      for(int d = 0; d < descrDim; d++)
+      {
+        featuresFile >> descr_(d,i);
+      }
+    } else
     {
       int nLines = static_cast<int>(ceil(descrDim / 20.)) + 1;
       for(int j = 0; j < nLines; j++)
       {
         string s;
         getline(featuresFile,s);
-      }
-    } else
-    {
-      for(int d = 0; d < descrDim; d++)
-      {
-        featuresFile >> descr_(d,i);
       }
     }
   }
@@ -96,6 +96,10 @@ void Camera::addFeature(double x,double y,const float* const descr)
   Map<const ArrayXf> descrMapped(descr,descr_.rows());
   descr_.col(idx) = descrMapped;
 }
+void Camera::readKeysColors()
+{
+  readColors(imgFilename(),keys_,&keysColors_);
+}
 void Camera::clearDescriptors()
 {
   descr_.resize(0,0);
@@ -113,18 +117,18 @@ unique_ptr<Camera> Camera::clone() const
   return make_unique<Camera>(*this);
 }
 
-void Camera::writeASCII(ostream& file,WriteMode mode) const
+void Camera::writeASCII(ostream& file,int writeMode) const
 {
   string featuresDir = joinPaths(extractPath(imgFilename()),"keys");
   _mkdir(featuresDir.c_str());
-  writeASCII(file,mode,featuresDir);
+  writeASCII(file,writeMode,featuresDir);
 }
 
-void Camera::writeASCII(ostream& file,WriteMode mode,
+void Camera::writeASCII(ostream& file,int mode,
   const string& featuresDir) const
 {
   writeASCII(file);
-  if(mode != NoFeatures)
+  if(mode & WriteAll)
   {
     string fn = featuresFilename(featuresDir);
     ofstream featuresFile(fn);
@@ -135,20 +139,20 @@ void Camera::writeASCII(ostream& file,WriteMode mode,
     }
     featuresFile.flags(std::ios::fixed);
     featuresFile << keys_.size() << " ";
-    if(mode == NoDescriptors)
-      featuresFile << "0\n";
-    else
+    if(mode & WriteDescriptors)
       featuresFile << descr_.rows() << "\n";
+    else
+      featuresFile << "0\n";
     for(size_t i = 0; i < keys_.size(); i++)
     {
       // save in format y, x, 0, 0
       featuresFile << setprecision(2) << keys_[i](1) << " " << keys_[i](0) << " 0 0\n";
-      if((mode == WriteAll || mode == ConvertNormalizedSIFTToUint) && descr_.cols() != 0)
+      if((mode & WriteDescriptors) && descr_.cols() != 0)
       {
         featuresFile << setprecision(8);
         for(int r = 0; r < descr_.rows(); r++)
         {
-          if(mode == ConvertNormalizedSIFTToUint)
+          if(mode & WriteConvertNormalizedSIFTToUint)
             featuresFile << " " << ((unsigned int)floor(0.5+512.0f*descr_(r,i)));
           else
             featuresFile << " " << descr_(r,i);
@@ -195,8 +199,8 @@ StandardCamera::StandardCamera(const string& imgFilename)
   x0_(1) = 0.5 * (imgHeight() - 1);
 }
 
-StandardCamera::StandardCamera(istream& file,ReadMode mode,const string& featuresDir)
-  : Camera(file,mode,featuresDir)
+StandardCamera::StandardCamera(istream& file,int readMode,const string& featuresDir)
+  : Camera(file,readMode,featuresDir)
 {
   file >> rot_.angle() >> rot_.axis()(0) >> rot_.axis()(1) >> rot_.axis()(2);
   file >> C_(0) >> C_(1) >> C_(2);
@@ -376,9 +380,9 @@ StandardCameraRadial::StandardCameraRadial(const string& imgFilename)
   invRadParams_.fill(0.);
 }
 
-StandardCameraRadial::StandardCameraRadial(istream& file,ReadMode mode,
+StandardCameraRadial::StandardCameraRadial(istream& file,int readMode,
   const string& featuresDir)
-  : StandardCamera(file,mode,featuresDir)
+  : StandardCamera(file,readMode,featuresDir)
 {
   int n;
   file >> n >> radParams_[0] >> radParams_[1];
@@ -681,14 +685,14 @@ int Dataset::numCams() const
   return static_cast<int>(cams_.size());
 }
 
-void Dataset::writeASCII(const string& filename,Camera::WriteMode mode) const
+void Dataset::writeASCII(const string& filename,int camWriteMode) const
 {
   string featuresDir = joinPaths(dir_,"keys");
   _mkdir(featuresDir.c_str());
-  writeASCII(filename,mode,featuresDir);
+  writeASCII(filename,camWriteMode,featuresDir);
 }
 
-void Dataset::writeASCII(const string& filename,Camera::WriteMode mode,
+void Dataset::writeASCII(const string& filename,int camWriteMode,
   const string& featuresDir) const
 {
   string fn = joinPaths(dir(),filename);
@@ -722,7 +726,7 @@ void Dataset::writeASCII(const string& filename,Camera::WriteMode mode,
   for(int i = 0; i < numCams(); i++)
   {
     file << cam(i).className() << " id: " << i << "\n";
-    cam(i).writeASCII(file,mode,featuresDir);
+    cam(i).writeASCII(file,camWriteMode,featuresDir);
   }
 
   file << "points_\n";
@@ -747,14 +751,15 @@ void Dataset::writeASCII(const string& filename,Camera::WriteMode mode,
   file.close();
 }
 
-void Dataset::readASCII(const string& filename,Camera::ReadMode mode)
+void Dataset::readASCII(const string& filename,int camReadMode,
+  bool readKeyColorsOfReconstructedCams)
 {
   string featuresDir = joinPaths(dir_,"keys");
-  readASCII(filename,mode,featuresDir);
+  readASCII(filename,camReadMode,featuresDir,readKeyColorsOfReconstructedCams);
 }
 
-void Dataset::readASCII(const string& filename,Camera::ReadMode mode,
-  const string& featuresDir)
+void Dataset::readASCII(const string& filename,int camReadMode,
+  const string& featuresDir,bool readKeyColorsOfReconstructedCams)
 {
   string fn = joinPaths(dir(),filename);
   ifstream file(fn);
@@ -770,7 +775,7 @@ void Dataset::readASCII(const string& filename,Camera::ReadMode mode,
     if(s.empty())
     {
       continue;
-    }else if(s[0] == '#')
+    } else if(s[0] == '#')
     {
       getline(file,s);
       continue;
@@ -805,7 +810,7 @@ void Dataset::readASCII(const string& filename,Camera::ReadMode mode,
             string className;
             file >> className;
             getline(file,s);
-            cams_.push_back(CameraFactory::createInstance(className,file,mode,
+            cams_.push_back(CameraFactory::createInstance(className,file,camReadMode,
               featuresDir));
           }
         } else if(s == "points_")
@@ -858,6 +863,14 @@ void Dataset::readASCII(const string& filename,Camera::ReadMode mode,
     }
   }
   file.close();
+
+  if(readKeyColorsOfReconstructedCams)
+  {
+    for(int camIdx : reconstructedCams_)
+    {
+      cam(camIdx).readKeysColors();
+    }
+  }
 }
 
 const string& Dataset::dir() const { return dir_; }
@@ -876,9 +889,9 @@ Points& Dataset::points() { return points_; }
 CameraFactory::MapType* CameraFactory::map_;
 
 unique_ptr<Camera> CameraFactory::createInstance(const string& className,
-  istream& file,Camera::ReadMode mode,const string& featuresDir)
+  istream& file,int camReadMode,const string& featuresDir)
 {
-  return (*map_)[className](file,mode,featuresDir);
+  return (*map_)[className](file,camReadMode,featuresDir);
 }
 
 CameraFactory::MapType& CameraFactory::map()

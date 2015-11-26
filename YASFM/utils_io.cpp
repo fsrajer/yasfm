@@ -115,51 +115,42 @@ void getImgDims(const string& filename,int *width,int *height)
   ilDeleteImages(1,&imId);
 }
 
-/*
-void readFeatureColors(const string& dir,ICamera& cam,int *width,int *height)
+void readColors(const string& filename,const vector<Vector2d>& coord,
+  vector<Vector3uc> *pcolors)
 {
+  auto& colors = *pcolors;
+
   initDevIL();
 
   ILuint imId; // will be used to store image name
   ilGenImages(1,&imId); //this is what DevIL uses to keep track of image object
   ilBindImage(imId); // setting the current working image
 
-  ILboolean success = ilLoadImage((const ILstring)(joinPaths(dir,cam.imgFilename())).c_str());
+  ILboolean success = ilLoadImage((const ILstring)filename.c_str());
   if(success)
   {
-    if(width)
-      *width = ilGetInteger(IL_IMAGE_WIDTH);
+    int width = ilGetInteger(IL_IMAGE_WIDTH);
+    int height = ilGetInteger(IL_IMAGE_HEIGHT);
 
-    if(height)
-      *height = ilGetInteger(IL_IMAGE_HEIGHT);
-
-    Vector3uc col;
-    for(int i = 0; i < cam.nFeatures(); i++)
+    colors.resize(coord.size());
+    for(size_t i = 0; i < coord.size(); i++)
     {
-      int x = static_cast<int>(std::round(cam.feature(i).x()));
-      int y = static_cast<int>(std::round(cam.feature(i).y()));
+      int x = static_cast<int>(std::round(coord[i](0)));
+      int y = static_cast<int>(std::round(coord[i](1)));
+      x = std::min(width-1,std::max(0,x));
+      y = std::min(height-1,std::max(0,y));
       ilCopyPixels(
         x,y,0, // returned block offset
         1,1,1, // returned block size -> just 1 pixel
-        IL_RGB,IL_UNSIGNED_BYTE,col.data());
-
-      cam.feature(i).setColor(col);
+        IL_RGB,IL_UNSIGNED_BYTE,&colors[i](0));
     }
   } else
   {
-    cerr << "readFeatureColors: could not load image: " << cam.imgFilename() << "\n";
+    colors.clear();
+    cerr << "readColors: could not load image: " << filename << "\n";
   }
   ilDeleteImages(1,&imId);
 }
-
-void readFeatureColors(IDataset& dts)
-{
-  for(size_t i = 0; i < dts.cams().size(); i++)
-  {
-    yasfm::readFeatureColors(dts.dir(),*(dts.cams()[i]));
-  }
-}
-*/
 
 /*
 void writeImgFnsList(const string& listFilename,const ptr_vector<ICamera>& cams)
