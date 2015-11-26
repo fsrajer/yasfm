@@ -11,6 +11,7 @@
 #pragma once
 
 #include <string>
+#include <iostream>
 
 // VS2013 compiler gave many warnings about:
 // 1) conversion size_t <-> int
@@ -24,6 +25,7 @@
 
 #include "defines.h"
 
+using std::ostream;
 using std::string;
 
 namespace yasfm
@@ -49,6 +51,7 @@ struct OptionsSIFTGPU
   bool isSetDogLevelsInAnOctave() const;
   bool isSetDogThresh() const;
   bool isSetEdgeThresh() const;
+  YASFM_API void write(ostream& file) const;
 
   // Images larger than this will be downsampled. 
   // Negative value selects default: 3200.
@@ -77,6 +80,8 @@ struct OptionsFLANN
     onlyUniques = true;
   }
   bool filterByRatio() const;
+  YASFM_API void write(ostream& file) const;
+
   // What method to use for searching. See FLANN for more details.
   // Default is 4 randomized kd-trees.
   flann::IndexParams indexParams;
@@ -107,6 +112,9 @@ struct OptionsRANSAC
     minInliers(minInliers),confidence(confidence)
   {
   }
+  
+  YASFM_API void write(ostream& file) const;
+
   // Maximum number of iterations.
   int maxRounds;
   double errorThresh;
@@ -128,6 +136,9 @@ struct YASFM_API OptionsBundleAdjustment
     solverOptions.gradient_tolerance = 1e-3;
     robustify = false;
   }
+
+  void write(ostream& file) const;
+
   // Some of the interesting options: max_num_iterations, num_threads
   // function_tolerance, parameter_tolerance, gradient_tolerance,
   // minimizer_progress_to_stdout
