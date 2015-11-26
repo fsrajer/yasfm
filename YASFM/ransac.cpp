@@ -59,7 +59,8 @@ int sufficientNumberOfRounds(int nInliers,int nPoints,int sampleSize,
     return INT_MAX;
   } else
   {
-    return static_cast<int>(log(1. - confidence) / log(1. - q));
+    double nRounds = log(1. - confidence) / log(1. - q);
+    return static_cast<int>(std::min(nRounds,static_cast<double>(INT_MAX)));
   }
 }
 
