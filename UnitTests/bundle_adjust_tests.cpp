@@ -29,6 +29,7 @@ namespace yasfm_tests
       }
 
       vector<Vector3d> ptCoord(nPts);
+      vector<Vector3uc> colors(nPts);
       vector<SplitNViewMatch> matches(nPts);
       for(int ptIdx = 0; ptIdx < nPts; ptIdx++)
       {
@@ -42,7 +43,7 @@ namespace yasfm_tests
           cams[camIdx]->addFeature(p(0),p(1),&dummy);
         }
       }
-      pts.addPoints(ptCoord,matches);
+      pts.addPoints(ptCoord,colors,matches);
 
       double origErr = computeAverageReprojectionError(cams,pts);
 
@@ -97,6 +98,7 @@ namespace yasfm_tests
       }
 
       vector<Vector3d> ptCoord(nPts);
+      vector<Vector3uc> colors(nPts);
       vector<SplitNViewMatch> matches(nPts);
       for(int ptIdx = 0; ptIdx < nPts; ptIdx++)
       {
@@ -110,7 +112,7 @@ namespace yasfm_tests
           cams[camIdx]->addFeature(p(0),p(1),&dummy);
         }
       }
-      pts.addPoints(ptCoord,matches);
+      pts.addPoints(ptCoord,colors,matches);
 
       double origErr = computeAverageReprojectionError(cams,pts);
 

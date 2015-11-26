@@ -298,11 +298,12 @@ Matrix34d generateRandomProjection()
       P.rightCols(1) = -C;
 
       vector<Vector3d> ptCoord(1);
+      vector<Vector3uc> colors(1);
       ptCoord[0] = Vector3d::Random();
       vector<SplitNViewMatch> ptViews(1);
       ptViews[0].observedPart.emplace(0,0);
       ptViews[0].observedPart.emplace(1,0);
-      points.addPoints(ptCoord,ptViews);
+      points.addPoints(ptCoord,colors,ptViews);
 
       cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test0.JPG"));
       cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test1.JPG"));

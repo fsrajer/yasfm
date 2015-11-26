@@ -65,12 +65,13 @@ public:
     matches[1].emplace(1,1);
     matches[1].emplace(2,1);
     vector<Vector3d> coord(1);
+    vector<Vector3uc> colors(1);
     coord[0] = Vector3d::Random();
     IntPair camsIdxs(0,1);
     vector<int> matchesIdxs(1);
     matchesIdxs[0] = 0;
 
-    pts.addPoints(camsIdxs,matchesIdxs,coord);
+    pts.addPoints(camsIdxs,matchesIdxs,coord,colors);
 
     Assert::IsTrue(pts.matchesToReconstruct().size() == 1);
     Assert::IsTrue(pts.numPts() == 1);
@@ -89,7 +90,7 @@ public:
     views[0].observedPart.emplace(4,4);
     views[0].unobservedPart.emplace(5,5);
 
-    pts.addPoints(coord,views);
+    pts.addPoints(coord,colors,views);
 
     Assert::IsTrue(pts.numPts() == 2);
     Assert::IsTrue(pts.ptCoord()[1] == coord[0]);

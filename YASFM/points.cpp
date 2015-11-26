@@ -124,7 +124,8 @@ void reconstructPoints(const IntPair& camsIdxs,const Camera& cam1,const Camera& 
 
     isInFrontOfBoth[i] = isInFrontNormalizedP(Rt1,pt) && isInFront(Rt2,pt);
 
-    colors[i] = cam1.keyColor(key1Idx);
+    if(!cam1.keysColors().empty())
+      colors[i] = cam1.keyColor(key1Idx);
   }
 
   vector<int> nViewMatchIdxsFiltered = nViewMatchIdxs;
@@ -177,7 +178,8 @@ void reconstructPoints(const ptr_vector<Camera>& cams,
     }
 
     const auto& camKey = *(match.observedPart.begin());
-    colors[iMatch] = cams[camKey.first]->keyColor(camKey.second);
+    if(!cams[camKey.first]->keysColors().empty())
+      colors[iMatch] = cams[camKey.first]->keyColor(camKey.second);
   }
 
   vector<SplitNViewMatch> matchesToReconstructFiltered = matchesToReconstruct;

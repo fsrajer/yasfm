@@ -73,12 +73,12 @@ namespace yasfm_tests
       Matrix34d _P;
       vector<int> inliers;
       resectCamera5AndHalfPtRANSAC(opt,matches,keys,pts,&_P,&inliers);
-      Assert::IsTrue(inliers.size() > opt.minInliers_ || inliers.empty());
+      Assert::IsTrue(inliers.size() > opt.minInliers || inliers.empty());
 
       for(int i : inliers)
       {
         Vector3d proj = _P * pts[i].homogeneous();
-        Assert::IsTrue((proj.hnormalized() - keys[i]).norm() < opt.errorThresh_);
+        Assert::IsTrue((proj.hnormalized() - keys[i]).norm() < opt.errorThresh);
       }
     }
 

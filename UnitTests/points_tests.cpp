@@ -332,8 +332,9 @@ namespace yasfm_tests
 
       matches.clear();
       vector<Vector3d> coord(5);
+      vector<Vector3uc> colors(coord.size());
       vector<SplitNViewMatch> views(5);
-      pts.addPoints(coord,views);
+      pts.addPoints(coord,colors,views);
       findCamToSceneMatches(ignore,n,pts,&matches);
       Assert::IsTrue(matches.size() == 1);
       Assert::IsTrue(matches[0].empty());
@@ -343,7 +344,7 @@ namespace yasfm_tests
       views[0].observedPart.emplace(0,0);
       views[0].unobservedPart.emplace(1,0);
       views[0].unobservedPart.emplace(2,0);
-      pts.addPoints(coord,views);
+      pts.addPoints(coord,colors,views);
       findCamToSceneMatches(ignore,n,pts,&matches);
       Assert::IsTrue(matches.size() == 3);
       Assert::IsTrue(matches[0].empty());
@@ -373,6 +374,7 @@ namespace yasfm_tests
       }
 
       vector<Vector3d> coord(2);
+      vector<Vector3uc> colors(coord.size());
       vector<SplitNViewMatch> views(2);
       for(int i = 0; i < (int)coord.size(); i++)
       {
@@ -391,7 +393,7 @@ namespace yasfm_tests
       p(0) += 100;
       cams[1]->addFeature(p(0),p(1),&dummy);
       views[1].unobservedPart.emplace(11,1);
-      pts.addPoints(coord,views);
+      pts.addPoints(coord,colors,views);
 
       removeHighReprojErrorPoints(avgReprojErrThresh,cams,&pts);
       Assert::IsTrue(pts.numPts() == 1);
