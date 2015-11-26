@@ -82,7 +82,7 @@ public:
   YASFM_API OptionsRANSAC(int ransacRounds, double errorThresh,
     int minInliers);
   YASFM_API OptionsRANSAC(int ransacRounds,double errorThresh,
-    int minInliers,double inliersEnough);
+    int minInliers,double confidence);
   int ransacRounds_;
   double errorThresh_;
   int minInliers_;

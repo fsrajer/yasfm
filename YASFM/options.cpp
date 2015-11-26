@@ -41,15 +41,15 @@ OptionsRANSAC::OptionsRANSAC(int ransacRounds,double errorThresh,
 }
 
 OptionsRANSAC::OptionsRANSAC(int ransacRounds,double errorThresh,
-  int minInliers,double inliersEnough)
+  int minInliers,double confidence)
   : ransacRounds_(ransacRounds),errorThresh_(errorThresh),
-  minInliers_(minInliers),confidence_(confidence_)
+  minInliers_(minInliers),confidence_(confidence)
 {
 }
 
 Options::Options() 
   : ccdDBFilename_("../resources/camera_ccd_widths.txt"),sift_(),
-  matchingFLANN_(),geometricVerification_(2048,sqrt(5.),16),absolutePose_(4096,4.,16),
+  matchingFLANN_(),geometricVerification_(2048,sqrt(5.),16),absolutePose_(4096,4.,16,0.95),
   relativePose_(512,1.25,10),homography_(256,5.,10),verbosityLevel_(1),
   minNumMatches_(16),
   wellMatchedCamsFactor_(0.75),minNumCam2SceneMatches_(16),

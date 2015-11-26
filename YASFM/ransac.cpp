@@ -46,13 +46,15 @@ void generateRandomIndices(int numToGenerate,int numOverall,vector<int>& idxs)
 int sufficientNumberOfRounds(int nInliers,int nPoints,int sampleSize,
   double confidence)
 {
+  if(confidence == 1.)
+    return INT_MAX;
   double _nInliers = nInliers;
   double q = 1.;
   for(int i = 0; i < sampleSize; i++)
   {
     q *= static_cast<double>(nInliers - i) / (nPoints - i);
   }
-  if(q <= 0.)
+  if(q <= std::numeric_limits<double>::epsilon())
   {
     return INT_MAX;
   } else
