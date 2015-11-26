@@ -77,12 +77,12 @@ int main(int argc, const char* argv[])
 
   matchFeatFLANN(opt.matchingFLANN_,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumMatches_,&data.pairs());
-  data.clearDescriptors();
 
   verifyMatchesGeometrically(opt,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumMatches_,&data.pairs());
 
   data.writeASCII("matched.txt",Camera::WriteMode::ConvertNormalizedSIFTToUint);
+  data.clearDescriptors();
   */
   data.readASCII("matched.txt",Camera::ReadMode::SkipDescriptors);
 
