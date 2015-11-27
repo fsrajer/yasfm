@@ -97,24 +97,30 @@ struct Options
   void write(const string& filename) const;
 };
 
-int main(int argc, const char* argv[])
+void runSFM(const Options& opt,const string& outDir,
+  const vector<bool>& isCalibrated,const ArrayXXd& homographyScores,
+  uset<int> *exploredCams,Dataset *data);
+
+int main(int argc,const char* argv[])
 {
   Options opt;
   opt.bundleAdjust.solverOptions.num_threads = 8;
   if(argc >= 4)
-    opt.sift.firstOctave = atoi(argv[3]);  
+    opt.sift.firstOctave = atoi(argv[3]);
 
   string dir(argv[1]);
   string imgsSubdir(argv[2]);
+  string outDir = joinPaths(dir,"yasfm");
+  _mkdir(outDir.c_str());
 
   opt.write(joinPaths(dir,"options.txt"));
 
   Dataset data(dir);
-  /*_mkdir(joinPaths(dir,"yasfm").c_str());
-  data.addCameras<StandardCameraRadial>(imgsSubdir);
+  
+  /*data.addCameras<StandardCameraRadial>(imgsSubdir);
   // -> the principal point is always set to the
   // image center in StandardCamera
- 
+
   // Initialize calibration for every camera
   vector<double> focals(data.cams().size());
   findFocalLengthInEXIF(opt.ccdDBFilename,data.cams(),&focals);
@@ -140,7 +146,7 @@ int main(int argc, const char* argv[])
 
   verifyMatchesGeometrically(opt.geometricVerification,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumPairwiseMatches,&data.pairs());
-  
+
   data.writeASCII("matched.txt",Camera::WriteNoFeatures);
   data.clearDescriptors();
   */
@@ -156,7 +162,7 @@ int main(int argc, const char* argv[])
     &data.points().matchesToReconstruct());
   cout << "found " << data.points().matchesToReconstruct().size() << "\n";
   data.pairs().clear(); // No need for 2 view matches anymore.
-  
+
   vector<bool> isCalibrated(data.numCams(),false);
   for(int i = 0; i < data.numCams(); i++)
   {
@@ -164,7 +170,6 @@ int main(int argc, const char* argv[])
     isCalibrated[i] = cam->f() > 0.;
   }
 
-  double minPairScore = 1. / opt.minInitPairHomographyProportion;
   ArrayXXd homographyScores(homographyProportion.rows(),homographyProportion.cols());
   for(int c = 0; c < homographyProportion.cols(); c++)
   {
@@ -177,14 +182,55 @@ int main(int argc, const char* argv[])
     }
   }
 
+  int modelId = 0;
+  uset<int> exploredCams;
+  while(data.cams().size() - exploredCams.size() >= 2)
+  {
+    size_t nExploredPrev = exploredCams.size();
+    string appendix = "model" + std::to_string(modelId);
+    string currOutDir = joinPaths(outDir,appendix);
+    _mkdir(currOutDir.c_str());
+
+    Dataset currData = data;
+    runSFM(opt,currOutDir,isCalibrated,homographyScores,&exploredCams,&currData);
+
+    if(nExploredPrev >= exploredCams.size())
+      break;
+
+    writeSFMBundlerFormat(joinPaths(currData.dir(),"bundle_final_" + appendix + ".out"),
+      currData);
+    currData.writeASCII("final_" + appendix + ".txt",Camera::WriteNoFeatures);
+    modelId++;
+  }
+
+  cout << "\n"
+    << "Final report:\n"
+    << "  " << modelId << " models reconstructed.\n"
+    << "  " << data.cams().size() - exploredCams.size()
+    << " out of " << data.cams().size() << " cameras left unexplored.\n";
+}
+
+void runSFM(const Options& opt,const string& outDir,
+  const vector<bool>& isCalibrated,const ArrayXXd& homographyScores,
+  uset<int> *pexploredCams,Dataset *pdata)
+{
+  auto& exploredCams = *pexploredCams;
+  auto& data = *pdata;
+
+  double minPairScore = 1. / opt.minInitPairHomographyProportion;
+
   cout << "Choosing initial pair ... ";
-  IntPair initPair = chooseInitialCameraPair(opt.minNumPairwiseMatches,minPairScore,
-    isCalibrated,data.points().matchesToReconstruct(),homographyScores);
+  IntPair initPair = chooseInitialCameraPair(opt.minNumPairwiseMatches,
+    minPairScore,isCalibrated,exploredCams,
+    data.points().matchesToReconstruct(),homographyScores);
   cout << "[" << initPair.first << "," << initPair.second << "]\n";
-    
+
   if(initPair.first < 0 || initPair.second < 0)
-    return EXIT_FAILURE;
-    
+  {
+    cerr << "runSFM: No good pairs for initialization\n";
+    return;
+  }
+
   if(isCalibrated[initPair.first] && isCalibrated[initPair.second])
   {
     initReconstructionFromCalibratedCamPair(opt.initialPairRelativePose,
@@ -197,7 +243,6 @@ int main(int argc, const char* argv[])
 
   bundleAdjust(opt.bundleAdjust,&data.cams(),&data.points());
 
-  uset<int> exploredCams;
   exploredCams.insert(initPair.first);
   exploredCams.insert(initPair.second);
   while(data.cams().size() > exploredCams.size())
@@ -216,7 +261,7 @@ int main(int argc, const char* argv[])
     {
       exploredCams.insert(camIdx);
       vector<int> inliers;
-      cout << "Trying to resect camera " << camIdx << " using " << 
+      cout << "Trying to resect camera " << camIdx << " using " <<
         camToSceneMatches[camIdx].size() << " matches ... ";
       //bool success = resectCamera5AndHalfPtRANSAC(opt.absolutePose_,camToSceneMatches[camIdx],
       //  data.points().ptCoord(),&data.cam(camIdx),&inliers);
@@ -263,19 +308,16 @@ int main(int argc, const char* argv[])
         << "  " << data.countReconstructedObservations() << " observations\n";
       bundleAdjust(opt.bundleAdjust,&data.cams(),&data.points());
       removeHighReprojErrorPoints(opt.pointsReprojErrorThresh,data.cams(),&data.points());
-      cout << "Removing " << prevPts-data.points().numPts() 
+      cout << "Removing " << prevPts-data.points().numPts()
         << " points with high reprojection error\n";
     } while(prevPts > data.points().numPts());
 
     removeIllConditionedPoints(0.5*opt.rayAngleThresh,data.cams(),&data.points());
     cout << "Removing " << prevPts-data.points().numPts() << " ill conditioned points\n";
 
-    writeSFMBundlerFormat(joinPaths(data.dir(),"yasfm/bundle" + 
+    writeSFMBundlerFormat(joinPaths(outDir,"bundle" +
       std::to_string(exploredCams.size()) + ".out"),data);
   }
-
-  writeSFMBundlerFormat(joinPaths(data.dir(),"bundle_final.out"),data);
-  data.writeASCII("out.txt",Camera::WriteNoFeatures);
 }
 
 void Options::write(const string& filename) const

@@ -54,7 +54,7 @@ namespace yasfm_tests
       string fn = joinPaths(YASFM_UNIT_TESTS_DIR,"test0.JPG");
       string db = "../resources/camera_ccd_widths.txt";
       Camera cam(fn);
-      double f = findFocalLengthInEXIF(db,cam);
+      double f = findFocalLengthInEXIF(db,cam,false);
       Assert::IsTrue(f == 2441.0003935338095);
     }
 

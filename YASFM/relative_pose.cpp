@@ -26,24 +26,25 @@ namespace yasfm
 {
 
 IntPair chooseInitialCameraPair(int minMatches,int nCams,
-  const vector<NViewMatch>& nViewMatches)
+  const uset<int>& camsToIgnore,const vector<NViewMatch>& nViewMatches)
 {
   vector<bool> isCalibrated(nCams,false);
-  return chooseInitialCameraPair(minMatches,isCalibrated,nViewMatches);
+  return chooseInitialCameraPair(minMatches,isCalibrated,camsToIgnore,nViewMatches);
 }
 
 IntPair chooseInitialCameraPair(int minMatches,
-  const vector<bool>& isCalibrated,const vector<NViewMatch>& nViewMatches)
+  const vector<bool>& isCalibrated,const uset<int>& camsToIgnore,
+  const vector<NViewMatch>& nViewMatches)
 {
   ArrayXXd scores(ArrayXXd::Zero(isCalibrated.size(),isCalibrated.size()));
   double minScore = -1.;
-  return chooseInitialCameraPair(minMatches,minScore,isCalibrated,nViewMatches,
-    scores);
+  return chooseInitialCameraPair(minMatches,minScore,isCalibrated,camsToIgnore,
+    nViewMatches,scores);
 }
 
 IntPair chooseInitialCameraPair(int minMatches,double minScore,
-  const vector<bool>& isCalibrated,const vector<NViewMatch>& nViewMatches,
-  const ArrayXXd& scores)
+  const vector<bool>& isCalibrated,const uset<int>& camsToIgnore,
+  const vector<NViewMatch>& nViewMatches,const ArrayXXd& scores)
 {
   size_t nCams = isCalibrated.size();
   ArrayXXi numMatches(ArrayXXi::Zero(nCams,nCams));
@@ -63,17 +64,18 @@ IntPair chooseInitialCameraPair(int minMatches,double minScore,
       }
     }
   }
-  return chooseInitialCameraPair(minMatches,minScore,isCalibrated,numMatches,
-    scores);
+  return chooseInitialCameraPair(minMatches,minScore,isCalibrated,camsToIgnore,
+    numMatches,scores);
 }
 
 IntPair chooseInitialCameraPair(int minMatches,double minScore,
-  const vector<bool>& isCalibrated,const ArrayXXi& numMatches,const ArrayXXd& scores)
+  const vector<bool>& isCalibrated,const uset<int>& camsToIgnore,
+  const ArrayXXi& numMatches,const ArrayXXd& scores)
 {
   int nCams = static_cast<int>(isCalibrated.size());
   uset<int> camsToUse;
   for(int i = 0; i < nCams; i++)
-    if(isCalibrated[i])
+    if(isCalibrated[i] && camsToIgnore.count(i) == 0)
       camsToUse.insert(i);
 
   IntPair best = chooseInitialCameraPair(minMatches,minScore,camsToUse,
@@ -82,7 +84,7 @@ IntPair chooseInitialCameraPair(int minMatches,double minScore,
   if(best.first == -1 || best.second == -1)
   {
     for(int i = 0; i < nCams; i++)
-      if(!isCalibrated[i])
+      if(!isCalibrated[i]  && camsToIgnore.count(i) == 0)
         camsToUse.insert(i);
 
     best = chooseInitialCameraPair(minMatches,minScore,camsToUse,

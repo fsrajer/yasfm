@@ -34,25 +34,27 @@ namespace yasfm
 
 // Find camera pair with the most matches. Returns (-1,-1) when there are no good matches.
 YASFM_API IntPair chooseInitialCameraPair(int minMatches,int nCams,
-  const vector<NViewMatch>& nViewMatches);
+  const uset<int>& camsToIgnore,const vector<NViewMatch>& nViewMatches);
 
 // First try to find calibrated pair and if not found then try to find any camera pair.
 // Returns (-1,-1) when there are no good matches.
 YASFM_API IntPair chooseInitialCameraPair(int minMatches,
-  const vector<bool>& isCalibrated,const vector<NViewMatch>& nViewMatches);
+  const vector<bool>& isCalibrated,const uset<int>& camsToIgnore,
+  const vector<NViewMatch>& nViewMatches);
 
 // First try to find a calibrated camera pair and if not found then try to find
 // any camera pair.
 // Returns (-1,-1) when there are no good matches.
 YASFM_API IntPair chooseInitialCameraPair(int minMatches,double minScore,
-  const vector<bool>& isCalibrated,const vector<NViewMatch>& nViewMatches,
-  const ArrayXXd& scores);
+  const vector<bool>& isCalibrated,const uset<int>& camsToIgnore,
+  const vector<NViewMatch>& nViewMatches,const ArrayXXd& scores);
 
 // First try to find a calibrated camera pair and if not found then try to find
 // any camera pair.
 // Returns (-1,-1) when there are no good matches.
 YASFM_API IntPair chooseInitialCameraPair(int minMatches,double minScore,
-  const vector<bool>& isCalibrated,const ArrayXXi& numMatches,const ArrayXXd& scores);
+  const vector<bool>& isCalibrated,const uset<int>& camsToIgnore,
+  const ArrayXXi& numMatches,const ArrayXXd& scores);
 
 // First try to find a camera pair with maximum matches and at least minimum 
 // score and if none exists then try to find a camera pair with at least 
