@@ -76,7 +76,7 @@ void listFilenames(const string& dir,
     closedir(dirReadable);
   } else
   {
-    cerr << "listFilenames: could not open dir: " << dir << "\n";
+    cerr << "ERROR: listFilenames: Could not open dir: " << dir << "\n";
   }
 }
 
@@ -110,7 +110,7 @@ void getImgDims(const string& filename,int *width,int *height)
       *height = ilGetInteger(IL_IMAGE_HEIGHT);
   } else
   {
-    cerr << "getImgDims: could not load image: " << filename << "\n";
+    cerr << "ERROR: getImgDims: Could not load image: " << filename << "\n";
   }
   ilDeleteImages(1,&imId);
 }
@@ -147,7 +147,7 @@ void readColors(const string& filename,const vector<Vector2d>& coord,
   } else
   {
     colors.clear();
-    cerr << "readColors: could not load image: " << filename << "\n";
+    cerr << "ERROR: readColors: could not load image: " << filename << "\n";
   }
   ilDeleteImages(1,&imId);
 }
@@ -197,20 +197,27 @@ void writeFeatsFnsList(const string& listFilename,const IDataset& dts)
 void findFocalLengthInEXIF(const string& ccdDBFilename,const ptr_vector<Camera>& cams,
   vector<double> *focals)
 {
+  findFocalLengthInEXIF(ccdDBFilename,cams,true,focals);
+}
+
+void findFocalLengthInEXIF(const string& ccdDBFilename,const ptr_vector<Camera>& cams,
+  bool verbose,vector<double> *focals)
+{
   focals->resize(cams.size());
   for(size_t i = 0; i < cams.size(); i++)
   {
-    cout << "searching for focal of img " << i << "\n";
-    (*focals)[i] = findFocalLengthInEXIF(ccdDBFilename,*cams[i]);
+    if(verbose)
+      cout << "searching for focal of img " << i << "\n";
+    (*focals)[i] = findFocalLengthInEXIF(ccdDBFilename,*cams[i],verbose);
   }
 }
-double findFocalLengthInEXIF(const string& ccdDBFilename,const Camera& cam)
+double findFocalLengthInEXIF(const string& ccdDBFilename,const Camera& cam,bool verbose)
 {
   return findFocalLengthInEXIF(ccdDBFilename,cam.imgFilename(),
-    std::max<int>(cam.imgWidth(),cam.imgHeight()));
+    std::max<int>(cam.imgWidth(),cam.imgHeight()),verbose);
 }
 double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilename,
-  int maxImgDim)
+  int maxImgDim,bool verbose)
 {
   jhead::ResetJpgfile();
   jhead::ImageInfo = jhead::ImageInfo_t();
@@ -218,12 +225,14 @@ double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilena
 
   if(jhead::ImageInfo.FocalLength == 0.f)
   {
-    cout << "  focal [mm] not found in EXIF\n";
+    if(verbose)
+      cout << "  focal [mm] not found in EXIF\n";
     return 0.;
   } else
   {
     double focalMM = jhead::ImageInfo.FocalLength;
-    cout << "  focal [mm] found in EXIF\n";
+    if(verbose)
+      cout << "  focal [mm] found in EXIF\n";
 
     string cameraMake(jhead::ImageInfo.CameraMake);
     string cameraModel(jhead::ImageInfo.CameraModel);
@@ -231,23 +240,30 @@ double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilena
     if(CCDWidth == 0.)
     {
       CCDWidth = jhead::ImageInfo.CCDWidth;
-      cout << "  ccd width not found in DB\n";
-      if(CCDWidth > 0.)
-        cout << "  ccd width computed from EXIF\n";
-    } else
+      if(verbose)
+      {
+        cout << "  ccd width not found in DB\n";
+        if(CCDWidth > 0.)
+          cout << "  ccd width computed from EXIF\n";
+      }
+    } else if(verbose)
     {
       cout << "  ccd width found in DB\n";
     }
 
     if(CCDWidth == 0.)
     {
-      cout << "  ccd width not computed from EXIF\n";
-      cout << "  unable to compute focal [px]\n";
+      if(verbose)
+      {
+        cout << "  ccd width not computed from EXIF\n";
+        cout << "  unable to compute focal [px]\n";
+      }
       return 0.;
     } else
     {
       double focalPX = ((double)maxImgDim) * (focalMM / CCDWidth);
-      cout << "  focal [px] computed: " << focalPX << "\n";
+      if(verbose)
+        cout << "  focal [px] computed: " << focalPX << "\n";
       return focalPX;
     }
   }
@@ -595,7 +611,7 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
   ofstream out(filename);
   if(!out.is_open())
   {
-    cerr << "writeSFMBundlerFormat: unable to open: " << filename << " for writing\n";
+    cerr << "ERROR: writeSFMBundlerFormat: unable to open: " << filename << " for writing\n";
     return;
   }
   out << "# Bundle file v0.3\n";
@@ -790,7 +806,7 @@ double findCCDWidthInDB(const string& dbFilename,const string& cameraMake,const 
   ifstream file(dbFilename);
   if(!file.is_open())
   {
-    cout << "error: could not open file: " << dbFilename << "\n";
+    cerr << "ERROR: could not open file: " << dbFilename << "\n";
     return 0.;
   }
   string makeModel = cameraMake + " " + cameraModel;

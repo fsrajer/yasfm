@@ -48,7 +48,12 @@ void resectCamera5AndHalfPt(const vector<Vector2d>& keys,const vector<Vector3d>&
 {
   const size_t minPts = 6;
   if(camToSceneMatches.size() < minPts)
+  {
+    cerr << "ERROR: resectCamera5AndHalfPt: "
+      << "Cannot estimate transform. " << camToSceneMatches.size()
+      << " points given, but 6 needed.\n";
     return;
+  }
 
   MatrixXd Ms[2];
   Ms[0].resize(11,12);
@@ -111,10 +116,6 @@ bool resectCamera6ptLSRANSAC(const OptionsRANSAC& opt,
 void resectCameraLS(const vector<Vector2d>& keys,const vector<Vector3d>& points,
   const vector<IntPair>& camToSceneMatches,Matrix34d *pP)
 {
-  const size_t minPts = 6;
-  if(camToSceneMatches.size() < minPts)
-    return;
-
   MatrixXd A(MatrixXd::Zero(2 * camToSceneMatches.size(),11));
   VectorXd b(VectorXd::Zero(2 * camToSceneMatches.size()));
 

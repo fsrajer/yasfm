@@ -97,6 +97,8 @@ YASFM_API void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
 // which are inliers to the fundamental matrix are kept. (as well as
 // corresponding dists.
 YASFM_API void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt, 
+  bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs);
+YASFM_API void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt,
   const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs);
 
 // Robust estimator, which finds such a fundamental matrix that

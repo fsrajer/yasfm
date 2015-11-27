@@ -90,8 +90,10 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   auto& M = *pM;
   if(nMatches < minMatches)
   {
-    cerr << "estimateTransformRANSAC: cannot estimate transformation (too few points)\n";
+    cerr << "ERROR: estimateTransformRANSAC: " 
+      << "cannot estimate transformation (too few points)\n";
     M.setZero();
+    inliers->clear();
     return -1;
   }
 
@@ -136,6 +138,8 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     return maxInliers;
   } else
   {
+    M.setZero();
+    inliers->clear();
     return 0;
   }
 }
@@ -150,8 +154,10 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   auto& M = *pM;
   if(nMatches < minMatches)
   {
-    cerr << "estimateTransformPROSAC: cannot estimate transformation (too few points)\n";
+    cerr << "ERROR: estimateTransformPROSAC: "
+      << "cannot estimate transformation (too few points)\n";
     M.setZero();
+    inliers->clear();
     return -1;
   }
 
@@ -224,6 +230,8 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     return maxInliers;
   } else
   {
+    M.setZero();
+    inliers->clear();
     return 0;
   }
 }
@@ -233,6 +241,11 @@ int findInliers(const MediatorRANSAC<MatType>& m,const MatType& M,
   double errSqThresh,vector<int> *inliers)
 {
   int nInliers = 0;
+  if(inliers)
+  {
+    inliers->clear();
+    inliers->reserve(m.numMatches());
+  }
   for(int i = 0; i < m.numMatches(); i++)
   {
     double sqErr = m.computeSquaredError(M,i);

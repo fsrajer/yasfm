@@ -70,7 +70,6 @@ IntPair chooseInitialCameraPair(int minMatches,double minScore,
 IntPair chooseInitialCameraPair(int minMatches,double minScore,
   const vector<bool>& isCalibrated,const ArrayXXi& numMatches,const ArrayXXd& scores)
 {
-  cout << "Choosing initial pair ... ";
   int nCams = static_cast<int>(isCalibrated.size());
   uset<int> camsToUse;
   for(int i = 0; i < nCams; i++)
@@ -89,8 +88,6 @@ IntPair chooseInitialCameraPair(int minMatches,double minScore,
     best = chooseInitialCameraPair(minMatches,minScore,camsToUse,
       numMatches,scores);
   }
-
-  cout << "[" << best.first << "," << best.second << "]\n";
   return best;
 }
 
@@ -154,8 +151,13 @@ void initReconstructionFromCamPair(const OptionsRANSAC& solverOpt,
     F2Ps(F,&P1);
     cam0.setParams(Matrix34d::Identity());
     cam1.setParams(P1);
+
+    cout << "Reconstructing " << nViewMatchesIdxs.size() << " points\n";
     reconstructPoints(initPair,cam0,cam1,nViewMatchesIdxs,&data->points());
+
     removeHighReprojErrorPoints(pointsReprojErrorThresh,data->cams(),&data->points());
+    cout << "Removing " << nViewMatchesIdxs.size()-data->points().numPts()
+      << " points with high reprojection error\n";
   } else
   {
     cout << "unsuccessful\n";
@@ -192,8 +194,12 @@ void initReconstructionFromCalibratedCamPair(const OptionsRANSAC& solverOpt,
     cam1.setRotation(R);
     cam1.setC(C);
 
+    cout << "Reconstructing " << nViewMatchesIdxs.size() << " points\n";
     reconstructPoints(initPair,cam0,cam1,nViewMatchesIdxs,&data->points());
+
     removeHighReprojErrorPoints(pointsReprojErrorThresh,data->cams(),&data->points());
+    cout << "Removing " << nViewMatchesIdxs.size()-data->points().numPts()
+      << " points with high reprojection error\n";
   } else
   {
     cout << "unsuccessful\n";
@@ -314,7 +320,7 @@ void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
       *C = -Rb.transpose()*tb;
     } else
     {
-      cout << "E2RC: error: none of the 4 decompositions is good\n";
+      cerr << "ERROR: E2RC: None of the 4 decompositions is good\n";
       return;
     }
   }
@@ -323,14 +329,24 @@ void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
 void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt,
   const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
 {
+  verifyMatchesGeometrically(solverOpt,true,cams,pairs);
+}
+
+void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt,
+  bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
+{
+  clock_t start,end;
   for(auto it = pairs->begin(); it != pairs->end();)
   {
     IntPair camsIdx = it->first;
     auto &pair = it->second;
 
-    cout << "verifying: " << camsIdx.first << " -> " << camsIdx.second << "\t";
-    cout << pair.matches.size();
-    clock_t start = clock();
+    if(verbose)
+    {
+      cout << "verifying: " << camsIdx.first << " -> " << camsIdx.second << "\t";
+      cout << pair.matches.size();
+      start = clock();
+    }
 
     Matrix3d F;
     vector<int> inliers;
@@ -346,9 +362,12 @@ void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt,
       it = pairs->erase(it);
     }
 
-    clock_t end = clock();
-    cout << "->" << inliers.size() << " matches" << "\t";
-    cout << "took: " << (double)(end - start) / (double)CLOCKS_PER_SEC << "s\n";
+    if(verbose)
+    {
+      end = clock();
+      cout << "->" << inliers.size() << " matches" << "\t";
+      cout << "took: " << (double)(end - start) / (double)CLOCKS_PER_SEC << "s\n";
+    }
   }
 }
 
@@ -377,7 +396,13 @@ void estimateRelativePose7pt(const vector<Vector2d>& keys1,const vector<Vector2d
 {
   const size_t minPts = 7;
   if(matches.size() < minPts)
+  {
+    cerr << "ERROR: estimateRelativePose7pt: "
+      << "Cannot estimate transformation. " << matches.size()
+      << " matches given but 7 needed.\n";
+    pFs->clear();
     return;
+  }
 
   // The equation pt1'*F*pt2 = 0 rewritten, i.e. one row
   // corresponds to this equation for one pair of points. 
@@ -464,6 +489,14 @@ void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
   const vector<Vector3d>& pts2Norm,const vector<IntPair>& matches,
   vector<Matrix3d> *pEs)
 {
+  if(matches.size() < 5)
+  {
+    cerr << "ERROR: estimateRelativePose5pt: "
+      << "Cannot estimate transformation. " << matches.size()
+      << " matches given but 5 needed.\n";
+    pEs->clear();
+    return;
+  }
   auto& Es = *pEs;
   double matchedPts1[5][3],matchedPts2[5][3];
   for(size_t i = 0; i < 5; i++)
@@ -538,9 +571,11 @@ void estimateHomographyMinimal(const vector<Vector2d>& pts1,const vector<Vector2
 {
   if(matches.size() < 4)
   {
-    cout << "estimateHomography: Cannot estimate homography from " <<
-      matches.size() << " matches\n";
+    cerr << "ERROR: estimateHomographyMinimal: "
+      << "Cannot estimate homography. " << matches.size() 
+      << " matches given but 4 needed.\n";
     H->setZero();
+    return;
   }
 
   MatrixXd A(MatrixXd::Zero(8,9));

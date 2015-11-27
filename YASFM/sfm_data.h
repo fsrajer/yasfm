@@ -145,7 +145,9 @@ private:
   vector<Vector3uc> keysColors_;
   ArrayXXf descr_; // descriptors; column is one descriptor
 
-  static CameraRegister<Camera> reg_;
+  // Every subclass has to have this to be registered.
+  // (Necessary to be readible from a file).
+  static CameraRegister<Camera> reg_; 
 };
 
 // Standard camera with parameters the following parameters:
@@ -234,6 +236,8 @@ private:
 
   static const int nParams_ = 7;
 
+  // Every subclass has to have this to be registered.
+  // (Necessary to be readible from a file).
   static CameraRegister<StandardCamera> reg_;
 };
 
@@ -300,6 +304,8 @@ private:
     double keyX_,keyY_;
   };
 
+  // Every subclass has to have this to be registered.
+  // (Necessary to be readible from a file).
   static CameraRegister<StandardCameraRadial> reg_;
 };
 
@@ -385,6 +391,7 @@ public:
   YASFM_API void markCamAsReconstructed(int camIdx,
     const vector<int>& correspondingPoints,
     const vector<int>& correspondingPointsInliers);
+  YASFM_API int countReconstructedObservations() const;
   // Write out.
   YASFM_API void writeASCII(const string& filename,int camWriteMode) const;
   YASFM_API void writeASCII(const string& filename,int camWriteMode,

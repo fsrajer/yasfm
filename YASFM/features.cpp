@@ -144,7 +144,7 @@ void SiftGPUAutoMemRelease::setParams(const OptionsSIFTGPU& opt)
     opts.push_back("1");
   }
   opts.push_back("-v");
-  opts.push_back(to_string(1)); // verbosity
+  opts.push_back(to_string(opt.verbosityLevel));
 
   char **argv = new char*[opts.size()];
   for(size_t i = 0; i < opts.size(); i++)
@@ -168,7 +168,7 @@ bool SiftGPUAutoMemRelease::initialize(const OptionsSIFTGPU& opt,int maxWidth,in
 
   if(sift->CreateContextGL() != SiftGPU::SIFTGPU_FULL_SUPPORTED)
   {
-    cerr << "detectSiftGPU: could not create OpenGL context\n";
+    cerr << "ERROR: SiftGPUAutoMemRelease::initialize: Could not create OpenGL context.\n";
     return false;
   }
 

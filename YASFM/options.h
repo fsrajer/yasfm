@@ -37,6 +37,7 @@ struct OptionsSIFTGPU
   {
     firstOctave = -1;
     detectUprightSIFT = false;
+    verbosityLevel = 1;
 
     // let SIFTGPU autoselect these
     maxWorkingDimension = -1;
@@ -68,6 +69,11 @@ struct OptionsSIFTGPU
   float edgeThresh;
   // Only one fixed orientation per keypoint location. Default: false.
   bool detectUprightSIFT;
+  // 0,no output at all,except errors 
+  // 1,print out over all timing and features numbers 
+  // 2,print out timing for each steps 
+  // 3/4,print out timing for each octaves/ levels
+  int verbosityLevel;
 };
 
 struct OptionsFLANN
@@ -78,6 +84,7 @@ struct OptionsFLANN
     searchParams = flann::SearchParams();
     ratioThresh = 0.8f;
     onlyUniques = true;
+    verbose = true;
   }
   bool filterByRatio() const;
   YASFM_API void write(ostream& file) const;
@@ -95,6 +102,7 @@ struct OptionsFLANN
   // different features in feats1 matched to the same feature in feats2
   // Default is true.
   bool onlyUniques;
+  bool verbose;
 };
 
 struct OptionsRANSAC

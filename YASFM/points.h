@@ -25,14 +25,6 @@ using namespace yasfm;
 namespace yasfm
 {
 
-// Chooses color of points based on features which are associated with 
-// a given point, are in addedCams. Result has the same size as number 
-// of points but masked ones will be omitted.
-//YASFM_API void findPointColors(const vector<int>& points2tracks, const vector<bool>& pointsMask,
-//  const vector<NViewMatch>& tracks,const ptr_vector<ICamera>& cams,
-//  const unordered_set<int>& addedCams, vector<Vector3uc>& pointsColors);
-//YASFM_API void findPointColors(const IDataset& dts, vector<Vector3uc>& pointsColors);
-
 // A word of warning, if you have been matching features
 // in both directions. E.g. from img0 to img1 and img1 to img0.
 // Then you should have the matches consistent. Meaning that 

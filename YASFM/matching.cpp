@@ -77,6 +77,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& 
   }
   pairs.reserve(sz);
 
+  clock_t start,end;
   int numQueries = static_cast<int>(queries.size());
   for(int j = 0; j < numQueries; j++)
   {
@@ -86,12 +87,19 @@ void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& 
     index.buildIndex();
     for(int i : queries[j])
     {
-      cout << "matching: " << i << " -> " << j << "\t";
+      if(opt.verbose)
+      {
+        cout << "matching: " << i << " -> " << j << "\t";
+        start = clock();
+      }
       IntPair pairIdx(i,j);
-      clock_t start = clock();
       matchFeatFLANN(opt,index,descr[i],&pairs[pairIdx]);
-      clock_t end = clock();
-      cout << "took: " << (double)(end - start) / (double)CLOCKS_PER_SEC << "s\n";
+      if(opt.verbose)
+      {
+        end = clock();
+        cout << "found " << pairs[pairIdx].matches.size() << " matches" << "\t";
+        cout << "took: " << (double)(end - start) / (double)CLOCKS_PER_SEC << "s\n";
+      }
     }
   }
 }
@@ -143,7 +151,6 @@ void matchFeatFLANN(const OptionsFLANN& opt,const flann::Index<flann::L2<float>>
     filterVector(unique,&outMatches);
     filterVector(unique,&outDists);
   }
-  std::cout << "found " << outMatches.size() << " matches" << "\t";
 }
 
 void findUniqueMatches(const vector<IntPair>& matches,size_t numFeats2,

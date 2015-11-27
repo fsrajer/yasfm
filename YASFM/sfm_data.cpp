@@ -44,7 +44,7 @@ Camera::Camera(istream& file,int mode,const string& featuresDir)
   ifstream featuresFile(fn);
   if(!featuresFile.is_open())
   {
-    cerr << "Camera::Camera: unable to open: " << fn << " for reading\n";
+    cerr << "ERROR: Camera::Camera: unable to open: " << fn << " for reading\n";
     return;
   }
   int nKeys,descrDim;
@@ -138,7 +138,7 @@ void Camera::writeASCII(ostream& file,int mode,
     ofstream featuresFile(fn);
     if(!featuresFile.is_open())
     {
-      cerr << "Camera::writeASCII: unable to open: " << fn << " for writing\n";
+      cerr << "ERROR: Camera::writeASCII: unable to open: " << fn << " for writing\n";
       return;
     }
     featuresFile.flags(std::ios::fixed);
@@ -714,7 +714,7 @@ void Dataset::writeASCII(const string& filename,int camWriteMode,
   ofstream file(fn);
   if(!file.is_open())
   {
-    cerr << "Dataset::writeASCII: unable to open: " << fn << " for writing\n";
+    cerr << "ERROR: Dataset::writeASCII: unable to open: " << fn << " for writing\n";
     return;
   }
 
@@ -779,7 +779,7 @@ void Dataset::readASCII(const string& filename,int camReadMode,
   ifstream file(fn);
   if(!file.is_open())
   {
-    cerr << "Dataset::readASCII: unable to open: " << fn << " for reading\n";
+    cerr << "ERROR: Dataset::readASCII: unable to open: " << fn << " for reading\n";
     return;
   }
   while(!file.eof())
@@ -883,6 +883,16 @@ void Dataset::readKeysColors()
 {
   for(const auto& cam : cams_)
     cam->readKeysColors();
+}
+
+int Dataset::countReconstructedObservations() const
+{
+  size_t nObs = 0;
+  for(int iPt = 0; iPt < points().numPts(); iPt++)
+  {
+    nObs += points().ptData()[iPt].reconstructed.size();
+  }
+  return static_cast<int>(nObs);
 }
 
 const string& Dataset::dir() const { return dir_; }

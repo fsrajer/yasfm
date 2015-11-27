@@ -41,7 +41,6 @@ void bundleAdjustPoints(const OptionsBundleAdjustment& opt,ptr_vector<Camera> *p
 void bundleAdjust(const OptionsBundleAdjustment& opt,const vector<bool>& constantCams,
   const vector<bool>& constantPoints,ptr_vector<Camera> *pcams,Points *ppts)
 {
-  cout << "Running bundle adjustment\n";
   auto& cams = *pcams;
   auto& pts = *ppts;
 
@@ -115,7 +114,6 @@ void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,int camIdx,Camera *pc
 void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,
   int camIdx,const vector<bool>& constantPoints,Camera *pcam,Points *ppts)
 {
-  cout << "Running bundle adjustment\n";
   auto& cam = *pcam;
   auto& pts = *ppts;
 

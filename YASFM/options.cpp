@@ -28,6 +28,7 @@ void OptionsSIFTGPU::write(ostream& file) const
   file << " dogThresh: " << dogThresh << "\n";
   file << " edgeThresh: " << edgeThresh << "\n";
   file << " detectUprightSIFT: " << detectUprightSIFT << "\n";
+  file << " verbosityLevel: " << verbosityLevel << "\n";
 }
 
 bool OptionsFLANN::filterByRatio() const { return ratioThresh >= 0.f; }
@@ -47,6 +48,7 @@ void OptionsFLANN::write(ostream& file) const
   file << "  cores: " << searchParams.cores << "\n";
   file << " ratioThresh: " << ratioThresh << "\n";
   file << " onlyUniques: " << onlyUniques << "\n";
+  file << " verbose: " << verbose << "\n";
 }
 
 void OptionsRANSAC::write(ostream& file) const

@@ -10,6 +10,7 @@
 
 #include <cstdlib>
 #include <ctime>
+#include <direct.h>
 
 #include <algorithm>
 #include <iostream>
@@ -109,7 +110,8 @@ int main(int argc, const char* argv[])
   opt.write(joinPaths(dir,"options.txt"));
 
   Dataset data(dir);
-  /*data.addCameras<StandardCameraRadial>(imgsSubdir);
+  /*_mkdir(joinPaths(dir,"yasfm").c_str());
+  data.addCameras<StandardCameraRadial>(imgsSubdir);
   // -> the principal point is always set to the
   // image center in StandardCamera
  
@@ -149,8 +151,10 @@ int main(int argc, const char* argv[])
   computeHomographyInliersProportion(opt.homography,data.cams(),data.pairs(),
     &homographyProportion);
 
+  cout << "Searching for N view matches ... ";
   twoViewMatchesToNViewMatches(data.cams(),data.pairs(),
     &data.points().matchesToReconstruct());
+  cout << "found " << data.points().matchesToReconstruct().size() << "\n";
   data.pairs().clear(); // No need for 2 view matches anymore.
   
   vector<bool> isCalibrated(data.numCams(),false);
@@ -172,10 +176,12 @@ int main(int argc, const char* argv[])
         homographyScores(r,c) = 1. / homographyProportion(r,c);
     }
   }
+
+  cout << "Choosing initial pair ... ";
   IntPair initPair = chooseInitialCameraPair(opt.minNumPairwiseMatches,minPairScore,
     isCalibrated,data.points().matchesToReconstruct(),homographyScores);
+  cout << "[" << initPair.first << "," << initPair.second << "]\n";
     
-
   if(initPair.first < 0 || initPair.second < 0)
     return EXIT_FAILURE;
     
@@ -210,7 +216,7 @@ int main(int argc, const char* argv[])
     {
       exploredCams.insert(camIdx);
       vector<int> inliers;
-      cout << "trying to resect camera " << camIdx << " using " << 
+      cout << "Trying to resect camera " << camIdx << " using " << 
         camToSceneMatches[camIdx].size() << " matches ... ";
       //bool success = resectCamera5AndHalfPtRANSAC(opt.absolutePose_,camToSceneMatches[camIdx],
       //  data.points().ptCoord(),&data.cam(camIdx),&inliers);
@@ -227,6 +233,7 @@ int main(int argc, const char* argv[])
         unzipPairsVectorSecond(camToSceneMatches[camIdx],&ptIdxs);
         data.markCamAsReconstructed(camIdx,ptIdxs,inliers);
 
+        cout << "Bundle adjusting the new camera\n";
         bundleAdjustOneCam(opt.bundleAdjust,camIdx,&data.cam(camIdx),&data.points());
       } else
       {
@@ -240,18 +247,28 @@ int main(int argc, const char* argv[])
       data.reconstructedCams(),data.cams(),
       &data.points().matchesToReconstruct(),&matchesToReconstructNow);
 
+    cout << "Reconstructing " << matchesToReconstructNow.size() << " points\n";
     reconstructPoints(data.cams(),matchesToReconstructNow,&data.points());
+    int prevPts = data.points().numPts();
     removeHighReprojErrorPoints(opt.pointsReprojErrorThresh,data.cams(),&data.points());
+    cout << "Removing " << prevPts-data.points().numPts()
+      << " points with high reprojection error\n";
 
-    int prevPts;
     do
     {
       prevPts = data.points().numPts();
+      cout << "Running bundle adjustment with: \n"
+        << "  " << data.reconstructedCams().size() << " cams\n"
+        << "  " << data.points().numPts() << " points\n"
+        << "  " << data.countReconstructedObservations() << " observations\n";
       bundleAdjust(opt.bundleAdjust,&data.cams(),&data.points());
       removeHighReprojErrorPoints(opt.pointsReprojErrorThresh,data.cams(),&data.points());
+      cout << "Removing " << prevPts-data.points().numPts() 
+        << " points with high reprojection error\n";
     } while(prevPts > data.points().numPts());
 
     removeIllConditionedPoints(0.5*opt.rayAngleThresh,data.cams(),&data.points());
+    cout << "Removing " << prevPts-data.points().numPts() << " ill conditioned points\n";
 
     writeSFMBundlerFormat(joinPaths(data.dir(),"yasfm/bundle" + 
       std::to_string(exploredCams.size()) + ".out"),data);

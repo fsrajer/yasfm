@@ -134,7 +134,6 @@ void unzipPairsVectorSecond(const vector<IntPair>& pairs,vector<int> *seconds)
   }
 }
 
-
 void chooseWellMatchedCameras(int minMatchesThresh,double factor,
   const vector<vector<IntPair>>& camToSceneMatches,
   uset<int> *wellMatchedCams)

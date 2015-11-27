@@ -73,14 +73,17 @@ YASFM_API void writeFeatsFnsList(const string& listFilename,const ptr_vector<ICa
 YASFM_API void writeFeatsFnsList(const string& listFilename,const IDataset& dts);
 */
 
+YASFM_API void findFocalLengthInEXIF(const string& ccdDBFilename,
+  const ptr_vector<Camera>& cams,vector<double> *focals);
 // focals are 0 when they were not found
-YASFM_API void findFocalLengthInEXIF(const string& ccdDBFilename,const ptr_vector<Camera>& cams,
-  vector<double> *focals);
+YASFM_API void findFocalLengthInEXIF(const string& ccdDBFilename,
+  const ptr_vector<Camera>& cams,bool verbose,vector<double> *focals);
 // returns 0 when focal not found
-YASFM_API double findFocalLengthInEXIF(const string& ccdDBFilename,const Camera& cam);
+YASFM_API double findFocalLengthInEXIF(const string& ccdDBFilename,const Camera& cam,
+  bool verbose);
 // returns 0 when focal not found
-YASFM_API double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilename,
-  int maxImgDim);
+YASFM_API double findFocalLengthInEXIF(const string& ccdDBFilename,
+  const string& imgFilename,int maxImgDim,bool verbose);
 
 /*
 // Saves features for every image

@@ -27,38 +27,10 @@ using std::queue;
 namespace yasfm
 {
 
-/*void findPointColors(const vector<int>& points2tracks,const vector<bool>& pointsMask,
-  const vector<NViewMatch>& tracks,const ptr_vector<ICamera>& cams,
-  const unordered_set<int>& addedCams,vector<Vector3uc>& pointsColors)
-{
-  pointsColors.resize(points2tracks.size(),Vector3uc(0,0,0));
-  for(size_t ptIdx = 0; ptIdx < points2tracks.size(); ptIdx++)
-  {
-    if(!pointsMask.empty() && pointsMask[ptIdx])
-    {
-      for(const auto& camKey : tracks[points2tracks[ptIdx]])
-      {
-        if(addedCams.count(camKey.first) > 0)
-        {
-          pointsColors[ptIdx] = cams[camKey.first]->feature(camKey.second).color();
-          break;
-        }
-      }
-    }
-  }
-}
-
-void findPointColors(const IDataset& dts,vector<Vector3uc>& pointsColors)
-{
-  findPointColors(dts.points2tracks(),dts.pointsMask(),
-    dts.tracks(),dts.cams(),dts.addedCams(),pointsColors);
-}*/
-
 void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
   const pair_umap<CameraPair>& pairs,
   vector<NViewMatch> *nViewMatches)
 {
-  cout << "Searching for N view matches ... ";
   pair_umap<vector<int>> matches;
   vector<uset<int>> matchedCams;
   convertMatchesToLocalRepresentation(cams,pairs,&matchedCams,&matches);
@@ -82,7 +54,6 @@ void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
       }
     }
   }
-  cout << "found " << nViewMatches->size() << "\n";
 }
 
 void nViewMatchesToTwoViewMatches(const vector<NViewMatch>& nViewMatches,
@@ -105,7 +76,6 @@ void nViewMatchesToTwoViewMatches(const vector<NViewMatch>& nViewMatches,
 void reconstructPoints(const IntPair& camsIdxs,const Camera& cam1,const Camera& cam2,
   const vector<int>& nViewMatchIdxs,Points *points)
 {
-  cout << "Reconstructing " << nViewMatchIdxs.size() << " points\n";
   vector<Vector3d> coord(nViewMatchIdxs.size());
   vector<Vector3uc> colors(coord.size());
   Matrix34d Rt1 = cam1.pose();
@@ -138,7 +108,6 @@ void reconstructPoints(const IntPair& camsIdxs,const Camera& cam1,const Camera& 
 void reconstructPoints(const ptr_vector<Camera>& cams,
   const vector<SplitNViewMatch>& matchesToReconstruct,Points *points)
 {
-  cout << "Reconstructing " << matchesToReconstruct.size() << " points\n";
   vector<Matrix34d> Rts(cams.size());
   vector<bool> RtsValid(cams.size(),false);
   vector<Vector3d> ptCoord(matchesToReconstruct.size());
@@ -367,71 +336,7 @@ void removeIllConditionedPoints(double rayAngleThresh,
   int numOrig = pts.numPts();
   pts.removePoints(wellConditioned);
   int numRemoved = numOrig - pts.numPts();
-  cout << "Removing " << numRemoved << " ill conditioned points\n";
 }
-
-/*
-void filterIllConditionedTracks(const ptr_vector<ICamera>& cams,double rayAngleThresh,
-  list<vector<IntPair>>& tracks,vector<int>& trackIDs)
-{
-  rayAngleThresh = DEG2RAD(rayAngleThresh);
-  vector<Matrix3d> invKs;
-  vector<bool> invKComputed;
-  invKs.resize(cams.size());
-  invKComputed.resize(cams.size(),false);
-
-  auto trackID = trackIDs.begin();
-  for(auto track = tracks.begin(); track != tracks.end(); )
-  {
-    bool illConditioned = true;
-    for(size_t i = 0; i < track->size(); i++)
-    {
-      int cam1 = (*track)[i].first;
-      int key1 = (*track)[i].second;
-      if(!invKComputed[cam1])
-      {
-        invKComputed[cam1] = true;
-        invKs[cam1] = cams[cam1]->K().inverse();
-      }
-
-      Vector3d ray1 = cams[cam1]->R().transpose() * invKs[cam1] * 
-        cams[cam1]->feature(key1).coord().homogeneous();
-
-      for(size_t j = i+1; j < track->size(); j++)
-      {
-        int cam2 = (*track)[j].first;
-        int key2 = (*track)[j].second;
-        if(!invKComputed[cam2])
-        {
-          invKComputed[cam2] = true;
-          invKs[cam2] = cams[cam2]->K().inverse();
-        }
-
-        Vector3d ray2 = cams[cam2]->R().transpose() * invKs[cam2] * 
-          cams[cam2]->feature(key2).coord().homogeneous();
-
-        double angle = acos( ray1.dot(ray2) / (ray1.norm() * ray2.norm()) );
-        if(angle > rayAngleThresh)
-        {
-          illConditioned = false;
-          j = track->size();
-          i = track->size();
-        }
-      }
-    }
-    if(illConditioned)
-    {
-      track = tracks.erase(track);
-      trackID = trackIDs.erase(trackID);
-    } else
-    {
-      ++track;
-      ++trackID;
-    }
-  }
-}
-*/
-
 
 void removeHighReprojErrorPoints(double avgReprojErrThresh,const ptr_vector<Camera>& cams,
   Points *ppts)
@@ -455,7 +360,6 @@ void removeHighReprojErrorPoints(double avgReprojErrThresh,const ptr_vector<Came
     keep[iPt] = err < avgReprojErrThresh;
     nToRemove += !keep[iPt];
   }
-  cout << "Removing " << nToRemove << " points with high reprojection error\n";
   pts.removePoints(keep);
 }
 
