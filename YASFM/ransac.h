@@ -36,7 +36,7 @@ public:
   virtual int minMatches() const = 0;
   virtual void computeTransformation(const vector<int>& idxs,vector<MatType> *Ms) const = 0;
   virtual double computeSquaredError(const MatType& M,int matchIdx) const = 0;
-  virtual void refine(const vector<int>& inliers,MatType *M) const = 0;
+  virtual void refine(double tolerance,const vector<int>& inliers,MatType *M) const = 0;
 
   // Are these indices permitted to be used for the computation?
   virtual bool isPermittedSelection(const vector<int>& idxs) const 
@@ -130,10 +130,12 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   {
     vector<int> tentativeInliers;
     findInliers(m,M,sqThresh,&tentativeInliers);
-    m.refine(tentativeInliers,&M);
+    m.refine(opt.refineTolerance,tentativeInliers,&M);
 
     if(inliers)
-      findInliers(m,M,sqThresh,inliers);
+      maxInliers = findInliers(m,M,sqThresh,inliers);
+    else
+      maxInliers = findInliers(m,M,sqThresh);
 
     return maxInliers;
   } else
@@ -222,10 +224,12 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   {
     vector<int> tentativeInliers;
     findInliers(m,M,sqThresh,&tentativeInliers);
-    m.refine(tentativeInliers,&M);
+    m.refine(opt.refineTolerance,tentativeInliers,&M);
 
     if(inliers)
-      findInliers(m,M,sqThresh,inliers);
+      maxInliers = findInliers(m,M,sqThresh,inliers);
+    else
+      maxInliers = findInliers(m,M,sqThresh);
 
     return maxInliers;
   } else

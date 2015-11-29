@@ -219,6 +219,38 @@ namespace yasfm_tests
       Assert::IsTrue(inliers.size() == 0);
     }
 
+    TEST_METHOD(Mediator7ptRANSACRefineTest)
+    {
+      const int nMatches = 1000;
+      Matrix34d P1(Matrix34d::Identity()),P2(generateRandomProjection());
+      Matrix3d ex;
+      crossProdMat(P2.col(3),&ex);
+      Matrix3d F = ex*P2.leftCols(3);
+
+      vector<Vector2d> keys1(nMatches),keys2(nMatches);
+      vector<IntPair> matches(nMatches);
+      vector<int> inliers(nMatches);
+      for(int i = 0; i < nMatches; i++)
+      {
+        Vector3d pt(Vector3d::Random());
+        Vector3d tmp = P1 * pt.homogeneous();
+        keys1[i] = tmp.hnormalized();
+        tmp = P2 * pt.homogeneous();
+        keys2[i] = tmp.hnormalized();
+        matches[i] = IntPair(i,i);
+        inliers[i] = i;
+      }
+
+      double mag = F.norm();
+      F += 0.001*mag*Matrix3d::Random();
+      
+      Mediator7ptRANSAC m(keys1,keys2,matches);
+      m.refine(1e-12,inliers,&F);
+
+      double sqthresh = 0.001;
+      Assert::IsTrue(findInliers(m,F,sqthresh) == nMatches);
+    }
+
     TEST_METHOD(estimateRelativePose5ptTest)
     {
       Matrix34d P1(Matrix34d::Identity()),P2(Matrix34d::Identity());

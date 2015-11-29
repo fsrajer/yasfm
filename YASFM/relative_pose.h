@@ -176,11 +176,6 @@ YASFM_API bool estimateHomographyPROSAC(const OptionsRANSAC& opt,const vector<Ve
 YASFM_API void estimateHomographyMinimal(const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,Matrix3d *H);
 
-} // namespace yasfm
-
-namespace
-{
-
 class Mediator7ptRANSAC : public MediatorRANSAC<Matrix3d>
 {
 public:
@@ -191,10 +186,19 @@ public:
   virtual int minMatches() const;
   virtual void computeTransformation(const vector<int>& idxs,vector<Matrix3d> *Fs) const;
   virtual double computeSquaredError(const Matrix3d& F,int matchIdx) const;
-  virtual void refine(const vector<int>& inliers,Matrix3d *F) const;
+  virtual void refine(double tolerance,const vector<int>& inliers,Matrix3d *F) const;
   virtual bool isPermittedSelection(const vector<int>& idxs) const;
 
+  struct RefineData
+  {
+    const vector<Vector2d> *keys1;
+    const vector<Vector2d> *keys2;
+    const vector<IntPair> *matches;
+    const vector<int> *inliers;
+  };
+
 private:
+
   const int minMatches_;
   const vector<Vector2d>& keys1_;
   const vector<Vector2d>& keys2_;
@@ -216,7 +220,7 @@ public:
   virtual int minMatches() const;
   virtual void computeTransformation(const vector<int>& idxs,vector<Matrix3d> *Fs) const;
   virtual double computeSquaredError(const Matrix3d& F,int matchIdx) const;
-  virtual void refine(const vector<int>& inliers,Matrix3d *F) const;
+  virtual void refine(double tolerance,const vector<int>& inliers,Matrix3d *F) const;
   virtual bool isPermittedSelection(const vector<int>& idxs) const;
 
 private:
@@ -238,7 +242,7 @@ public:
   virtual int minMatches() const;
   virtual void computeTransformation(const vector<int>& idxs,vector<Matrix3d> *Hs) const;
   virtual double computeSquaredError(const Matrix3d& H,int matchIdx) const;
-  virtual void refine(const vector<int>& inliers,Matrix3d *H) const;
+  virtual void refine(double tolerance,const vector<int>& inliers,Matrix3d *H) const;
   virtual bool isPermittedSelection(const vector<int>& idxs) const;
 
 private:
@@ -248,10 +252,19 @@ private:
   const vector<IntPair>& matches_;
 };
 
+} // namespace yasfm
+
+namespace
+{
+
 // Symmetric epipolar distance (see Hartley & Zisserman p. 278).
 // MIND THE ORDER of the input points (pts2'*F*pts1 = 0).
 double computeSymmetricEpipolarSquaredDistanceFundMat(const Vector2d& pt2,const Matrix3d& F,
   const Vector2d& pt1);
+
+// Data are pointer to Mediator7ptRANSAC::RefineData
+int computeSymmetricEpipolarDistanceFundMatCMINPACK(void *data,int nPoints,
+  int nParams,const double* params,double* residuals,int iflag);
 
 // First-order geometric error (Sampson distance) for
 // pts2'*F*pts1 = 0. MIND THE ORDER of the input points.

@@ -143,12 +143,6 @@ void resectCameraLS(const vector<Vector2d>& keys,const vector<Vector3d>& points,
   P.row(2).leftCols(3) = X.bottomRows(3).transpose();
   P(2,3) = 1.;
 }
-
-} // namespace yasfm
-
-namespace
-{
-
 MediatorResectioningRANSAC::MediatorResectioningRANSAC(int minMatches,
   const vector<Vector2d>& keys,const vector<Vector3d>& points,
   const vector<IntPair>& camToSceneMatches)
@@ -167,7 +161,8 @@ int MediatorResectioningRANSAC::minMatches() const
   return minMatches_; 
 }
 
-double MediatorResectioningRANSAC::computeSquaredError(const Matrix34d& P,int matchIdx) const
+double MediatorResectioningRANSAC::computeSquaredError(const Matrix34d& P,
+  int matchIdx) const
 {
   const auto& pt = points_[camToSceneMatches_[matchIdx].second];
   const auto& key = keys_[camToSceneMatches_[matchIdx].first];
@@ -176,16 +171,9 @@ double MediatorResectioningRANSAC::computeSquaredError(const Matrix34d& P,int ma
   return (key - proj.hnormalized()).squaredNorm();
 }
 
-void MediatorResectioningRANSAC::refine(const vector<int>& inliers,Matrix34d *P) const
+void MediatorResectioningRANSAC::refine(double tolerance,const vector<int>& inliers,
+  Matrix34d *P) const
 {
-  // TODO: Find LM lib for non-linear minimization
-  /*vector<IntPair> selectedMatches;
-  selectedMatches.reserve(inliers.size());
-  for(int idx : inliers)
-    selectedMatches.push_back(cam2SceneMatches_[idx]);
-  vector<Matrix34d> tmp;
-  yasfm::resectCameraMinimal6pt(cam_,points_,selectedMatches,tmp);
-  P = tmp[0];*/
 }
 
 bool MediatorResectioningRANSAC::isPermittedSelection(const vector<int>& idxs) const
@@ -229,4 +217,4 @@ void MediatorResectioning6ptLSRANSAC::computeTransformation(const vector<int>& i
   resectCameraLS(keys_,points_,selectedMatches,&(*Ps)[0]);
 }
 
-} // namespace
+} // namespace yasfm

@@ -57,6 +57,7 @@ void OptionsRANSAC::write(ostream& file) const
   file << " errorThresh: " << errorThresh << "\n";
   file << " minInliers: " << minInliers << "\n";
   file << " confidence: " << confidence << "\n";
+  file << " refineTolerance: " << refineTolerance << "\n";
 }
 
 void OptionsBundleAdjustment::write(ostream& file) const

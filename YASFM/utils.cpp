@@ -12,6 +12,7 @@
 
 #include <iostream>
 
+using Eigen::JacobiSVD;
 using Eigen::Map;
 using Eigen::MatrixXd;
 using Eigen::Vector2d;
@@ -22,7 +23,7 @@ using std::cout;
 namespace yasfm
 {
 
-string joinPaths(const string& p1, const string& p2)
+string joinPaths(const string& p1,const string& p2)
 {
   string out(p1);
   if(!p1.empty() && !p2.empty() &&
@@ -54,9 +55,28 @@ string extractFilename(const string& filepath)
 
 void crossProdMat(const Vector3d& vec,Matrix3d *mat)
 {
-  *mat <<  0,       -vec(2), vec(1),
-          vec(2),  0,       -vec(0),
-          -vec(1), vec(0),  0;
+  *mat <<  0,-vec(2),vec(1),
+    vec(2),0,-vec(0),
+    -vec(1),vec(0),0;
+}
+
+void closestRank2Matrix(const double* const pA,double* pB)
+{
+  Map<const Matrix3d> A(pA);
+  Map<Matrix3d> B(pB);
+
+  JacobiSVD<Matrix3d> svd(A,Eigen::ComputeFullU | Eigen::ComputeFullV);
+
+  Matrix3d S(Matrix3d::Zero());
+  S(0,0) = svd.singularValues()(0);
+  S(1,1) = svd.singularValues()(1);
+
+  B.noalias() = svd.matrixU() * S * svd.matrixV().transpose();
+}
+
+void closestRank2Matrix(const Matrix3d& A,Matrix3d *B)
+{
+  closestRank2Matrix(A.data(),B->data());
 }
 
 void RQDecomposition(const Matrix3d& A,Matrix3d *pR,Matrix3d *pQ)
@@ -212,6 +232,17 @@ void approximateInverseRadialDistortion(int nForwardParams,int nInverseParams,
   }
   Map<VectorXd> invRadParamsMap(invRadParams,nInverseParams);
   invRadParamsMap = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+}
+
+void nonLinearOptimLMCMINPACK(cminpack_func_mn residualFuncHandle,
+  void *data,int m,int n,double tolerance,double *params,double *residuals)
+{
+  int doubleWorkArraySize = m*n+5*n+m;
+  vector<double> doubleWorkArray(doubleWorkArraySize);
+  vector<int> integerWorkArray(n);
+
+  int info = lmdif1(residualFuncHandle,data,m,n,params,residuals,tolerance,
+    &integerWorkArray[0],&doubleWorkArray[0],doubleWorkArraySize);
 }
 
 } //namespace yasfm

@@ -113,12 +113,14 @@ struct OptionsRANSAC
     minInliers(minInliers)
   {
     confidence = 0.95;
+    refineTolerance = 1e-12;
   }
   YASFM_API OptionsRANSAC(int maxRounds,double errorThresh,
     int minInliers,double confidence)
     : maxRounds(maxRounds),errorThresh(errorThresh),
     minInliers(minInliers),confidence(confidence)
   {
+    refineTolerance = 1e-12;
   }
   
   YASFM_API void write(ostream& file) const;
@@ -131,6 +133,10 @@ struct OptionsRANSAC
   // The values are from range [0,1].
   // Default: 0.95
   double confidence;
+  // The tolerance for refining the result on inliers by optimizing 
+  // non linear functions using LM method. 
+  // (Not all ransac mediators implement refine phase.)
+  double refineTolerance;
 };
 
 struct YASFM_API OptionsBundleAdjustment

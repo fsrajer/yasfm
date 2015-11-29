@@ -65,12 +65,7 @@ YASFM_API void resectCameraLS(const vector<Vector2d>& keys,
   const vector<Vector3d>& points,const vector<IntPair>& camToSceneMatches,
   Matrix34d *P);
 
-} // namespace yasfm
-
-namespace
-{
-
-class MediatorResectioningRANSAC: public MediatorRANSAC<Matrix34d>
+class MediatorResectioningRANSAC : public MediatorRANSAC<Matrix34d>
 {
 public:
   // Mind the order of points. We estimate such F that pts2'*F*pts1 = 0.
@@ -79,7 +74,7 @@ public:
   virtual int numMatches() const;
   virtual int minMatches() const;
   virtual double computeSquaredError(const Matrix34d& P,int matchIdx) const;
-  virtual void refine(const vector<int>& inliers, Matrix34d *P) const;
+  virtual void refine(double tolerance,const vector<int>& inliers,Matrix34d *P) const;
   virtual bool isPermittedSelection(const vector<int>& idxs) const;
 
 protected:
@@ -107,4 +102,4 @@ public:
   virtual void computeTransformation(const vector<int>& idxs,vector<Matrix34d> *Ps) const;
 };
 
-} // namespace
+} // namespace yasfm

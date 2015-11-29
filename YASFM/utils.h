@@ -16,6 +16,7 @@
 
 #include "ceres/ceres.h"
 #include "Eigen/Dense"
+#include "cminpack/cminpack.h"
 
 #include "defines.h"
 #include "sfm_data.h"
@@ -59,6 +60,11 @@ void filterOutOutliers(const vector<int>& outliers,vector<T> *arr);
 // Create matrix simulating cross product. Often symbolized as [vec]_x.
 YASFM_API void crossProdMat(const Vector3d& vec,Matrix3d *mat);
 
+// Find a rank 2 matrix B closest to A using svd.
+YASFM_API void closestRank2Matrix(const double* const A,double* B);
+// Find a rank 2 matrix B closest to A using svd.
+YASFM_API void closestRank2Matrix(const Matrix3d& A,Matrix3d *B);
+
 // Decomposes A so that A = R*Q, where R is upper triangular
 // and Q is orthogonal. This decomposition is based on Givens
 // rotations and is non-unique. The elements on the 
@@ -99,6 +105,19 @@ ceres::CostFunction* generateConstraintsCostFunction(const double* const constra
 // approximately d'*[x' y'].
 YASFM_API void approximateInverseRadialDistortion(int nForwardParams,int nInverseParams,
   double maxRadius,const double* const radParams,double* invRadParams);
+
+// Driver for the cminpack function lmdif1.
+// Brief description of lmdif1:
+// the purpose of lmdif1 is to minimize the sum of the squares of 
+// m nonlinear functions in n variables by a modification of the 
+// levenberg-marquardt algorithm. this is done by using the more 
+// general least-squares solver lmdif. the user must provide a 
+// subroutine which calculates the functions. the jacobian is 
+// then calculated by a forward-difference approximation. 
+// m is the number of residuals
+// n is the number of parameters
+YASFM_API void nonLinearOptimLMCMINPACK(cminpack_func_mn residualFuncHandle,
+  void *data,int m,int n,double tolerance,double *params,double *residuals);
 
 } // namespace yasfm
 

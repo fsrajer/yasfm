@@ -599,12 +599,6 @@ void estimateHomographyMinimal(const vector<Vector2d>& pts1,const vector<Vector2
   H->row(2) = h.bottomRows(3).transpose();
 }
 
-} // namespace yasfm
-
-
-namespace
-{
-
 Mediator7ptRANSAC::Mediator7ptRANSAC(const vector<Vector2d>& keys1,
   const vector<Vector2d>& keys2,const vector<IntPair>& matches)
   : minMatches_(7),keys1_(keys1),keys2_(keys2),matches_(matches)
@@ -635,10 +629,25 @@ double Mediator7ptRANSAC::computeSquaredError(const Matrix3d& F,int matchIdx) co
     keys1_[match.first]);
 }
 
-void Mediator7ptRANSAC::refine(const vector<int>& inliers,Matrix3d *F) const
+void Mediator7ptRANSAC::refine(double tolerance,const vector<int>& inliers,
+  Matrix3d *F) const
 {
-  // TODO: Find LM lib for non-linear minimization (cost will be sampson distance)
-  // according to H&Z book
+  int numPoints = static_cast<int>(inliers.size());
+  const int numParams = 9;
+
+  RefineData data;
+  data.keys1 = &keys1_;
+  data.keys2 = &keys2_;
+  data.matches = &matches_;
+  data.inliers = &inliers;
+
+  vector<double> residuals(numPoints);
+
+  Matrix3d tmp = *F;
+  nonLinearOptimLMCMINPACK(computeSymmetricEpipolarDistanceFundMatCMINPACK,
+    &data,numPoints,numParams,tolerance,tmp.data(),&residuals[0]);
+
+  closestRank2Matrix(tmp,F);
 }
 
 bool Mediator7ptRANSAC::isPermittedSelection(const vector<int>& idxs) const
@@ -693,7 +702,8 @@ int Mediator5ptRANSAC::numMatches() const
 int Mediator5ptRANSAC::minMatches() const
 { return minMatches_; }
 
-void Mediator5ptRANSAC::refine(const vector<int>& inliers,Matrix3d *F) const
+void Mediator5ptRANSAC::refine(double tolerance,const vector<int>& inliers,
+  Matrix3d *F) const
 {
   // TODO: Find LM lib for non-linear minimization
   // change F to E before optimization.
@@ -739,7 +749,8 @@ double MediatorHomographyRANSAC::computeSquaredError(const Matrix3d& H,int match
   return (pt.hnormalized() - keys2_[match.second]).squaredNorm();
 }
 
-void MediatorHomographyRANSAC::refine(const vector<int>& inliers,Matrix3d *H) const
+void MediatorHomographyRANSAC::refine(double tolerance,const vector<int>& inliers,
+  Matrix3d *H) const
 {
 }
 
@@ -749,8 +760,13 @@ bool MediatorHomographyRANSAC::isPermittedSelection(const vector<int>& idxs) con
   return true;
 }
 
-double computeSymmetricEpipolarSquaredDistanceFundMat(const Vector2d& pt2,const Matrix3d& F,
-  const Vector2d& pt1)
+} // namespace yasfm
+
+namespace
+{
+
+double computeSymmetricEpipolarSquaredDistanceFundMat(const Vector2d& pt2,
+  const Matrix3d& F,const Vector2d& pt1)
 {
   Vector3d Fpt1 = F*pt1.homogeneous();
   Vector3d FTpt2 = F.transpose()*pt2.homogeneous();
@@ -759,6 +775,22 @@ double computeSymmetricEpipolarSquaredDistanceFundMat(const Vector2d& pt2,const 
 
   return (pt2Fpt1*pt2Fpt1) *
     (1. / Fpt1.topRows(2).squaredNorm() + 1. / FTpt2.topRows(2).squaredNorm());
+}
+
+int computeSymmetricEpipolarDistanceFundMatCMINPACK(void *pdata,
+  int nPoints,int nParams,const double* params,double* residuals,int iflag)
+{
+  Matrix3d F;
+  closestRank2Matrix(params,F.data());
+
+  const auto& data = *static_cast<Mediator7ptRANSAC::RefineData *>(pdata);
+  for(int iInlier = 0; iInlier < nPoints; iInlier++)
+  {
+    IntPair match = (*data.matches)[(*data.inliers)[iInlier]];
+    residuals[iInlier] = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(
+      (*data.keys2)[match.second],F,(*data.keys1)[match.first]));
+  }
+  return 0; // Negative value would terminate the optimization.
 }
 
 // dist = (pt2'*F*pt1)^2/((F*pt1)^2_1 + (F*pt1)^2_2 + (FT*pt2)^2_1 + (FT*pt2)^2_2)
