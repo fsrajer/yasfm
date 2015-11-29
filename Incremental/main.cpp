@@ -60,7 +60,8 @@ struct Options
     rayAngleThresh(2.),
     focalConstraintWeight(0.0001),
     radialConstraint(0.),
-    radialConstraintWeight(100.)
+    radialConstraintWeight(100.),
+    defaultFocalDividedBySensorSize(1.083)  // assume angle of view 55 degrees
   {
   }
 
@@ -93,6 +94,10 @@ struct Options
   double focalConstraintWeight;
   double radialConstraint;
   double radialConstraintWeight;
+  // Used in case that the focals of initial cams were not found.
+  // Formula for angle of view alpha:
+  // defaultFocalDividedBySensorSize = 1/(2*sin(0.5*alpha))
+  double defaultFocalDividedBySensorSize;
 
   void write(const string& filename) const;
 };
@@ -155,6 +160,7 @@ int main(int argc,const char* argv[])
 
   data.readASCII("matched.txt",Camera::ReadNoDescriptors);
 
+  cout << "Computing homographies of verified pairs.\n";
   ArrayXXd homographyProportion;
   computeHomographyInliersProportion(opt.homography,data.cams(),data.pairs(),
     &homographyProportion);
@@ -233,15 +239,28 @@ void runSFM(const Options& opt,const string& outDir,
     return;
   }
 
-  if(isCalibrated[initPair.first] && isCalibrated[initPair.second])
+  if(!isCalibrated[initPair.first])
   {
-    initReconstructionFromCalibratedCamPair(opt.initialPairRelativePose,
-      opt.pointsReprojErrorThresh,initPair,&data);
-  } else
-  {
-    initReconstructionFromCamPair(opt.initialPairRelativePose,
-      opt.pointsReprojErrorThresh,initPair,&data);
+    auto& cam = data.cam(initPair.first);
+    double maxDim = std::max(cam.imgWidth(),cam.imgHeight());
+    double focalPx = opt.defaultFocalDividedBySensorSize * maxDim;
+    cam.setFocal(focalPx);
+    cout << "Initial focal of the first camera assumed to be " 
+      << focalPx << " pixels\n";
   }
+
+  if(!isCalibrated[initPair.second])
+  {
+    auto& cam = data.cam(initPair.second);
+    double maxDim = std::max(cam.imgWidth(),cam.imgHeight());
+    double focalPx = opt.defaultFocalDividedBySensorSize * maxDim;
+    cam.setFocal(focalPx);
+    cout << "Initial focal of the second camera assumed to be "
+      << focalPx << " pixels\n";
+  }
+
+  initReconstructionFromCalibratedCamPair(opt.initialPairRelativePose,
+    opt.pointsReprojErrorThresh,initPair,&data);
 
   bundleAdjust(opt.bundleAdjust,&data.cams(),&data.points());
 
@@ -351,5 +370,6 @@ void Options::write(const string& filename) const
   file << "focalConstraintWeight:\n " << focalConstraintWeight << "\n";
   file << "radialConstraint:\n " << radialConstraint << "\n";
   file << "radialConstraintWeight:\n " << radialConstraintWeight << "\n";
+  file << "defaultFocalDividedBySensorSize:\n " << defaultFocalDividedBySensorSize << "\n";
   file.close();
 }
