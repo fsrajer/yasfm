@@ -82,7 +82,7 @@ struct OptionsFLANN
   {
     indexParams = flann::KDTreeIndexParams();
     searchParams = flann::SearchParams();
-    ratioThresh = 0.8f;
+    ratioThresh = 0.6f;
     onlyUniques = true;
     verbose = true;
   }
@@ -96,7 +96,7 @@ struct OptionsFLANN
   flann::SearchParams searchParams;
   // Threshold of the ratio d1/d2, where di is distance to the i-th nearest neighbor
   // Negative values disable this filter and only the nearest neighbor is
-  // searched for. Default: 0.8.
+  // searched for. Default: 0.6.
   float ratioThresh;
   // Discards non-unique matches, i.e., those for which two or more 
   // different features in feats1 matched to the same feature in feats2
