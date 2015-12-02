@@ -63,13 +63,10 @@ void detectSiftGPU(const SiftGPUAutoMemRelease& siftHandle,Camera *cam)
     auto *descr = new float[128 * num];
     siftHandle.sift->GetFeatureVector(keys,descr);
 
-    cam->reserveFeatures(num,128);
+    cam->resizeFeatures(num,128);
     for(int i = 0; i < num; i++)
     {
-      if (keys[i].x >= 0 && keys[i].y >= 0) // bug check - this happens rarely but it happens
-      {
-        cam->addFeature(keys[i].x, keys[i].y, descr + i * 128);
-      }
+      cam->setFeature(i,keys[i].x,keys[i].y,descr + i * 128);
     }
     delete[] keys;
     delete[] descr;

@@ -146,19 +146,16 @@ int main(int argc,const char* argv[])
   data.readKeysColors();
   data.writeASCII("init.txt",Camera::WriteAll | Camera::WriteConvertNormalizedSIFTToUint);
   
-  //data.readASCII("init.txt",Camera::ReadAll);
-
   matchFeatFLANN(opt.matchingFLANN,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumPairwiseMatches,&data.pairs());
 
   verifyMatchesGeometrically(opt.geometricVerification,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumPairwiseMatches,&data.pairs());
-
+  
   data.writeASCII("matched.txt",Camera::WriteNoFeatures);
   data.clearDescriptors();
   
-
-  data.readASCII("matched.txt",Camera::ReadNoDescriptors);
+  //data.readASCII("matched.txt",Camera::ReadNoDescriptors);
 
   cout << "Computing homographies of verified pairs.\n";
   ArrayXXd homographyProportion;

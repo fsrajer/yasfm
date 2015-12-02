@@ -85,16 +85,16 @@ Camera::~Camera()
 {
 }
 
-void Camera::reserveFeatures(int num,int dim)
+void Camera::resizeFeatures(int num,int dim)
 {
-  keys_.reserve(num);
+  keys_.resize(num);
   descr_.resize(dim,num);
 }
 
-void Camera::addFeature(double x,double y,const float* const descr)
+void Camera::setFeature(int idx,double x,double y,const float* const descr)
 {
-  auto idx = keys_.size();
-  keys_.emplace_back(x,y);
+  keys_[idx](0) = x;
+  keys_[idx](1) = y; 
   Map<const ArrayXf> descrMapped(descr,descr_.rows());
   descr_.col(idx) = descrMapped;
 }

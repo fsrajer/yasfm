@@ -82,8 +82,9 @@ public:
   // { return make_unique<DerivedCamera>(*this); }
   YASFM_API virtual unique_ptr<Camera> clone() const;
 
-  YASFM_API virtual void reserveFeatures(int num,int dim);
-  YASFM_API virtual void addFeature(double x,double y,const float* const descr);
+  YASFM_API virtual void resizeFeatures(int num,int dim);
+  YASFM_API virtual void setFeature(int idx,double x,double y,
+    const float* const descr);
   YASFM_API virtual void readKeysColors();
   // remove descriptors from memory
   YASFM_API virtual void clearDescriptors();
