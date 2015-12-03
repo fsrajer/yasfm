@@ -104,7 +104,8 @@ struct Options
 
 void runSFM(const Options& opt,const string& outDir,
   const vector<bool>& isCalibrated,const ArrayXXd& homographyScores,
-  uset<int> *exploredCams,Dataset *data);
+  const uset<int>& camsToIgnoreForInitialization,uset<int> *pexploredCams,
+  Dataset *pdata);
 
 int main(int argc,const char* argv[])
 {
@@ -113,9 +114,12 @@ int main(int argc,const char* argv[])
   if(argc >= 4)
     opt.sift.firstOctave = atoi(argv[3]);
 
+  if(argc >= 5)
+    opt.ccdDBFilename = argv[4];
+
   string dir(argv[1]);
   string imgsSubdir(argv[2]);
-  string outDir = joinPaths(dir,"yasfm");
+  string outDir = joinPaths(dir,"models");
   _mkdir(outDir.c_str());
 
   opt.write(joinPaths(dir,"options.txt"));
@@ -197,15 +201,22 @@ int main(int argc,const char* argv[])
     _mkdir(currOutDir.c_str());
 
     Dataset currData = data;
-    runSFM(opt,currOutDir,isCalibrated,homographyScores,&exploredCams,&currData);
+    uset<int> exploredCamsCurr;
+    runSFM(opt,currOutDir,isCalibrated,homographyScores,exploredCams,
+      &exploredCamsCurr,&currData);
+    exploredCams.insert(exploredCamsCurr.begin(),exploredCamsCurr.end());
 
     if(nExploredPrev >= exploredCams.size())
       break;
 
-    writeSFMBundlerFormat(joinPaths(currData.dir(),"bundle_final_" + appendix + ".out"),
-      currData);
-    currData.writeASCII("final_" + appendix + ".txt",Camera::WriteNoFeatures);
     modelId++;
+
+    if(currData.reconstructedCams().size() > 3)
+    {
+      writeSFMBundlerFormat(joinPaths(currData.dir(),"bundle_final_"
+        + appendix + ".out"),currData);
+      currData.writeASCII("final_" + appendix + ".txt",Camera::WriteNoFeatures);
+    }
   }
 
   cout << "\n"
@@ -217,7 +228,8 @@ int main(int argc,const char* argv[])
 
 void runSFM(const Options& opt,const string& outDir,
   const vector<bool>& isCalibrated,const ArrayXXd& homographyScores,
-  uset<int> *pexploredCams,Dataset *pdata)
+  const uset<int>& camsToIgnoreForInitialization,uset<int> *pexploredCams,
+  Dataset *pdata)
 {
   auto& exploredCams = *pexploredCams;
   auto& data = *pdata;
@@ -226,7 +238,7 @@ void runSFM(const Options& opt,const string& outDir,
 
   cout << "Choosing initial pair ... ";
   IntPair initPair = chooseInitialCameraPair(opt.minNumPairwiseMatches,
-    minPairScore,isCalibrated,exploredCams,
+    minPairScore,isCalibrated,camsToIgnoreForInitialization,
     data.points().matchesToReconstruct(),homographyScores);
   cout << "[" << initPair.first << "," << initPair.second << "]\n";
 
@@ -334,7 +346,7 @@ void runSFM(const Options& opt,const string& outDir,
     cout << "Removing " << prevPts-data.points().numPts() << " ill conditioned points\n";
 
     writeSFMBundlerFormat(joinPaths(outDir,"bundle" +
-      std::to_string(exploredCams.size()) + ".out"),data);
+      std::to_string(data.reconstructedCams().size()) + ".out"),data);
   }
 }
 
