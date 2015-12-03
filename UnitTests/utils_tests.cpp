@@ -309,14 +309,14 @@ Matrix34d generateRandomProjection()
       cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test1.JPG"));
       cams[0]->setParams(P);
       cams[1]->setParams(P);
-      cams[0]->reserveFeatures(1,1);
-      cams[1]->reserveFeatures(1,1);
+      cams[0]->resizeFeatures(1,1);
+      cams[1]->resizeFeatures(1,1);
 
       Vector2d proj = cams[0]->project(ptCoord[0]);
       float descr = 0;
 
-      cams[0]->addFeature(proj(0),proj(1),&descr);
-      cams[1]->addFeature(proj(0),proj(1),&descr);
+      cams[0]->setFeature(0,proj(0),proj(1),&descr);
+      cams[1]->setFeature(0,proj(0),proj(1),&descr);
 
       err = computeAverageReprojectionError(cams,points);
 

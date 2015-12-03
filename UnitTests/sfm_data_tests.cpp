@@ -154,12 +154,12 @@ public:
     // reserveFeatures
     int nFeats = 4;
     int descrDim = 5;
-    cam.reserveFeatures(nFeats,descrDim);
+    cam.resizeFeatures(nFeats,descrDim);
 
     double x = 3,y = 5;
     ArrayXf descr(ArrayXf::Random(descrDim));
     for(int i = 0; i < nFeats; i++)
-      cam.addFeature(x,y,&descr(0));
+      cam.setFeature(i,x,y,&descr(0));
 
     Assert::IsTrue(cam.keys().size() == nFeats);
     Assert::IsTrue(cam.descr().cols() == nFeats);

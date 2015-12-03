@@ -317,13 +317,13 @@ namespace yasfm_tests
 
       cam1.setParams(P1);
       cam2.setParams(P2);
-      cam1.reserveFeatures((int)keys1.size(),0);
-      cam2.reserveFeatures((int)keys2.size(),0);
+      cam1.resizeFeatures((int)keys1.size(),0);
+      cam2.resizeFeatures((int)keys2.size(),0);
       for(size_t i = 0; i < keys1.size(); i++)
       {
         float dummy;
-        cam1.addFeature(keys1[i](0),keys1[i](1),&dummy);
-        cam2.addFeature(keys2[i](0),keys2[i](1),&dummy);
+        cam1.setFeature((int)i,keys1[i](0),keys1[i](1),&dummy);
+        cam2.setFeature((int)i,keys2[i](0),keys2[i](1),&dummy);
       }
 
       inliers.clear();

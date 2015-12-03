@@ -25,7 +25,7 @@ namespace yasfm_tests
       {
         cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test0.JPG"));
         cams.back()->setParams(generateRandomProjection());
-        cams.back()->reserveFeatures(nPts,0);
+        cams.back()->resizeFeatures(nPts,0);
       }
 
       vector<Vector3d> ptCoord(nPts);
@@ -40,7 +40,7 @@ namespace yasfm_tests
           Vector2d p = cams[camIdx]->project(ptCoord[ptIdx]);
           p += 0.1*Vector2d::Random(); // add noise
           float dummy;
-          cams[camIdx]->addFeature(p(0),p(1),&dummy);
+          cams[camIdx]->setFeature(ptIdx,p(0),p(1),&dummy);
         }
       }
       pts.addPoints(ptCoord,colors,matches);
@@ -94,7 +94,7 @@ namespace yasfm_tests
       {
         cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test0.JPG"));
         cams.back()->setParams(generateRandomProjection());
-        cams.back()->reserveFeatures(nPts,0);
+        cams.back()->resizeFeatures(nPts,0);
       }
 
       vector<Vector3d> ptCoord(nPts);
@@ -109,7 +109,7 @@ namespace yasfm_tests
           Vector2d p = cams[camIdx]->project(ptCoord[ptIdx]);
           p += 0.1*Vector2d::Random(); // add noise
           float dummy;
-          cams[camIdx]->addFeature(p(0),p(1),&dummy);
+          cams[camIdx]->setFeature(ptIdx,p(0),p(1),&dummy);
         }
       }
       pts.addPoints(ptCoord,colors,matches);
