@@ -1,0 +1,32 @@
+:Doxygen comments everywhere 
+	- Automatically generate documentation
+:VLFeat for non-GPU SIFT (add define ENABLE_OPENCL)
+:Multithreading
+	- Geometric verification
+	- Homography estimation
+:Shared calibration
+	- User specified groups sharing calibration
+	- Supply cameras with non-shared and shared parameters
+	- When asking a camera for ceres::cost, tell them if we want version with shared parameters or not
+:Rolling shutter
+:Distortion division model
+:Initialize camera
+	- Run BA multiple times for the new camera and remove outliers in after the runs (remove only information that the points are seen by this camera)
+	- Check for number of inliers in the end
+	- Check if focal is >0.1*imgWidth in the end
+:LM after triangulation? (just bundleAdjustPoints?)
+:cmpmvs output
+:Absolute pose
+	- p3p
+	- unknown f (square pixels)
+:Matching - multithreading + GPU - use project from GPU course
+:SFMTools - connect with YASFM
+:Quaternions camera - test convergence and times
+:Compile SIFTGPU for CUDA
+:5pt verification for calibrated cameras?
+:Angle thresholds instead of pixel based ones?
+:USAC - implement
+:Hartley's 5pt? - occasional bugs? - unit tests failing
+:Matching - store dist ratios instead of dists - better prosac?
+:Memoptim - run big dataset and fix issues (maybe that binary IO will be neccessary)
+:Similarity - no exhaustive matching
