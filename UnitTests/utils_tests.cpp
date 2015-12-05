@@ -3,10 +3,13 @@
 
 #include "utils_tests.h"
 #include "utils.h"
+#include "standard_camera.h"
+#include <array>
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using Eigen::Vector4d;
 using namespace yasfm;
+using std::array;
 
 namespace yasfm_tests
 {
@@ -358,30 +361,6 @@ Matrix34d generateRandomProjection()
 
       Assert::IsTrue(pt.isApprox(ptApprox,1e-5));
     }
-
-  private:
-
-    /*
-    TEST_METHOD(findPointColorsTest)
-    {
-      vector<int> points2tracks;
-      vector<bool> pointsMask;
-      vector<Track> tracks;
-      ptr_vector<ICamera> cams;
-      unordered_set<int> addedCams;
-      vector<Vector3uc> pointsColors;
-
-      //findPointColors(points2tracks, pointsMask, tracks, cams, addedCams, pointsColors);
-      //Assert::IsTrue(pointsColors.empty());
-
-      points2tracks = { 0, 1 };
-      YASFM_TESTS_EXPECT_EXCEPTION(findPointColors(points2tracks, pointsMask,
-        tracks, cams, addedCams, pointsColors));
-      
-      //tracks[0] = Track();
-      //tracks[1] = Track();
-    }
-    */
 
 	};
 }

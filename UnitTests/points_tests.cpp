@@ -3,6 +3,7 @@
 
 #include "points.h"
 #include "utils_tests.h"
+#include "standard_camera.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
@@ -20,10 +21,10 @@ namespace yasfm_tests
       twoViewMatchesToNViewMatches(cams,pairs,&matches);
       Assert::IsTrue(matches.empty());
 
-      cams.push_back(make_unique<Camera>(""));
-      cams.push_back(make_unique<Camera>(""));
-      cams.push_back(make_unique<Camera>(""));
-      cams.push_back(make_unique<Camera>(""));
+      cams.push_back(make_unique<StandardCamera>(""));
+      cams.push_back(make_unique<StandardCamera>(""));
+      cams.push_back(make_unique<StandardCamera>(""));
+      cams.push_back(make_unique<StandardCamera>(""));
       for(size_t camIdx = 0; camIdx < cams.size(); camIdx++)
       {
         cams[camIdx]->resizeFeatures(5,0);

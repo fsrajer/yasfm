@@ -2,6 +2,7 @@
 #include "CppUnitTest.h"
 #include "bundle_adjust.h"
 #include "utils_tests.h"
+#include "standard_camera.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace yasfm;

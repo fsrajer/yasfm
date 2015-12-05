@@ -3,6 +3,7 @@
 
 #include "relative_pose.h"
 #include "utils_tests.h"
+#include "standard_camera.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 

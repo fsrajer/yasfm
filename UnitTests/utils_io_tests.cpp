@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "CppUnitTest.h"
 #include "utils_io.h"
+#include "standard_camera.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 
@@ -53,7 +54,7 @@ namespace yasfm_tests
     {
       string fn = joinPaths(YASFM_UNIT_TESTS_DIR,"test0.JPG");
       string db = "../resources/camera_ccd_widths.txt";
-      Camera cam(fn);
+      StandardCamera cam(fn);
       double f = findFocalLengthInEXIF(db,cam,false);
       Assert::IsTrue(f == 2441.0003935338095);
     }

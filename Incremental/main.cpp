@@ -19,23 +19,25 @@
 #include <unordered_set>
 #include <vector>
 
-#include "YASFM\features.h"
-#include "YASFM\bundle_adjust.h"
-#include "YASFM\matching.h"
-#include "YASFM\options.h"
-#include "YASFM\sfm_data.h"
-#include "YASFM\points.h"
-#include "YASFM\absolute_pose.h"
-#include "YASFM\relative_pose.h"
-#include "YASFM\utils.h"
-#include "YASFM\utils_io.h"
-#include "Eigen\Dense"
+#include "YASFM/standard_camera_radial.h"
+#include "YASFM/features.h"
+#include "YASFM/bundle_adjust.h"
+#include "YASFM/matching.h"
+#include "YASFM/options.h"
+#include "YASFM/sfm_data.h"
+#include "YASFM/points.h"
+#include "YASFM/absolute_pose.h"
+#include "YASFM/relative_pose.h"
+#include "YASFM/utils.h"
+#include "YASFM/utils_io.h"
+#include "Eigen/Dense"
 
 using namespace yasfm;
 using std::cin;
 using std::cout;
 using std::endl;
 using std::ifstream;
+using std::ofstream;
 using std::string;
 using std::unordered_set;
 using std::vector;
@@ -125,7 +127,7 @@ int main(int argc,const char* argv[])
   opt.write(joinPaths(dir,"options.txt"));
 
   Dataset data(dir);
-  
+
   data.addCameras<StandardCameraRadial>(imgsSubdir);
   // -> the principal point is always set to the
   // image center in StandardCamera

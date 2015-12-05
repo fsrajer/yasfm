@@ -1,42 +1,36 @@
-/*
-* Filip Srajer
-* filip.srajer (at) fel.cvut.cz
-* Center for Machine Perception
-* Czech Technical University in Prague
+//----------------------------------------------------------------------------------------
+/**
+* \file       sfm_data.h
+* \author     Filip Srajer
+* \date       October 2015
+* \brief      Classes for storing sfm results (except camera classes).
 *
-* This software is under construction.
-* 10/2015
+*  Classes for storing sfm results (except camera classes).
+*
 */
+//----------------------------------------------------------------------------------------
 
 #pragma once
 
-#include <array>
-#include <fstream>
 #include <memory>
 #include <string>
 #include <vector>
+#include <istream>
+#include <ostream>
 
-#include "ceres/ceres.h"
-#include "ceres/rotation.h"
 #include "Eigen/Dense"
 
 #include "defines.h"
+#include "camera.h"
 #include "utils.h"
 #include "utils_io.h"
 
-using Eigen::AngleAxisd;
-using Eigen::ArrayXXf;
-using Eigen::Matrix3d;
-using Eigen::Vector2d;
 using Eigen::Vector3d;
-using std::array;
-using std::make_unique;
 using std::string;
-using std::unique_ptr;
 using std::vector;
-using std::ofstream;
 using std::ostream;
 using std::istream;
+using std::make_unique;
 
 namespace yasfm
 {
@@ -45,493 +39,305 @@ namespace yasfm
 ///////////////   Declarations   ///////////////////
 ////////////////////////////////////////////////////
 
-// Forward declaration
-template<class T>
-class CameraRegister;
-
-// Base class for all cameras. This class implements handling of 
-// image data as well as features. All of its functions involving
-// camera parameters do nothing and are supposed to be implemented
-// derived classes.
-class Camera
+/// Structure for storing camera pair information.
+typedef struct CameraPair
 {
-public:
-  /// 0 are no features, 1 are keys, 2 are descriptors, 6 are descriptors+conversion
-  enum WriteMode
-  {
-    WriteNoFeatures = 0,
-    WriteKeys = 1, ///< Writes only keypoints
-    WriteDescriptors = 2,
-    WriteAll = 3,
-    WriteConvertNormalizedSIFTToUint = 4
-  };
-
-  enum ReadMode
-  {
-    ReadNoDescriptors = 0,
-    ReadAll = 1
-  };
-
-  YASFM_API Camera(const string& imgFilename);
-  YASFM_API Camera(istream& file,int readMode,const string& featuresDir);
-  // Destructor has to be virtual (even if it was empty) 
-  // because of use of ptr_vector. It ensures that all the items
-  // will be correctly deleted.
-  YASFM_API virtual ~Camera();
-  // !! derived classes need to implement this as follows:
-  // { return make_unique<DerivedCamera>(*this); }
-  YASFM_API virtual unique_ptr<Camera> clone() const;
-
-  YASFM_API virtual void resizeFeatures(int num,int dim);
-  YASFM_API virtual void setFeature(int idx,double x,double y,
-    const float* const descr);
-  YASFM_API virtual void readKeysColors();
-  // remove descriptors from memory
-  YASFM_API virtual void clearDescriptors();
-
-  // Most of the data will be stored in the mainFile but keys nad descriptors
-  // will be stored in a separate file.
-  YASFM_API void writeASCII(ostream& file,int writeMode,
-    const string& featuresDir) const;
-  YASFM_API void writeASCII(ostream& file,int writeMode) const;
-
-  // accessors
-  YASFM_API virtual const string& imgFilename() const;
-  YASFM_API virtual int imgWidth() const;
-  YASFM_API virtual int imgHeight() const;
-  YASFM_API virtual const vector<Vector2d>& keys() const;
-  YASFM_API virtual const Vector2d& key(int i) const;
-  YASFM_API virtual const vector<Vector3uc>& keysColors() const;
-  YASFM_API virtual const Vector3uc& keyColor(int i) const;
-  // One column is one descriptor.
-  YASFM_API virtual const ArrayXXf& descr() const;
-
-  // to be implemented by derived classes
-  YASFM_API virtual Vector2d project(const Vector3d& pt) const { return Vector2d::Zero(); }
-  YASFM_API virtual ceres::CostFunction* costFunction(int keyIdx) const { return nullptr; }
-  YASFM_API virtual ceres::CostFunction* constraintsCostFunction() const { return nullptr; }
-  YASFM_API virtual void params(vector<double> *params) const {}
-  // projection matrix
-  YASFM_API virtual Matrix34d P() const { return Matrix34d::Zero(); }
-  // Return key with undone calibration parameters.
-  YASFM_API virtual Vector2d keyNormalized(int i) const { return Vector2d::Zero(); }
-  // calibration matrix
-  YASFM_API virtual Matrix3d K() const { return Matrix3d::Zero(); }
-  // camera pose
-  YASFM_API virtual Matrix34d pose() const { return Matrix34d::Zero(); }
-  // rotation matrix
-  YASFM_API virtual Matrix3d R() const  { return Matrix3d::Zero(); }
-  // camera center
-  YASFM_API virtual Vector3d C() const  { return Vector3d::Zero(); }
-  YASFM_API virtual void setParams(const vector<double>& params)  {}
-  // from projection matrix
-  YASFM_API virtual void setParams(const Matrix34d& P)  {}
-  YASFM_API virtual void setRotation(const Matrix3d& R)  {}
-  // camera center
-  YASFM_API virtual void setC(const Vector3d& C)  {}
-  YASFM_API virtual void setFocal(double f) {}
-  YASFM_API virtual void setParamsConstraints(const vector<double>& constraints,
-    const vector<double>& weights) {}
-  YASFM_API virtual string className() const;
-
-protected:
-  virtual string featuresFilename(const string& featuresDir) const;
-  virtual void writeASCII(ostream& file) const;
-
-private:
-  string imgFilename_;
-  int imgWidth_,imgHeight_;
-
-  vector<Vector2d> keys_; // keypoints' coordinates
-  vector<Vector3uc> keysColors_;
-  ArrayXXf descr_; // descriptors; column is one descriptor
-
-  // Every subclass has to have this to be registered.
-  // (Necessary to be readible from a file).
-  static CameraRegister<Camera> reg_; 
-};
-
-// Standard camera with parameters the following parameters:
-// 3 rotation in angle-axis
-// 3 camera center
-// 1 focal length
-class StandardCamera : public Camera
-{
-public:
-  YASFM_API StandardCamera(const string& imgFilename);
-  YASFM_API StandardCamera(istream& file,int readMode,const string& featuresDir);
-  // Destructor has to be virtual (even if it was empty) 
-  // because of use of ptr_vector. It ensures that all the items
-  // will be correctly deleted.
-  YASFM_API virtual ~StandardCamera();
-  // !! derived classes need to implement this as follows:
-  // { return make_unique<DerivedCamera>(*this); }
-  YASFM_API virtual unique_ptr<Camera> clone() const;
-
-  YASFM_API virtual Vector2d project(const Vector3d& pt) const;
-  YASFM_API virtual ceres::CostFunction* costFunction(int keyIdx) const;
-  YASFM_API virtual ceres::CostFunction* constraintsCostFunction() const;
-  // 3 rotation, 3 translation, 1 focal length
-  YASFM_API virtual void setParams(const vector<double>& params);
-  // from projection matrix
-  YASFM_API virtual void setParams(const Matrix34d& P);
-  YASFM_API virtual void setRotation(const Matrix3d& R);
-  YASFM_API virtual void setFocal(double f);
-  // camera center
-  YASFM_API virtual void setC(const Vector3d& C);
-  // try weight 0.0001 for focal constraint
-  YASFM_API virtual void constrainFocal(double constraint,double weigtht);
-  YASFM_API virtual void setParamsConstraints(const vector<double>& constraints,
-    const vector<double>& weights);
-
-  YASFM_API virtual string className() const;
-
-  // accessors
-  // 3 rotation, 3 translation, 1 focal length
-  YASFM_API virtual void params(vector<double> *params) const;
-  // projection matrix
-  YASFM_API virtual Matrix34d P() const;
-  // Return key with undone calibration parameters.
-  YASFM_API virtual Vector2d keyNormalized(int i) const;
-  // calibration matrix
-  YASFM_API virtual Matrix3d K() const;
-  // camera pose
-  YASFM_API virtual Matrix34d pose() const;
-  // rotation matrix
-  YASFM_API virtual Matrix3d R() const;
-  // camera center
-  YASFM_API virtual Vector3d C() const;
-  YASFM_API virtual const AngleAxisd& rot() const;
-  YASFM_API virtual double f() const;
-  YASFM_API virtual const Vector2d& x0() const;
-
-protected:
-  virtual void writeASCII(ostream& file) const;
-  
-  AngleAxisd rot_;
-  Vector3d C_;
-  double f_;
-  Vector2d x0_; // principal point
-  vector<double> paramsConstraints_,paramsConstraintsWeights_;
-  static const int rotIdx_ = 0;
-  static const int CIdx_ = 3;
-  static const int fIdx_ = 6;
-
-private:
-  template<typename T>
-  void projectWithExternalParams(const T* const camera,
-    const T* const point,T *projection) const;
-
-  struct ReprojectionErrorFunctor
-  {
-    ReprojectionErrorFunctor(double keyX,double keyY,const StandardCamera& cam);
-
-    template <typename T>
-    bool operator()(const T* const camera,
-      const T* const point,
-      T* residuals) const;
-
-    const StandardCamera& cam_;
-    double keyX_,keyY_;
-  };
-
-  static const int nParams_ = 7;
-
-  // Every subclass has to have this to be registered.
-  // (Necessary to be readible from a file).
-  static CameraRegister<StandardCamera> reg_;
-};
-
-// Standard camera with parameters the following parameters:
-// 3 rotation in angle-axis
-// 3 camera center
-// 1 focal length
-// 2 radial parameters
-class StandardCameraRadial : public StandardCamera
-{
-public:
-  YASFM_API StandardCameraRadial(const string& imgFilename);
-  YASFM_API StandardCameraRadial(istream& file,int readMode,const string& featuresDir);
-  // Destructor has to be virtual (even if it was empty) 
-  // because of use of ptr_vector. It ensures that all the items
-  // will be correctly deleted.
-  YASFM_API virtual ~StandardCameraRadial();
-  // !! derived classes need to implement this as follows:
-  // { return make_unique<DerivedCamera>(*this); }
-  YASFM_API virtual unique_ptr<Camera> clone() const;
-
-  YASFM_API virtual Vector2d project(const Vector3d& pt) const;
-  YASFM_API virtual ceres::CostFunction* costFunction(int keyIdx) const;
-  YASFM_API virtual ceres::CostFunction* constraintsCostFunction() const;
-  // Return key with undone calibration parameters.
-  YASFM_API virtual Vector2d keyNormalized(int i) const;
-  // 3 rotation, 3 translation, 1 focal length, 2 radial distortion
-  YASFM_API virtual void setParams(const vector<double>& params);
-  // from projection matrix
-  YASFM_API virtual void setParams(const Matrix34d& P);
-  // try constraints 0 and weights 100
-  YASFM_API virtual void constrainRadial(double *constraints,double *weigthts);
-
-  YASFM_API virtual string className() const;
-
-  // accessors
-  // 3 rotation, 3 translation, 1 focal length, 2 radial distortion
-  YASFM_API virtual void params(vector<double> *params) const;
-  YASFM_API virtual const double* const radParams() const;
-
-protected:
-  virtual void writeASCII(ostream& file) const;
-
-  array<double,2> radParams_;
-  array<double,4> invRadParams_;
-  static const int nParams_ = 9;
-  static const int radIdx_ = 7;
-
-private:
-  template<typename T>
-  void projectWithExternalParams(const T* const camera,
-    const T* const point,T *projection) const;
-
-  struct ReprojectionErrorFunctor
-  {
-    ReprojectionErrorFunctor(double keyX,double keyY,const StandardCameraRadial& cam);
-
-    template <typename T>
-    bool operator()(const T* const camera,
-      const T* const point,
-      T* residuals) const;
-
-    const StandardCameraRadial& cam_;
-    double keyX_,keyY_;
-  };
-
-  // Every subclass has to have this to be registered.
-  // (Necessary to be readible from a file).
-  static CameraRegister<StandardCameraRadial> reg_;
-};
-
-typedef struct
-{
-  vector<IntPair> matches;
-  vector<double> dists; // can be any score - the smaller the better
+  /// Matches of features. The first entry in the IntPair is an index of the
+  /// key in the first image and in the same manner the second.
+  vector<IntPair> matches; 
+  /// This can be any score. The smaller the better.
+  vector<double> dists;
 } CameraPair;
 
-// Class including point data as well as n-view matches which
-// have not been reconstructed yet. For adding points, prefer
-// member functions which handle removal of corresponding
-// matchesToReconstruct.
+/// The class for storing points and n-view matches.
+/**
+Class including point data as well as n-view matches which have not been reconstructed 
+yet. For adding points, prefer member functions which handle removal of corresponding
+n-view matches.
+*/
 class Points
 {
 public:
-  typedef struct
+  /// Data for one point except coordinates.
+  typedef struct PointData
   {
-    NViewMatch reconstructed;
-    NViewMatch toReconstruct;
-    Vector3uc color;
+    NViewMatch reconstructed; ///< Points views in images that have been reconstucted.
+    NViewMatch toReconstruct; ///< Points views in images that have not been reconstucted.
+    Vector3uc color;          ///< Point color.
   } PointData;
 
-  // Add new points created from corresponding matchesToReconstructIdxs.
-  // The corresponding matchesToReconstruct are erased so NOTE that indices
-  // to matchesToReconstruct you might have get invalidated.
-  YASFM_API void addPoints(const IntPair& camsIdxs,const vector<int>& matchesToReconstructIdxs,
-    const vector<Vector3d>& coord,const vector<Vector3uc>& colors);
-  // Add new points. pointCoord and pointViews should have the same size.
-  YASFM_API void addPoints(const vector<Vector3d>& pointCoord,const vector<Vector3uc>& colors,
-    const vector<SplitNViewMatch>& pointViews);
-  // This invalidates the indices to points you might have.
+  /// Add new points reconstructed from two views.
+  /**
+  Add new points created from corresponding matchesToReconstructIdxs.
+  The corresponding matchesToReconstruct are erased so NOTE that indices
+  to matchesToReconstruct you might have get invalidated.
+  All the inputs except the first one have to be the same size.
+
+  \param[in] camsIdxs Indices of the two cameras used for reconstuction of the points.
+  \param[in] matchesToReconstructIdxs Indices of matchesToReconstruct from which
+  the points have been reconstructed. The corresponding matchesToReconstruct 
+  will be deleted.
+  \param[in] coord New points' coordinates.
+  \param[in] colors New points' colors.
+  */
+  YASFM_API void addPoints(const IntPair& camsIdxs,
+    const vector<int>& matchesToReconstructIdxs,const vector<Vector3d>& coord,
+    const vector<Vector3uc>& colors);
+
+  /// Add new points reconstructed from n views. 
+  /**
+  All the inputs have to be the same size.
+
+  \param[in] pointCoord New points' coordinates.
+  \param[in] colors New points' colors.
+  \param[in] pointViews View of the new points in cameras that have been reconstructed
+  and in cameras that haven't been reconstucted yet.
+  */
+  YASFM_API void addPoints(const vector<Vector3d>& pointCoord,
+    const vector<Vector3uc>& colors,const vector<SplitNViewMatch>& pointViews);
+
+  /// Remove points.
+  /**
+  This invalidates the indices to points you might have.
+
+  \param[in] keep Indication which points to keep.
+  */
   YASFM_API void removePoints(const vector<bool>& keep);
+  
+  /// \return Number of reconstucted points.
   YASFM_API int numPts() const;
-  // Goes through pointData and updates reconstructed and toReconstruct
-  // by moving the cam for all corresponding points from toReconstruct
-  // to reconstructed.
+
+  /// Update points' views.
+  /**
+  Goes through pointData and updates reconstructed and toReconstruct by moving 
+  the cam for all corresponding points from toReconstruct to reconstructed.
+
+  \param[in] camIdx Index of the camera which got reconstructed
+  */
   YASFM_API void markCamAsReconstructed(int camIdx);
-  // Goes through pointData and updates reconstructed and toReconstruct
-  // by moving the cam for all correspondingPoints[correspondingPointsInliers[i]] 
-  // from toReconstruct to reconstructed and removing the cam from toReconstruct
-  // for all non-inliers. When correspondingPointsInliers is null then
-  // all correspondingPoints are considered to be inliers.
+
+  /// Update points' views.
+  /**
+  Goes through pointData and updates reconstructed and toReconstruct by moving 
+  the cam for all correspondingPoints[correspondingPointsInliers[i]] from 
+  toReconstruct to reconstructed and removing the cam from toReconstruct for all 
+  non-inliers. When correspondingPointsInliers is null then all correspondingPoints 
+  are considered to be inliers.
+
+  \param[in] camIdx Index of the camera which got reconstructed.
+  \param[in] correspondingPoints Indices of the relevant points.
+  \param[in] correspondingPointsInliers Indices to correspondingPoints. Indicates
+  inliers to the reconstructed camera.
+  */
   YASFM_API void markCamAsReconstructed(int camIdx,
     const vector<int>& correspondingPoints,
     const vector<int>& correspondingPointsInliers);
 
+  /// Write all the point data including matchesToReconstruct.
+  /// \param[in,out] file Opened output file.
   YASFM_API void writeASCII(ostream& file) const;
+  
+  /// Read points from a file.
+  /// \param[in,out] file Opened input file.
   YASFM_API void readASCII(istream& file);
 
-  // Accessors
+  /// \return N-View matches which have not been yet reconstructed.
   YASFM_API const vector<NViewMatch>& matchesToReconstruct() const;
+
+  /// \return N-View matches which have not been yet reconstructed.
   YASFM_API vector<NViewMatch>& matchesToReconstruct();
+
+  /// \return Points' coordinates.
   YASFM_API const vector<Vector3d>& ptCoord() const;
-  // Points are stored in a contiguous block so getting pointer to first
-  // points also gives you all the points.
+
+  /**
+  Points are stored in a contiguous block so getting pointer to first points 
+  also gives you all the points.
+
+  \param[in] ptIdx Index of the point.
+  \return Point coordinates.
+  */
   YASFM_API double* ptCoord(int ptIdx);
+
+  /// \return Points' data.
   YASFM_API const vector<PointData>& ptData() const;
+
 private:
-  vector<NViewMatch> matchesToReconstruct_;
-  vector<Vector3d> ptCoord_;
-  vector<PointData> ptData_;
+  /// N-View matches which have not been yet reconstructed.
+  vector<NViewMatch> matchesToReconstruct_; 
+  vector<Vector3d> ptCoord_;  ///< Points' coordinates.
+  vector<PointData> ptData_;  ///< Points' data.
 };
 
+/// Main class for storing results of the reconstruction.
+/**
+Class used for storing results of the reconstruction. Able to copy itself using
+copy constructor or assignment operator, write itself into file and read itself
+again.
+*/
 class Dataset
 {
 public:
+  /// Constructor.
+  /**
+  Does nothing except setting the dir.
+
+  \param[in] dir Working directory.
+  */
   YASFM_API Dataset(const string& dir);
+  
+  /// Copy constructor. Copies all the data.
+  /// \param[in] o Other dataset.
   YASFM_API Dataset(const Dataset& o);
+
+  /// Assignment operator. Copies all the data.
+  /// \param[in] o Other dataset.
+  /// \return Reference to this.
   YASFM_API Dataset& operator=(const Dataset& o);
+  
+  /// Add one camera to the dataset.
+  /**
+  \param[in] filename Path to an image file.
+  \param[in] isSubdir true if the filename is relative to the working dir.
+  */
   template<class T>
   void addCamera(const string& filename,bool isSubdir = true);
+
+  /// Add all images in a directory to the dataset as cameras.
+  /**
+  \param[in] imgsDir Directory with the images.
+  \param[in] isSubdir true if the imgsDir is relative to the working dir.
+  */
   template<class T>
   void addCameras(const string& imgsDir,bool isSubdir = true);
-  // remove descriptors from memory
+
+  /// Erase all the descriptors to release memory.
   YASFM_API void clearDescriptors();
+
+  /// \return Number of cameras.
   YASFM_API int numCams() const;
-  // This also calls markCamAsReconstructed in points.
+
+  /// Marks cam as reconstructed and calls the same method in points.
+  /// \param[in] camIdx Index of the reconstructed camera.
   YASFM_API void markCamAsReconstructed(int camIdx);
-  // This also calls markCamAsReconstructed in points. When 
-  // correspondingPointsInliers is null then all correspondingPoints 
-  // are considered to be inliers.
+
+  /// Marks cam as reconstructed and calls the same method in points.
+  /**
+  \param[in] camIdx Index of the reconstructed camera.
+  \param[in] correspondingPoints Indices of the relevant points.
+  \param[in] correspondingPointsInliers Indices to correspondingPoints. Indicates
+  inliers to the reconstructed camera.
+  */
   YASFM_API void markCamAsReconstructed(int camIdx,
     const vector<int>& correspondingPoints,
     const vector<int>& correspondingPointsInliers);
+
+  /// Go through all the points and count number of reconstructed views/observations.
+  /// \return Total number of observations/views.
   YASFM_API int countReconstructedObservations() const;
-  // Write out.
+
+  /// Write the dataset to a file (features get written to separate files).
+  /**
+  \param[in] filename Path to output file relative to the working directory.
+  \param[in] camWriteMode Given by Camera::Write mode and determines if and 
+  how the features get written.
+  */
   YASFM_API void writeASCII(const string& filename,int camWriteMode) const;
+
+  /// Write the dataset to a file (features get written to separate files).
+  /**
+  \param[in] filename Path to output file relative to the working directory.
+  \param[in] camWriteMode Given by Camera::WriteMode and determines if and
+  how the features get written.
+  \param[in] featuresDir Absolute path to directory to which the features will
+  get written.
+  */
   YASFM_API void writeASCII(const string& filename,int camWriteMode,
     const string& featuresDir) const;
 
+  /// For all cameras reads keys colors.
   YASFM_API void readKeysColors();
+
+  /// Reads the dataset from a file (features get read from separate files).
+  /**
+  \param[in] filename Path to input file relative to the working directory.
+  \param[in] camReadMode Defined by Camera::ReadMode and determines how the 
+  features get read.
+  */
   YASFM_API void readASCII(const string& filename,int camReadMode);
+
+  /// Reads the dataset from a file (features get read from separate files).
+  /**
+  \param[in] filename Path to input file relative to the working directory.
+  \param[in] camReadMode Defined by Camera::ReadMode and determines how the
+  features get read.
+  \param[in] featuresDir Absolute path to directory in which the features  are 
+  written.
+  */
   YASFM_API void readASCII(const string& filename,int camReadMode,
     const string& featuresDir);
 
-  // accessors
+  /// \return Working directory.
   YASFM_API const string& dir() const;
+
+  /// \param[in] idx Camera index.
+  /// \return The camera.
   YASFM_API const Camera& cam(int idx) const;
+
+  /// \param[in] idx Camera index.
+  /// \return The camera.
   YASFM_API Camera& cam(int idx);
+
+  /// \param[in] idx Camera index.
+  /// \return The camera.
   YASFM_API const Camera& cam(size_t idx) const;
+
+  /// \param[in] idx Camera index.
+  /// \return The camera.
   YASFM_API Camera& cam(size_t idx);
+
+  /// \return Cameras.
   YASFM_API const ptr_vector<Camera>& cams() const;
+
+  /// \return Cameras.
   YASFM_API ptr_vector<Camera>& cams();
+
+  /// \return Camera pairs.
   YASFM_API const pair_umap<CameraPair>& pairs() const;
+
+  /// \return Camera pairs.
   YASFM_API pair_umap<CameraPair>& pairs();
+
+  /// \return Reconstructed cameras.
   YASFM_API const uset<int>& reconstructedCams() const;
+
+  /// \return Points and unreconstructed n-view matches.
   YASFM_API const Points& points() const;
+
+  /// \return Points and unreconstructed n-view matches.
   YASFM_API Points& points();
+
 private:
-  // copyIn is used in copy constructor and assignment operator.
-  // This is implemented so that ptr_vector<Camera> would correctly 
-  // copy (unique_ptr<Base> has to be copied using clone()).
-  // !!! Update this whenever you add a new member variable.
+  /// Copy dataset from another one.
+  /**
+  This is used in copy constructor and assignment operator. It is implemented 
+  so that ptr_vector<Camera> would correctly copy (unique_ptr<Base> has to be 
+  copied using clone()).
+  !!! Update this whenever a new member variable is added.
+  */
   void copyIn(const Dataset& o);
-  string dir_;
+
+  string dir_; ///< Working directory.
+  /// The cameras stored as pointers to Camera.
   ptr_vector<Camera> cams_;
   pair_umap<CameraPair> pairs_;
   uset<int> reconstructedCams_;
   Points points_;
 };
 
-class CameraFactory
-{
-public:
-  static unique_ptr<Camera> createInstance(const string& className,
-    istream& file,int camReadMode,const string& featuresDir);
-
-protected:
-  typedef umap<string,unique_ptr<Camera>(*)(istream&,int,
-    const string&)> MapType;
-
-  static MapType& map();
-
-private:
-  static MapType *map_;
-};
-
-template<class T>
-class CameraRegister : private CameraFactory
-{
-public:
-  CameraRegister(const string& className);
-};
-
-template<class T>
-unique_ptr<Camera> createCamera(istream& file,int camReadMode,
-  const string& featuresDir);
-
 ////////////////////////////////////////////////////
 ///////////////   Definitions   ////////////////////
 ////////////////////////////////////////////////////
-
-template<typename T>
-void StandardCamera::projectWithExternalParams(const T* const camera,
-  const T* const point,T *projection) const
-{  
-  // Subtract camera center.
-  T p[3];
-  p[0] = point[0] - camera[CIdx_ + 0];
-  p[1] = point[1] - camera[CIdx_ + 1];
-  p[2] = point[2] - camera[CIdx_ + 2];
-  
-  // Rotate.
-  T pCam[3];
-  ceres::AngleAxisRotatePoint(&camera[rotIdx_],p,pCam);
-
-  T xp = pCam[0] / pCam[2];
-  T yp = pCam[1] / pCam[2];
-
-  // Multiply by calibration matrix, i.e., apply focal and principal point.
-  projection[0] = camera[fIdx_] * xp + T(x0_(0));
-  projection[1] = camera[fIdx_] * yp + T(x0_(1));
-}
-
-template<typename T>
-bool StandardCamera::ReprojectionErrorFunctor::operator()(const T* const camera,
-  const T* const point,T* residuals) const
-{
-  T projection[2];
-  cam_.projectWithExternalParams(camera,point,projection);
-
-  residuals[0] = projection[0] - T(keyX_);
-  residuals[1] = projection[1] - T(keyY_);
-
-  return true;
-}
-
-template<typename T>
-void StandardCameraRadial::projectWithExternalParams(const T* const camera,
-  const T* const point,T *projection) const
-{
-  // Subtract camera center.
-  T p[3];
-  p[0] = point[0] - camera[CIdx_ + 0];
-  p[1] = point[1] - camera[CIdx_ + 1];
-  p[2] = point[2] - camera[CIdx_ + 2];
-
-  // Rotate.
-  T pCam[3];
-  ceres::AngleAxisRotatePoint(&camera[rotIdx_],p,pCam);
-
-  T xp = pCam[0] / pCam[2];
-  T yp = pCam[1] / pCam[2];
-
-  T r2 = xp*xp + yp*yp;
-  T distortion = T(1.) + r2 * (camera[radIdx_ + 0] + r2 * camera[radIdx_ + 1]);
-
-  // Multiply by calibration matrix, i.e., apply focal and principal point.
-  projection[0] = camera[fIdx_] * distortion * xp + T(x0_(0));
-  projection[1] = camera[fIdx_] * distortion * yp + T(x0_(1));
-}
-
-template<typename T>
-bool StandardCameraRadial::ReprojectionErrorFunctor::operator()(const T* const camera,
-  const T* const point,T* residuals) const
-{
-  T projection[2];
-  cam_.projectWithExternalParams(camera,point,projection);
-
-  residuals[0] = projection[0] - T(keyX_);
-  residuals[1] = projection[1] - T(keyY_);
-
-  return true;
-}
 
 template<class T>
 void Dataset::addCamera(const string& filename,bool isSubdir)
@@ -562,19 +368,6 @@ void Dataset::addCameras(const string& imgsDir,bool isSubdir)
   {
     cams_.push_back(make_unique<T>(joinPaths(imgsDirAbs,filenames[i])));
   }
-}
-
-template<class T>
-unique_ptr<Camera> createCamera(istream& file,int camReadMode,
-  const string& featuresDir)
-{
-  return make_unique<T>(file,camReadMode,featuresDir);
-}
-
-template<class T>
-CameraRegister<T>::CameraRegister(const string& className)
-{
-  map()[className] = &createCamera<T>;
 }
 
 } // namespace yasfm

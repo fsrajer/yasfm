@@ -2,6 +2,8 @@
 #include "CppUnitTest.h"
 
 #include "sfm_data.h"
+#include "standard_camera.h"
+#include "standard_camera_radial.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace yasfm;
@@ -16,8 +18,8 @@ public:
   TEST_METHOD(addCameraTest)
   {
     Dataset data("../UnitTests/test_dataset");
-    data.addCamera<Camera>("test0.JPG");
-    data.addCamera<Camera>("test1.JPG");
+    data.addCamera<StandardCamera>("test0.JPG");
+    data.addCamera<StandardCamera>("test1.JPG");
 
     string fn0 = joinPaths(data.dir(),"test0.JPG");
     string fn1 = joinPaths(data.dir(),"test1.JPG");
@@ -30,7 +32,7 @@ public:
   TEST_METHOD(addCamerasTest)
   {
     Dataset data("../UnitTests/test_dataset");
-    data.addCameras<Camera>("");
+    data.addCameras<StandardCamera>("");
 
     Assert::AreEqual(data.numCams(),3);
 
@@ -45,7 +47,7 @@ public:
   TEST_METHOD(markCamAsReconstructedTest)
   {
     Dataset data("../UnitTests/test_dataset");
-    data.addCameras<Camera>("");
+    data.addCameras<StandardCamera>("");
 
     data.markCamAsReconstructed(1);
 
@@ -122,11 +124,6 @@ public:
     Assert::IsTrue(rec3.count(4) == 1);
     Assert::IsTrue(rec3.count(5) == 1);
     Assert::IsTrue(toRec3.size() == 0);
-  }
-
-  TEST_METHOD(CameraTest)
-  {
-    testCameraFuctionality<Camera>();
   }
 
   TEST_METHOD(StandardCameraTest)

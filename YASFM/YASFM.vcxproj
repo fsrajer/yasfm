@@ -226,6 +226,8 @@
   <ItemGroup>
     <ClInclude Include="absolute_pose.h" />
     <ClInclude Include="bundle_adjust.h" />
+    <ClInclude Include="camera.h" />
+    <ClInclude Include="camera_factory.h" />
     <ClInclude Include="defines.h" />
     <ClInclude Include="features.h" />
     <ClInclude Include="matching.h" />
@@ -234,12 +236,16 @@
     <ClInclude Include="ransac.h" />
     <ClInclude Include="relative_pose.h" />
     <ClInclude Include="sfm_data.h" />
+    <ClInclude Include="standard_camera.h" />
+    <ClInclude Include="standard_camera_radial.h" />
     <ClInclude Include="utils.h" />
     <ClInclude Include="utils_io.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="absolute_pose.cpp" />
     <ClCompile Include="bundle_adjust.cpp" />
+    <ClCompile Include="camera.cpp" />
+    <ClCompile Include="camera_factory.cpp" />
     <ClCompile Include="features.cpp" />
     <ClCompile Include="matching.cpp" />
     <ClCompile Include="options.cpp" />
@@ -247,6 +253,8 @@
     <ClCompile Include="ransac.cpp" />
     <ClCompile Include="relative_pose.cpp" />
     <ClCompile Include="sfm_data.cpp" />
+    <ClCompile Include="standard_camera.cpp" />
+    <ClCompile Include="standard_camera_radial.cpp" />
     <ClCompile Include="utils.cpp" />
     <ClCompile Include="utils_io.cpp" />
   </ItemGroup>

@@ -31,6 +31,7 @@ extern "C"
   }
 }
 #include "utils.h"
+#include "standard_camera_radial.h"
 
 using std::cout;
 using std::cerr;

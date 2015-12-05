@@ -39,9 +39,6 @@
     <ClInclude Include="utils_io.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="points.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="absolute_pose.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -49,6 +46,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="sfm_data.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="camera_factory.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="standard_camera.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="standard_camera_radial.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="points.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -71,9 +83,6 @@
     <ClCompile Include="features.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="points.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="absolute_pose.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -84,6 +93,21 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="matching.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="camera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="camera_factory.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="standard_camera.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="standard_camera_radial.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="points.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
