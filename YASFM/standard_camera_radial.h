@@ -1,8 +1,6 @@
 //----------------------------------------------------------------------------------------
 /**
 * \file       standard_camera_radial.h
-* \author     Filip Srajer
-* \date       December 2015
 * \brief      Standard camera class with radial.
 *
 *  Standard camera with square pixel, principal point in the middle of the image

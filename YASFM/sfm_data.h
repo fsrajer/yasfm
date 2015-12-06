@@ -1,8 +1,6 @@
 //----------------------------------------------------------------------------------------
 /**
 * \file       sfm_data.h
-* \author     Filip Srajer
-* \date       October 2015
 * \brief      Classes for storing sfm results (except camera classes).
 *
 *  Classes for storing sfm results (except camera classes).

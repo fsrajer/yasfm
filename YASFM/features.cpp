@@ -48,6 +48,23 @@ void detectSiftGPU(const OptionsSIFTGPU& opt,ptr_vector<Camera> *cams)
   }
 }
 
+void detectSiftGPU(const OptionsSIFTGPU& opt,Camera *cam)
+{
+  SiftGPUAutoMemRelease siftHandle;
+  if(!siftHandle.isLoadedDLL())
+  {
+    return;
+  }
+
+  bool success = siftHandle.initialize(opt,cam->imgWidth(),cam->imgHeight());
+  if(!success)
+  {
+    return;
+  }
+  
+  detectSiftGPU(siftHandle,cam);
+}
+
 } // namespace yasfm
 
 

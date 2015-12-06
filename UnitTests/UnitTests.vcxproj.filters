@@ -53,7 +53,7 @@
     <ClCompile Include="ransac_tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="points_utils_tests.cpp">
+    <ClCompile Include="points_tests.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -1,8 +1,6 @@
 //----------------------------------------------------------------------------------------
 /**
 * \file       camera.h
-* \author     Filip Srajer
-* \date       December 2015
 * \brief      Base class for all cameras.
 *
 *  The base class for all cameras.
@@ -196,6 +194,7 @@ protected:
 
 private:
   /*
+  !! HAS TO BE FOR EVERY DERIVED CLASS IN HIERARCHY !!
   NOTE that every DerivedCamera should have a member:
   static CameraRegister<DerivedCamera> reg_;
   and implement it in the following way :

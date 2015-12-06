@@ -245,7 +245,7 @@
     <ClCompile Include="absolute_pose_tests.cpp" />
     <ClCompile Include="bundle_adjust_tests.cpp" />
     <ClCompile Include="matching_tests.cpp" />
-    <ClCompile Include="points_utils_tests.cpp" />
+    <ClCompile Include="points_tests.cpp" />
     <ClCompile Include="ransac_tests.cpp" />
     <ClCompile Include="relative_pose_tests.cpp" />
     <ClCompile Include="sfm_data_tests.cpp" />

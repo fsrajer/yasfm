@@ -27,7 +27,8 @@ bool resectCamera5AndHalfPtRANSAC(const OptionsRANSAC& opt,
   Camera *cam,vector<int> *inliers)
 {
   Matrix34d P;
-  bool success = resectCamera5AndHalfPtRANSAC(opt,camToSceneMatches,cam->keys(),points,&P,inliers);
+  bool success = resectCamera5AndHalfPtRANSAC(opt,camToSceneMatches,cam->keys(),
+    points,&P,inliers);
   if(success)
     cam->setParams(P);
   return success;
@@ -143,6 +144,7 @@ void resectCameraLS(const vector<Vector2d>& keys,const vector<Vector3d>& points,
   P.row(2).leftCols(3) = X.bottomRows(3).transpose();
   P(2,3) = 1.;
 }
+
 MediatorResectioningRANSAC::MediatorResectioningRANSAC(int minMatches,
   const vector<Vector2d>& keys,const vector<Vector3d>& points,
   const vector<IntPair>& camToSceneMatches)
@@ -174,12 +176,6 @@ double MediatorResectioningRANSAC::computeSquaredError(const Matrix34d& P,
 void MediatorResectioningRANSAC::refine(double tolerance,const vector<int>& inliers,
   Matrix34d *P) const
 {
-}
-
-bool MediatorResectioningRANSAC::isPermittedSelection(const vector<int>& idxs) const
-{
-  // TODO: Should we exclude some cases? (twisted cubic and plane)
-  return true;
 }
 
 MediatorResectioning5AndHalfPtRANSAC::MediatorResectioning5AndHalfPtRANSAC(

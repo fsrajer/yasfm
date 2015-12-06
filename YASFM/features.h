@@ -1,12 +1,12 @@
-/*
-* Filip Srajer
-* filip.srajer (at) fel.cvut.cz
-* Center for Machine Perception
-* Czech Technical University in Prague
+//----------------------------------------------------------------------------------------
+/**
+* \file       features.h
+* \brief      Functions for feature detection and description.
 *
-* This software is under construction.
-* 05/2015
+*  Functions for feature detection and description.
+*
 */
+//----------------------------------------------------------------------------------------
 
 #pragma once
 
@@ -34,38 +34,74 @@
 namespace yasfm
 {
 
-// Loads input from images as well as saves output into them.
+/// Detect SIFT for all cameras using SIFTGPU.
+/**
+\param[in] opt Options.
+\param[in,out] cams Cameras. Image dimensions and image filename have to be set
+in order to detect SIFT.
+*/
 YASFM_API void detectSiftGPU(const OptionsSIFTGPU& opt,ptr_vector<Camera> *cams);
+
+/// Detect SIFT using SIFTGPU.
+/**
+\param[in] opt Options.
+\param[in,out] cam Camera. Image dimensions and image filename have to be set
+in order to detect SIFT.
+*/
+YASFM_API void detectSiftGPU(const OptionsSIFTGPU& opt,Camera *cam);
 
 } // namespace yasfm
 
 namespace
 {
 
-// Automatically loads SiftGPU dll.
-// 1) isLoadedDLL and 2) initialize should be called and 
-// verified that true was returned.
+/// Helper class for automatically releasing SIFTGPU resources.
+/**
+After construction, one should check that isLoadedDLL(), run initialize() and 
+verifie that true was returned by initialize().
+*/
 class SiftGPUAutoMemRelease
 {
 public:
+  /// Constructor. Automatically loads SIFTGPU dll.
   SiftGPUAutoMemRelease();
+
+  /// Destructor.
   ~SiftGPUAutoMemRelease();
 
+  /// \return True if the dll was successfully loaded.
   bool isLoadedDLL() const;
+
+  /// Initialize sift object.
+  /**
+  Initialize context and allocate pyramid.
+
+  \param[in] opt Options.
+  \param[in] maxWidth Maximum width of all images that will be used.
+  \param[in] maxHeight Maximum height of all images that will be used.
+  \return True if successfully initialized.
+  */
   bool initialize(const OptionsSIFTGPU& opt,int maxWidth,int maxHeight);
 
-  SiftGPU* sift;
+  SiftGPU* sift; ///< SIFTGPU object.
+
 private:
+  /// Convert from OptionsSIFTGPU to options in SIFTGPU object.
+  /// \param[in] opt Options.
   void setParams(const OptionsSIFTGPU& opt);
 
 #ifdef _WIN32
-  HMODULE siftgpuHandle; // nullptr value means that loading was unsuccessful
+  HMODULE siftgpuHandle; ///< nullptr value means that loading was unsuccessful
 #else
-  void *siftgpuHandle // nullptr value means that loading was unsuccessful
+  void *siftgpuHandle ///< nullptr value means that loading was unsuccessful
 #endif
 };
 
-// Detect on one image using loaded SiftGPU. image serves as input and output.
+/// Detect SIFT on one image using loaded SiftGPU.
+/**
+\param[in] siftHandle Initialized object.
+\param[in,out] cam Camera, which has to have image filename set.
+*/
 void detectSiftGPU(const SiftGPUAutoMemRelease& siftHandle,Camera *cam);
 
 } // namespace

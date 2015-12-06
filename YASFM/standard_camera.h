@@ -1,8 +1,6 @@
 //----------------------------------------------------------------------------------------
 /**
 * \file       standard_camera.h
-* \author     Filip Srajer
-* \date       December 2015
 * \brief      Standard camera class.
 *
 *  Standard camera with square pixel and principal point in the middle of the image.

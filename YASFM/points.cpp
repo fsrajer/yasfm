@@ -92,7 +92,7 @@ void reconstructPoints(const IntPair& camsIdxs,const Camera& cam1,const Camera& 
     auto& pt = coord[i];
     triangulate(Rt1,Rt2,key1,key2,&pt);
 
-    isInFrontOfBoth[i] = isInFrontNormalizedP(Rt1,pt) && isInFront(Rt2,pt);
+    isInFrontOfBoth[i] = isInFrontNormalizedP(Rt1,pt) && isInFrontNormalizedP(Rt2,pt);
 
     if(!cam1.keysColors().empty())
       colors[i] = cam1.keyColor(key1Idx);
@@ -139,7 +139,7 @@ void reconstructPoints(const ptr_vector<Camera>& cams,
 
     for(size_t iProj = 0; iProj < camIdxs.size(); iProj++)
     {
-      if(!isInFront(Rts[camIdxs[iProj]],ptCoord[iMatch]))
+      if(!isInFrontNormalizedP(Rts[camIdxs[iProj]],ptCoord[iMatch]))
       {
         isInFrontOfAll[iMatch] = false;
         break;

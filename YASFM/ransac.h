@@ -1,12 +1,13 @@
-/*
-* Filip Srajer
-* filip.srajer (at) fel.cvut.cz
-* Center for Machine Perception
-* Czech Technical University in Prague
+//----------------------------------------------------------------------------------------
+/**
+* \file       ransac.h
+* \brief      General framework for RANSAC and RANSAC like algorithms.
 *
-* This software is under construction.
-* 02/2015
+*  General framework for RANSAC and RANSAC like algorithms. The file also gives
+*  MediatorRANSAC which is used as an interface to the data.
+*
 */
+//----------------------------------------------------------------------------------------
 
 #pragma once
 
@@ -27,49 +28,147 @@ using std::cout;
 namespace yasfm
 {
 
+/// Base, interface like, class for access to data used in RANSAC like frameworks.
 template<typename MatType>
 class MediatorRANSAC
 {
 public:
+
+  /// \return Total number of matches.
   virtual int numMatches() const = 0;
-  // Minimum number of matching points to compute the transformation.
+
+  /// \return Minimum number of matches to compute the transformation.
   virtual int minMatches() const = 0;
+
+  /// Compute transformation from a minimal sample.
+  /**
+  \param[in] idxs Indices of matches from which to compute the transformation.
+  \param[out] Ms Resulting transformations.
+  */
   virtual void computeTransformation(const vector<int>& idxs,vector<MatType> *Ms) const = 0;
+  
+  /// Compute squared error for one match.
+  /**
+  \param[in] M A transformation.
+  \param[in] matchIdx Index of the match.
+  \return Squared error.
+  */
   virtual double computeSquaredError(const MatType& M,int matchIdx) const = 0;
+  
+  /// Refine a transformation using its inliers.
+  /**
+  \param[in] tolerance Tolerance for optimization termination (can be ignored if it
+  is not neccessary).
+  \param[in] inliers Inlier matches.
+  \param[in,out] M The transformation to be refined on input and refined transformation
+  on the output.
+  */
   virtual void refine(double tolerance,const vector<int>& inliers,MatType *M) const = 0;
 
-  // Are these indices permitted to be used for the computation?
+  /// Are these indices permitted to be used for computating the transformation?
+  /**
+  \param[in] idxs Indices of matches.
+  \return True if the matches selection is permitted.
+  */
   virtual bool isPermittedSelection(const vector<int>& idxs) const 
   { return true; }
 };
 
-// Returns number of inliers.
+/// Compute a transformation robustly using RANSAC.
+/**
+Run simple RANSAC, i.e.:
+for numRounds:
+  generate random minimal sample
+  compute the transformation
+  for every found transformation
+    count support
+    if better than the best so far
+      remember
+      update numRounds
+refine using inliers
+
+\param[in] m Interface to the data.
+\param[in] opt Options.
+\param[out] M Resulting best transformation.
+\param[out] inliers Inliers to the best found transformation. If set to nullptr, the
+parameter is ignored
+\return Number of inliers. This is 0 if less than opt.minInliers was found.
+*/
 template<typename MatType>
 int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC& opt,
   MatType *M,vector<int> *inliers = nullptr);
-// Returns number of inliers.
+
+/// Compute a transformation robustly using PROSAC.
+/**
+Run PROSAC (termination criterion is slighly different that in the original paper), 
+i.e.:
+for numRounds:
+  generate random minimal sample (prefer first the matches earlier in the ordering)
+  compute the transformation
+  for every found transformation
+    count support
+    if better than the best so far
+      remember
+      update numRounds
+refine using inliers
+
+\param[in] m Interface to the data.
+\param[in] opt Options.
+\param[in] matchesOrder Ordering of matches based on their score (the better 
+scoring ones should be in the beginning).
+\param[out] M Resulting best transformation.
+\param[out] inliers Inliers to the best found transformation. If set to nullptr, the
+parameter is ignored
+\return Number of inliers. This is 0 if less than opt.minInliers was found.
+*/
 template<typename MatType>
 int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC& opt,
   const vector<int>& matchesOrder,MatType *M,vector<int> *inliers = nullptr);
 
-// Returns number of inliers and also returns 
-// all inliers if inliers vector is not null
+/// Find or just count inliers to a transformation.
+/**
+Find or count inliers by computing squared error.
+
+\param[in] m Interface to data.
+\param[in] M Transformation.
+\param[in] errSqThresh Squared threshold on the error.
+\param[out] inliers Inliers. If set to nullptr, then the inliers are only summed.
+\return Number of inliers.
+*/
 template<typename MatType>
 int findInliers(const MediatorRANSAC<MatType>& m,const MatType& M,
   double errSqThresh,vector<int> *inliers = nullptr);
 
-// Generates non-repeating numToGenerate integers in 
-// the interval [0,numOverall-1].
-void generateRandomIndices(int numToGenerate,int numOverall,vector<int>& idxs);
+/// Generates random indices. 
+/**
+Generate non-repeating numToGenerate integers in the interval [0,numOverall-1].
 
-// Determine sufficient number of rounds that must happen.
+\param[in] numToGenerate Number of indices to generate.
+\param[in] numOverall Total number of data.
+\param[out] idxs Generated indices.
+*/
+void generateRandomIndices(int numToGenerate,int numOverall,vector<int> *idxs);
+
+/// Determine sufficient number of rounds that must happen.
+/**
+The equation determines how many rounds should happen to get at least one 
+all inliers sample with given confidence.
+
+\param[in] nInliers Number of inliers.
+\param[in] nPoints Total number of data.
+\param[in] sampleSize Number of data in a minimal sample.
+\param[in] confidence Confidence. (Try values like 0.95.)
+\return Sufficient number of rounds.
+*/
 int sufficientNumberOfRounds(int nInliers,int nPoints,int sampleSize,
   double confidence);
 
-// PROSAC auxiliary functions to find out from which sample set
-// to generate random indices.
+/// PROSAC auxiliary to find out from which sample set to generate random indices.
 double computeInitAvgSamplesDrawnPROSAC(int ransacRounds,int nMatches,int minMatches);
-double computeNextAvgSamplesDrawnPROSAC(double avgSamplesDrawn,int nUsedMatches,int minMatches);
+
+/// PROSAC auxiliary to find out from which sample set to generate random indices.
+double computeNextAvgSamplesDrawnPROSAC(double avgSamplesDrawn,int nUsedMatches,
+  int minMatches);
 
 } // namespace yasfm
 
@@ -104,7 +203,7 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   idxs.resize(minMatches);
   for(int round = 0; round < ransacRounds; round++)
   {
-    generateRandomIndices(minMatches,nMatches,idxs);
+    generateRandomIndices(minMatches,nMatches,&idxs);
 
     if(!m.isPermittedSelection(idxs))
       continue;
@@ -188,10 +287,10 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     // === generate random indices ===
     if(round > nSamplesDrawn)
     {
-      generateRandomIndices(minMatches,nMatches,idxs);
+      generateRandomIndices(minMatches,nMatches,&idxs);
     } else
     {
-      generateRandomIndices(minMatches - 1,nUsedMatches - 1,idxs);
+      generateRandomIndices(minMatches - 1,nUsedMatches - 1,&idxs);
       idxs[minMatches - 1] = nUsedMatches - 1;
       for(size_t i = 0; i < idxs.size(); i++)
       {

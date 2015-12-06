@@ -19,9 +19,9 @@ namespace yasfm
 
 std::default_random_engine generator;
 
-void generateRandomIndices(int numToGenerate,int numOverall,vector<int>& idxs)
+void generateRandomIndices(int numToGenerate,int numOverall,vector<int> *pidxs)
 {
-  assert(numToGenerate <= numOverall);
+  auto& idxs = *pidxs;
 
   if(idxs.size() < numToGenerate)
     idxs.resize(numToGenerate);

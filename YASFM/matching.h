@@ -1,12 +1,12 @@
-/*
-* Filip Srajer
-* filip.srajer (at) fel.cvut.cz
-* Center for Machine Perception
-* Czech Technical University in Prague
+//----------------------------------------------------------------------------------------
+/**
+* \file       matching.h
+* \brief      Functions for matching features.
 *
-* This software is under construction.
-* 10/2015
+*  Functions for matching features.
+*
 */
+//----------------------------------------------------------------------------------------
 
 // NOTE on FLANN: There have been 3 problems.
 // 1) One warning was theated as error. Therefore, project using YASFM
@@ -47,32 +47,75 @@ using namespace yasfm;
 namespace yasfm
 {
 
-// Removes pairs which have low number of matches.
+/// Removes pairs which have low number of matches.
+/**
+\param[in] minNumMatches Minimal number of matches.
+\param[in,out] pairs Camera pairs.
+*/
 YASFM_API void removePoorlyMatchedPairs(int minNumMatches,pair_umap<CameraPair> *pairs);
 
-// Finds matching features. Finds for matches from img i to img j, where
-// i is from the set queries[j]. Based on Options, different algorithms 
-// can be used as FLANN allows that. Matches can be directly filtered
-// using ratio of distances of the first over the second nearest neighbor.
-// Also, matches can be filtered as to contain only unique ones. See Options.
+/// Match features.
+/**
+Finds for all queries matches from img i to img j, where i is from the set queries[j]. 
+Based on Options, different algorithms can be used as FLANN allows that. 
+See options.
+
+\param[in] opt Options.
+\param[in] cams Cameras. Have to have descriptors.
+\param[in] queries See function description.
+\param[out] pairs Resulting matched camera pairs.
+*/
 YASFM_API void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
   const vector<set<int>>& queries,pair_umap<CameraPair> *pairs);
 
-// Calls overloaded function. Sets matching of every 
-// pair i,j such that i<j.
+/// Match features.
+/** 
+Calls overloaded function. Sets queries so that every pair i,j such that i<j 
+gets matched.
+
+\param[in] opt Options.
+\param[in] cams Cameras. Have to have descriptors.
+\param[out] pairs Resulting matched camera pairs.
+*/
 YASFM_API void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
   pair_umap<CameraPair> *pairs);
 
+/// Match features.
+/**
+Finds for all queries matches from img i to img j, where i is from the set queries[j].
+Based on Options, different algorithms can be used as FLANN allows that.
+See options.
+
+\param[in] opt Options.
+\param[in] descr Descriptors for all cameras.
+\param[in] queries See function description.
+\param[out] pairs Resulting matched camera pairs.
+*/
 void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& descr,
   const vector<set<int>>& queries,pair_umap<CameraPair> *pairs);
 
-// Finds matches based on already built and ready flann::Index.
-// Optionally filters using ratio and/or uniqueness.
+/// Match features.
+/**
+Finds matches based on already built and ready flann::Index. Optionally filters 
+using ratio and/or uniqueness.
+
+\param[in] opt Options.
+\param[in] index Built FLANN index, e.g., a kd-tree.
+\param[in] queryDescr Query descriptors.
+\param[out] pair Resulting matched camera pair.
+*/
 void matchFeatFLANN(const OptionsFLANN& opt,const flann::Index<flann::L2<float>>& index,
   const flann::Matrix<float>& queryDescr,CameraPair *pair);
 
-// Unique matches are those a feature from the second image is not matched by 
-// more than one feature from the first image.
+/// Find unique matches.
+/**
+Unique matches are those a feature from the second image is not matched by more than 
+one feature from the first image.
+
+\param[in] matches Matches.
+\param[in] numFeats2 Total number of features in the second camera.
+\param[out] unique Which matches are unique.
+*/
 void findUniqueMatches(const vector<IntPair>& matches,size_t numFeats2,
   vector<bool> *unique);
 
@@ -81,20 +124,28 @@ void findUniqueMatches(const vector<IntPair>& matches,size_t numFeats2,
 namespace
 {
 
-// Takes care of memory management of flann::Matrix<T>.
+/// Takes care of memory management of flann::Matrix<T>.
 template<typename T>
 class AutoMemReleaseFlannMatrix
 {
 public:
+
+  /// Constructor. Allocates data.
   AutoMemReleaseFlannMatrix(int nRows,int nCols)
     : data(new T[nRows*nCols],nRows,nCols)
   {
   }
+
+  /// Destructor. Deallocates data.
   ~AutoMemReleaseFlannMatrix() { delete[] data.ptr(); }
 
   flann::Matrix<T> data;
+
 private:
+  /// Forbidden.
   AutoMemReleaseFlannMatrix(const AutoMemReleaseFlannMatrix& o) {}
+
+  /// Forbidden.
   AutoMemReleaseFlannMatrix& operator=(const AutoMemReleaseFlannMatrix& o) {}
 };
 

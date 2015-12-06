@@ -1,12 +1,12 @@
-/*
-* Filip Srajer
-* filip.srajer (at) fel.cvut.cz
-* Center for Machine Perception
-* Czech Technical University in Prague
+//----------------------------------------------------------------------------------------
+/**
+* \file       defines.h
+* \brief      Useful defines and typedefs.
 *
-* This software is under construction.
-* 05/2015
+*  Useful defines and typedefs.
+*
 */
+//----------------------------------------------------------------------------------------
 
 #pragma once
 
@@ -25,6 +25,10 @@
 #include <vector>
 #include "Eigen\Dense"
 
+////////////////////////////////////////////////////
+///////////////   Declarations   ///////////////////
+////////////////////////////////////////////////////
+
 namespace yasfm
 {
 
@@ -35,18 +39,29 @@ typedef std::pair<int,int> IntPair;
 template<typename T>
 using ptr_vector = std::vector < std::unique_ptr< T > > ;
 
-// An n-view match is a map with keys as camera indices and values
-// respective feature indices, i.e., the entries correspond
-// to how is a point seen in different images.
+/// N-View match are multiple pairs of a camera and key indices.
+/**
+An n-view match is a map with keys as camera indices and values respective 
+feature indices, i.e., the entries correspond to how is a point seen in 
+different images.
+*/
 typedef std::unordered_map<int,int> NViewMatch;
 
-typedef struct
+/// N-View match split into part which is seen by cameras that were reconstructed
+/// and those that weren't.
+typedef struct SplitNViewMatch
 {
   NViewMatch observedPart;
   NViewMatch unobservedPart;
 } SplitNViewMatch;
 
-// Hashing function for std::pair.
+template<typename T>
+using uset = std::unordered_set< T >;
+
+template<typename K,typename T>
+using umap = std::unordered_map < K,T >;
+
+/// Hashing functor for std::pair.
 template <class A,class B>
 class PairHash
 {
@@ -54,22 +69,23 @@ public:
   std::size_t operator()(const std::pair<A,B>& v) const;
 };
 
-// Used for hashing lists of more standard types.
+/// Used for hashing lists of more standard types.
 template <class T>
 void hash_combine(std::size_t & seed,const T & v);
 
 typedef PairHash<int,int> IntPairHash;
 
 template<typename T>
-using uset = std::unordered_set< T >;
-
-template<typename K,typename T>
-using umap = std::unordered_map < K,T >;
-template<typename T>
 using pair_umap = std::unordered_map < IntPair,T,IntPairHash >;
 
-///////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////
+} // namespace yasfm
+
+////////////////////////////////////////////////////
+///////////////   Definitions   ////////////////////
+////////////////////////////////////////////////////
+
+namespace yasfm
+{
 
 template <class A,class B>
 std::size_t PairHash<A,B>::operator()(const std::pair<A,B>& v) const

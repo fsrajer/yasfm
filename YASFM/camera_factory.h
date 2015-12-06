@@ -1,8 +1,6 @@
 //----------------------------------------------------------------------------------------
 /**
 * \file       camera_factory.h
-* \author     Filip Srajer
-* \date       December 2015
 * \brief      Register of all derived cameras during compile time.
 *
 *  Classes for constructing cameras from files and for registering names of all 

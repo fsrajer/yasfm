@@ -1,12 +1,12 @@
-/*
-* Filip Srajer
-* filip.srajer (at) fel.cvut.cz
-* Center for Machine Perception
-* Czech Technical University in Prague
+//----------------------------------------------------------------------------------------
+/**
+* \file       options.h
+* \brief      Options structs.
 *
-* This software is under construction.
-* 02/2015
+*  Options structs.
+*
 */
+//----------------------------------------------------------------------------------------
 
 #pragma once
 
@@ -31,8 +31,11 @@ using std::string;
 namespace yasfm
 {
 
+/// Options for detecting SIFT using SIFTGPU.
 struct OptionsSIFTGPU
 {
+
+  /// Constructor setting defaults.
   YASFM_API OptionsSIFTGPU()
   {
     firstOctave = -1;
@@ -47,37 +50,64 @@ struct OptionsSIFTGPU
     edgeThresh = -1;
   }
 
+  /// /return True if maxWorkingDimension was set.
   bool isSetMaxWorkingDimension() const;
+
+  /// /return True if maxOctaves was set.
   bool isSetMaxOctaves() const;
+
+  /// /return True if dogLevelsInAnOctave was set.
   bool isSetDogLevelsInAnOctave() const;
+
+  /// /return True if dogThresh was set.
   bool isSetDogThresh() const;
+
+  /// /return True if edgeThresh was set.
   bool isSetEdgeThresh() const;
+
+  /// Write to a file to record which parameters were used.
+  /// \param[in,out] file Opened output file.
   YASFM_API void write(ostream& file) const;
 
-  // Images larger than this will be downsampled. 
-  // Negative value selects default: 3200.
+  /// Images larger than this will be downsampled. Negative value selects 
+  /// SIFTGPU default: 3200.
   int maxWorkingDimension;
-  // Min is -1. Default: -1 (TODO: automatic estimation).
+
+  /// The smaller the more features will get detected. Min is -1.
   int firstOctave;
-  // Negative value selects default: no limit.
+
+  /// The smaller the less features will get detected. Negative value selects 
+  /// SIFTGPU default: no limit.
   int maxOctaves;
-  // Negative value selects default: 3.
+
+  /// DOG levels in an octave. Can affect the number of extracted features. 
+  /// Negative value selects SIFTGPU default: 3.
   int dogLevelsInAnOctave;
-  // Negative value selects default: 0.02/3.
+
+  /// DOG threshold. Negative value selects SIFTGPU default: 0.02/3.
   float dogThresh;
-  // Negative value selects default: 10.
+  
+  /// Edge threshold. Decrease to eliminate more keypoints. Negative value 
+  /// selects default: 10.
   float edgeThresh;
-  // Only one fixed orientation per keypoint location. Default: false.
+
+  /// Only one fixed orientation per keypoint location.
   bool detectUprightSIFT;
-  // 0,no output at all,except errors 
-  // 1,print out over all timing and features numbers 
-  // 2,print out timing for each steps 
-  // 3/4,print out timing for each octaves/ levels
+
+  /// Verbosity:
+  /**
+  0:   no output at all,except errors 
+  1:   print out over all timing and features numbers 
+  2:   print out timing for each steps 
+  3/4: print out timing for each octaves/ levels
+  */
   int verbosityLevel;
 };
 
+/// Options for matching features using FLANN.
 struct OptionsFLANN
 {
+  /// Constructor setting defaults.
   YASFM_API OptionsFLANN()
   {
     indexParams = flann::KDTreeIndexParams();
@@ -86,27 +116,37 @@ struct OptionsFLANN
     onlyUniques = true;
     verbose = true;
   }
+
+  /// \return True if the matches should be filtered by ratio of distances of 
+  /// the first over the second nearest neighbors.
   bool filterByRatio() const;
+
+  /// Write to a file to record which parameters were used.
+  /// \param[in,out] file Opened output file.
   YASFM_API void write(ostream& file) const;
 
-  // What method to use for searching. See FLANN for more details.
-  // Default is 4 randomized kd-trees.
+  /// What method to use for matching. See FLANN for more details.
   flann::IndexParams indexParams;
-  // Search parameters, eg. num of checks. See FLANN for more details.
+
+  /// Nearest neighbor search parameters, eg. num of checks. See FLANN for more details.
   flann::SearchParams searchParams;
-  // Threshold of the ratio d1/d2, where di is distance to the i-th nearest neighbor
-  // Negative values disable this filter and only the nearest neighbor is
-  // searched for. Default: 0.6.
+
+  /// Threshold for the ratio d1/d2, where di is distance to the i-th nearest neighbor
+  /// Negative values disable this filter and only the the nearest is searched.
   float ratioThresh;
-  // Discards non-unique matches, i.e., those for which two or more 
-  // different features in feats1 matched to the same feature in feats2
-  // Default is true.
+  
+  /// Discards non-unique matches, i.e., those for which two or more 
+  /// different features in feats1 matched to the same feature in feats2
   bool onlyUniques;
+
+  /// Verbosity.
   bool verbose;
 };
 
+/// Options for running RANSAC like algorithms.
 struct OptionsRANSAC
 {
+  /// Constructor.
   YASFM_API OptionsRANSAC(int maxRounds,double errorThresh,
     int minInliers) 
     : maxRounds(maxRounds),errorThresh(errorThresh),
@@ -115,6 +155,8 @@ struct OptionsRANSAC
     confidence = 0.95;
     refineTolerance = 1e-12;
   }
+
+  /// Constructor.
   YASFM_API OptionsRANSAC(int maxRounds,double errorThresh,
     int minInliers,double confidence)
     : maxRounds(maxRounds),errorThresh(errorThresh),
@@ -122,25 +164,33 @@ struct OptionsRANSAC
   {
     refineTolerance = 1e-12;
   }
-  
+
+  /// Write to a file to record which parameters were used.
+  /// \param[in,out] file Opened output file.
   YASFM_API void write(ostream& file) const;
 
-  // Maximum number of iterations.
+  /// Maximum number of iterations.
   int maxRounds;
+
+  /// Error threshold.
   double errorThresh;
+
+  /// Minimum number of inliers.
   int minInliers;
-  // Finds a good hypothesis with probability confidence. 
-  // The values are from range [0,1].
-  // Default: 0.95
+
+  /// Find a good hypothesis with this confidence. The values are from range [0,1].
   double confidence;
-  // The tolerance for refining the result on inliers by optimizing 
-  // non linear functions using LM method. 
+
+  /// The tolerance for refining the result on inliers. Used for example to terminate
+  // optimization of non-linear function using LM method. 
   // (Not all ransac mediators implement refine phase.)
   double refineTolerance;
 };
 
+/// Options for runnig bundle adjustment.
 struct YASFM_API OptionsBundleAdjustment
 {
+  /// Constructor setting defaults.
   OptionsBundleAdjustment()
   {
     solverOptions.max_num_iterations = 10;
@@ -151,15 +201,17 @@ struct YASFM_API OptionsBundleAdjustment
     robustify = false;
   }
 
+  /// Write to a file to record which parameters were used.
+  /// \param[in,out] file Opened output file.
   void write(ostream& file) const;
 
-  // Some of the interesting options: max_num_iterations, num_threads
-  // function_tolerance, parameter_tolerance, gradient_tolerance,
-  // minimizer_progress_to_stdout
+  /// Ceres solver options. Some of the interesting are:
+  /// max_num_iterations, num_threads, function_tolerance, parameter_tolerance, 
+  /// gradient_tolerance, minimizer_progress_to_stdout
   ceres::Solver::Options solverOptions;
-  // If tru, uses Hubers loss function instead
-  // of L2 norm, more robust to outliers.
-  // Default: false.
+
+  /// Uses Hubers loss function instead of L2 norm, more robust to outliers, 
+  /// if set to true.
   bool robustify;
 };
 
