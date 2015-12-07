@@ -650,12 +650,6 @@ void Mediator7ptRANSAC::refine(double tolerance,const vector<int>& inliers,
   closestRank2Matrix(tmp,F);
 }
 
-bool Mediator7ptRANSAC::isPermittedSelection(const vector<int>& idxs) const
-{
-  // TODO: Should we exclude some cases?
-  return true;
-}
-
 Mediator5ptRANSAC::Mediator5ptRANSAC(const Camera& cam1,const Camera& cam2,
   const vector<IntPair>& matches)
   : minMatches_(5),cam1_(cam1),cam2_(cam2),matches_(matches)
@@ -709,12 +703,6 @@ void Mediator5ptRANSAC::refine(double tolerance,const vector<int>& inliers,
   // change F to E before optimization.
 }
 
-bool Mediator5ptRANSAC::isPermittedSelection(const vector<int>& idxs) const
-{
-  // TODO: Should we exclude some cases?
-  return true;
-}
-
 MediatorHomographyRANSAC::MediatorHomographyRANSAC(const vector<Vector2d>& keys1,
   const vector<Vector2d>& keys2,const vector<IntPair>& matches)
   : minMatches_(4),keys1_(keys1),keys2_(keys2),matches_(matches)
@@ -752,12 +740,6 @@ double MediatorHomographyRANSAC::computeSquaredError(const Matrix3d& H,int match
 void MediatorHomographyRANSAC::refine(double tolerance,const vector<int>& inliers,
   Matrix3d *H) const
 {
-}
-
-bool MediatorHomographyRANSAC::isPermittedSelection(const vector<int>& idxs) const
-{
-  // TODO: Should we exclude some cases?
-  return true;
 }
 
 } // namespace yasfm

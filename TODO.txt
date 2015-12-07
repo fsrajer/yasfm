@@ -10,6 +10,8 @@
 	- When asking a camera for ceres::cost, tell them if we want version with shared parameters or not
 :Rolling shutter
 :Distortion division model
+:5pt relative pose 
+	- add camera refine using cminpack (decompose F into closest E matrix)
 :Initialize camera
 	- Run BA multiple times for the new camera and remove outliers in after the runs (remove only information that the points are seen by this camera)
 	- Check for number of inliers in the end
