@@ -1,5 +1,3 @@
-:Doxygen comments everywhere 
-	- Automatically generate documentation
 :VLFeat for non-GPU SIFT (add define ENABLE_OPENCL)
 :Multithreading
 	- Geometric verification
