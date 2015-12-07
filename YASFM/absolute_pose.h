@@ -27,6 +27,29 @@ using namespace yasfm;
 namespace yasfm
 {
 
+/// Find cameras with enough camera-to-scene matches.
+/**
+Find cam with maximum number of matches, say maxMatches.
+Return all cameras having at least max(minMatchesThresh,(maxMatches*factor))
+
+\param[in] minMatchesThresh Minimum matches threshold for a camera.
+\param[in] factor See the function description.
+\param[in] camToSceneMatches Camera-to-scene matches (a.k.a. keys-to-3Dpoints matches).
+\param[out] wellMatchedCams Well matched cameras (see function description).
+*/
+YASFM_API void chooseWellMatchedCameras(int minMatchesThresh,double factor,
+  const vector<vector<IntPair>>& camToSceneMatches,
+  uset<int> *wellMatchedCams);
+
+/// Compute average reprojection error over all the observations.
+/**
+\param[in] cams Cameras.
+\param[in] points Points.
+\return Average reprojection error.
+*/
+YASFM_API double computeAverageReprojectionError(const ptr_vector<Camera>& cams,
+  const Points& points);
+
 /// Find camera parameters by plugging 5,5pt solver into RANSAC.
 /**
 \param[in] opt RANSAC options.
@@ -66,7 +89,7 @@ This gives 2 solutions.
 
 \param[in] keys Keys.
 \param[in] points Points.
-\param[in] camToSceneMatches. .first of the IntPair is key index and .second a point
+\param[in] camToSceneMatches .first of the IntPair is key index and .second a point
 index.
 \param[out] Ps Estimated projection matrices (there are 2 matrices).
 */
@@ -112,7 +135,7 @@ Then uses SVD to find solution.
 
 \param[in] keys Keys.
 \param[in] points Points.
-\param[in] camToSceneMatches. .first of the IntPair is key index and .second a point
+\param[in] camToSceneMatches .first of the IntPair is key index and .second a point
 index.
 \param[out] P Estimated projection matrix.
 */
@@ -129,7 +152,7 @@ public:
   \param[in] minMatches Minimum number of matches to estimate a transformation.
   \param[in] keys Keys.
   \param[in] points Points.
-  \param[in] camToSceneMatches. .first of the IntPair is key index and .second a point
+  \param[in] camToSceneMatches .first of the IntPair is key index and .second a point
   index.
   */
   MediatorResectioningRANSAC(int minMatches,const vector<Vector2d>& keys,
@@ -174,7 +197,7 @@ public:
   /**
   \param[in] keys Keys.
   \param[in] points Points.
-  \param[in] camToSceneMatches. .first of the IntPair is key index and .second a point
+  \param[in] camToSceneMatches .first of the IntPair is key index and .second a point
   index.
   */
   MediatorResectioning5AndHalfPtRANSAC(const vector<Vector2d>& keys,
@@ -196,7 +219,7 @@ public:
   /**
   \param[in] keys Keys.
   \param[in] points Points.
-  \param[in] camToSceneMatches. .first of the IntPair is key index and .second a point
+  \param[in] camToSceneMatches .first of the IntPair is key index and .second a point
   index.
   */
   MediatorResectioning6ptLSRANSAC(const vector<Vector2d>& keys,

@@ -1,12 +1,12 @@
-/*
-* Filip Srajer
-* filip.srajer (at) fel.cvut.cz
-* Center for Machine Perception
-* Czech Technical University in Prague
+//----------------------------------------------------------------------------------------
+/**
+* \file       utils_io.h
+* \brief      Various utility functions for input/output.
 *
-* This software is under construction.
-* 03/2015
+*  Various utility functions for input/output.
+*
 */
+//----------------------------------------------------------------------------------------
 
 #pragma once
 
@@ -18,6 +18,7 @@
 
 #include "defines.h"
 #include "options.h"
+#include "camera.h"
 #include "sfm_data.h"
 
 using Eigen::Vector2d;
@@ -32,169 +33,112 @@ namespace yasfm
 {
 
 // Forward declarations
-class Camera;
 class Points;
 class Dataset;
 
-// List all image files with supported extensions in a directory.
+/// List all image files with supported extensions in a directory.
+/**
+\param[in] dir Directory.
+\param[out] filenames Filenames (not paths).
+*/
 YASFM_API void listImgFilenames(const string& dir,vector<string> *filenames);
 
-// Runs overloaded function with filenameExtensions being an empty vector.
+/// List all files
+/**
+\param[in] dir Directory.
+\param[out] filenames Filenames (not paths).
+*/
 YASFM_API void listFilenames(const string& dir,vector<string> *filenames);
 
-// List all files with given permitted extensions.
-// An empty extensions vector means that all files will be listed.
-// On fail, no filenames are returned.
+/// List all files with given extensions.
+/**
+\param[in] dir Directory.
+\param[in] filenameExtensions Allowed file extensions. An empty extensions vector 
+means that all files will be listed.
+\param[out] filenames Filenames (not paths).
+*/
 YASFM_API void listFilenames(const string& dir,
   const vector<string>& filenameExtensions,vector<string> *filenames);
 
+/// Load image and read dimensions.
+/**
+\param[in] filename Image filename.
+\param[out] width Image width.
+\param[out] height Image height.
+*/
 YASFM_API void getImgDims(const string& filename,int *width,int *height);
 
-// Reads colors for features and optinally also returns image dimensions
-// IMPORTANT: This function requires features to return coordinates in 
-// the original image coordinate system.
+/// Read colors of specified locations.
+/**
+\param[in] filename Image filename.
+\param[in] coord Coordinater where to read colors (gets rounded to closest integer).
+\param[out] colors Colors.
+*/
 YASFM_API void readColors(const string& filename,const vector<Vector2d>& coord,
   vector<Vector3uc> *colors);
 
-/*
-// Creates a file, where every line contains
-// one image filename. This is particularly useful
-// when you want to fix the order of images.
-YASFM_API void writeImgFnsList(const string& listFilename,const ptr_vector<ICamera>& cams);
-// This function is just a "header" function taking IDataset.
-// It only calls overloaded function taking full spectrum of parameters.
-YASFM_API void writeImgFnsList(const string& listFilename,const IDataset& dts);
-
-// Creates a file, where every line contains
-// one feats filename. 
-YASFM_API void writeFeatsFnsList(const string& listFilename,const ptr_vector<ICamera>& cams);
-// This function is just a "header" function taking IDataset.
-// It only calls overloaded function taking full spectrum of parameters.
-YASFM_API void writeFeatsFnsList(const string& listFilename,const IDataset& dts);
+/// Finds focals in EXIF and using sensor size converts to pixels (is verbose).
+/**
+\param[in] ccdDBFilename Database with camera sensor sizes.
+\param[in] cams Cameras with filenames and image dimensions known.
+\param[out] focals Focal lengths of cameras in pixels. 0 if a focal could not be
+computed.
 */
-
 YASFM_API void findFocalLengthInEXIF(const string& ccdDBFilename,
   const ptr_vector<Camera>& cams,vector<double> *focals);
-// focals are 0 when they were not found
+
+/// Finds focals in EXIF and using sensor size converts to pixels.
+/**
+\param[in] ccdDBFilename Database with camera sensor sizes.
+\param[in] cams Cameras with filenames and image dimensions known.
+\param[in] verbose Print status?
+\param[out] focals Focal lengths of cameras in pixels. 0 if a focal could not be
+computed.
+*/
 YASFM_API void findFocalLengthInEXIF(const string& ccdDBFilename,
   const ptr_vector<Camera>& cams,bool verbose,vector<double> *focals);
-// returns 0 when focal not found
+
+/// Finds focal in EXIF and using sensor size converts to pixels.
+/**
+\param[in] ccdDBFilename Database with camera sensor sizes.
+\param[in] cam Camera with filename and image dimensions known.
+\param[in] verbose Print status?
+\return Focal length. 0 if a focal could not be computed.
+*/
 YASFM_API double findFocalLengthInEXIF(const string& ccdDBFilename,const Camera& cam,
   bool verbose);
-// returns 0 when focal not found
+
+/// Finds focal in EXIF and using sensor size converts to pixels.
+/**
+\param[in] ccdDBFilename Database with camera sensor sizes.
+\param[in] imgFilename Image filename.
+\param[in] maxImgDim Maximum of image width and height.
+\param[in] verbose Print status?
+\return Focal length. 0 if a focal could not be computed.
+*/
 YASFM_API double findFocalLengthInEXIF(const string& ccdDBFilename,
   const string& imgFilename,int maxImgDim,bool verbose);
 
-/*
-// Saves features for every image
-// Saves features in format:
-// nFeatures descriptorDimension
-// feat0
-// feat1
-// ...
-// where feati is:
-// y x
-// d0 d2 d3 ... d19
-// d20 d21 ... d39
-// ...
-YASFM_API void writeFeaturesASCII(const IDataset& dts,bool convertDescrToUint);
-YASFM_API void writeFeaturesASCII(const ptr_vector<ICamera>& cams,const string& dir,bool convertDescrToUint);
-YASFM_API void writeFeaturesASCII(const string& dir,const ICamera& cam,bool convertDescrToUint);
-YASFM_API void readFeaturesASCII(IDataset& dts);
-YASFM_API void readFeaturesASCII(ptr_vector<ICamera>& cams,const string& dir);
-YASFM_API void readFeaturesASCII(const string& dir,ICamera& cam);
+/// Writes data into Bundler's Bundle format
+/**
+See: http://www.cs.cornell.edu/~snavely/bundler/bundler-v0.4-manual.html
+The format requires writing features' coordinates in a coordinate system where image 
+center is the origin and the y axis goes from bottom to the top. In addition -z should 
+be the forward axis.
+IMPORTANT: This function assumes +z to be the forward axis. Also, to get radial 
+parameters, this function tries to cast into StandardCameraRadial.
 
-// Saves keypoints in format:
-// nKeypoints
-// key0
-// key1
-// ...
-// where keyi is:
-// y x
-YASFM_API void writeKeysASCII(const IDataset& dts);
-YASFM_API void writeKeysASCII(const ptr_vector<ICamera>& cams,const string& dir);
-YASFM_API void writeKeysASCII(const string& dir,const ICamera& cam);
-YASFM_API void readKeysASCII(IDataset& dts);
-YASFM_API void readKeysASCII(ptr_vector<ICamera>& cams,const string& dir);
-YASFM_API void readKeysASCII(const string& dir,ICamera& cam);
-
-YASFM_API void writeFeaturesBinary(const IDataset& dts);
-YASFM_API void writeFeaturesBinary(const ptr_vector<ICamera>& cams,const string& dir);
-YASFM_API void writeFeaturesBinary(const string& dir,const ICamera& cam);
-YASFM_API void readFeaturesBinary(IDataset& dts);
-YASFM_API void readFeaturesBinary(ptr_vector<ICamera>& cams,const string& dir);
-YASFM_API void readFeaturesBinary(const string& dir,ICamera& cam);
-
-// Saves matches of all pairs in format:
-// nPairs
-// pair0
-// pair1
-// ...
-// where pairi:
-// imgIdxFrom imgIdxTo
-// nMatches
-// keyIdxFrom0 keyIdxTo0 minScore0
-// keyIdxFrom1 keyIdxTo1 minScore1
-// ...
-YASFM_API void writeMatchesASCII(const string& filename,const IDataset& dts);
-YASFM_API void writeMatchesASCII(const string& filename,const pair_ptr_unordered_map<ICameraPair>& pairs);
-template<typename CameraPairDerived>
-void readMatchesASCII(const string& filename,IDataset& dts);
-template<typename CameraPairDerived>
-void readMatchesASCII(const string& filename,pair_ptr_unordered_map<ICameraPair>& pairs);
-
-// Saves transformations between pairs in format:
-// nPairs
-// pair0
-// pair1
-// ...
-// where pairi:
-// imgIdxFrom imgIdxTo
-// F
-YASFM_API void writeTransformsASCII(const string& filename,const IDataset& dts);
-YASFM_API void writeTransformsASCII(const string& filename,const pair_ptr_unordered_map<ICameraPair>& pairs);
-template<typename CameraPairDerived>
-void readTransformsASCII(const string& filename,IDataset& dts);
-template<typename CameraPairDerived>
-void readTransformsASCII(const string& filename,pair_ptr_unordered_map<ICameraPair>& pairs);
-
-// Writes tracks in format:
-// nTracks
-// track0
-// track1
-// ...
-// where tracki:
-// numViews cam0 key0 cam1 key1 ...
-YASFM_API void writeTracksASCII(const string& filename,const vector<NViewMatch>& tracks);
-YASFM_API void readTracksASCII(const string& filename,IDataset& dts);
-YASFM_API void readTracksASCII(const string& filename,vector<NViewMatch>& tracks,
-  vector<int> *tracks2points);
+\param[in] filename Output filename.
+\param[in] reconstructedCams Cameras that were reconstructed.
+\param[in] cams Cameras.
+\param[in] points Points.
 */
+YASFM_API void writeSFMBundlerFormat(const string& filename,
+  const uset<int>& reconstructedCams,const ptr_vector<Camera>& cams,
+  const Points& points);
 
-// Writes data into Bundler's Bundle format
-// see: http://www.cs.cornell.edu/~snavely/bundler/bundler-v0.4-manual.html
-// The format requires writing features' coordinates 
-// in a coordinate system where image center is the origin
-// and the y axis goes from bottom to the top. In addition
-// -z should be the forward axis.
-// IMPORTANT: This function assumes +z to be the forward axis.
-// Also, to get radial parameters, this function tries to cast into 
-// StandardCameraRadial.
-YASFM_API void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructedCams,
-  const ptr_vector<Camera>& cams,const Points& points);
-// This function is just a "header" function taking Dataset.
-// It only calls overloaded function taking full spectrum of parameters.
+/// Calls overloaded fuction.
 YASFM_API void writeSFMBundlerFormat(const string& filename,const Dataset& data);
-
-/*
-YASFM_API void writeSFMPLYFormat(const string& filename,const unordered_set<int>& addedCams,
-  const ptr_vector<ICamera>& cams,const vector<Vector3d>& points,const vector<bool>& pointsMask,
-  const vector<Vector3uc> *pointColors = nullptr);
-// This function is just a "header" function taking IDataset.
-// It only calls overloaded function taking full spectrum of parameters.
-YASFM_API void writeSFMPLYFormat(const string& filename,const IDataset& dts,
-  const vector<Vector3uc> *pointColors = nullptr);
-*/
 
 YASFM_API ostream& operator<<(ostream& file,const NViewMatch& m);
 YASFM_API istream& operator>>(istream& file,NViewMatch& m);
@@ -204,6 +148,7 @@ YASFM_API istream& operator>>(istream& file,NViewMatch& m);
 namespace
 {
 
+/// Helper struct for output.
 class BundlerPointView
 {
 public:
@@ -213,97 +158,55 @@ public:
   double x,y;
 };
 
+/// Check if the filename has the extension.
 bool hasExtension(const string& filename,const string& extension);
+
+/// Check if the filename has any of the extensions.
 bool hasExtension(const string& filename,const vector<string>& allowedExtensions);
 
-// Returns 0. when the appropriate entry could be found.
-double findCCDWidthInDB(const string& dbFilename,const string& cameraMake,const string& cameraModel);
-bool readCameraMakeModelFromDBEntry(const string& entry,string& makeModel);
-// Returns 0. when the appropriate entry could be found.
+/// Find entry in CCD Database.
+/**
+\param[in] dbFilename Filename with database.
+\param[in] cameraMake Camera make (as in EXIF).
+\param[in] cameraModel Camera model (as in EXIF).
+\return CCD sensor width. Returns 0 when the appropriate entry could be found.
+*/
+double findCCDWidthInDB(const string& dbFilename,const string& cameraMake,
+  const string& cameraModel);
+
+/// Read CCD Database entry name.
+/**
+\param[in] entry Database entry.
+\param[in] makeModel Camera make + camera model.
+\return Successfully found?
+*/
+bool readCameraMakeModelFromDBEntry(const string& entry,string *makeModel);
+
+/// Read CCD Database entry value.
+/**
+\param[in] entry Database entry.
+\return CCD sensor width. Returns 0 when unsuccessful.
+*/
 double readCCDWidthFromDBEntry(const string& entry);
 
 } // namespace
 
-///////////////////////////////////////////////////////////////////////
 
-namespace yasfm
-{
 
 /*
-template<typename CameraPairDerived>
-void readMatchesASCII(const string& filename,IDataset& dts)
-{
-  readMatchesASCII<CameraPairDerived>(filename,dts.pairs());
-}
+YASFM_API void writeFeaturesBinary(const IDataset& dts);
+YASFM_API void writeFeaturesBinary(const ptr_vector<ICamera>& cams,const string& dir);
+YASFM_API void writeFeaturesBinary(const string& dir,const ICamera& cam);
+YASFM_API void readFeaturesBinary(IDataset& dts);
+YASFM_API void readFeaturesBinary(ptr_vector<ICamera>& cams,const string& dir);
+YASFM_API void readFeaturesBinary(const string& dir,ICamera& cam);
 
-template<typename CameraPairDerived>
-void readMatchesASCII(const string& filename,pair_ptr_unordered_map<ICameraPair>& pairs)
-{
-  ifstream in(filename);
-  if(!in.is_open())
-  {
-    cerr << "readMatchesASCII: unable to open: " << filename << " for reading\n";
-    return;
-  }
-  int nPairs;
-  in >> nPairs;
-  pairs.reserve(nPairs);
-  for(int i = 0; i < nPairs; i++)
-  {
-    int cam1,cam2,nMatches;
-    in >> cam1 >> cam2 >> nMatches;
-    IntPair pairIdx(cam1,cam2);
-    if(pairs.count(pairIdx) == 0)
-    {
-      pairs.emplace(pairIdx,std::unique_ptr<ICameraPair>(new CameraPairDerived));
-    }
-    auto& pair = pairs[pairIdx];
-    for(int j = 0; j < nMatches; j++)
-    {
-      IntPair match;
-      double dist;
-      in >> match.first >> match.second >> dist;
-      pair->addMatch(match,dist);
-    }
-  }
-  in.close();
-}
 
-template<typename CameraPairDerived>
-void readTransformsASCII(const string& filename,IDataset& dts)
-{
-  readTransformsASCII<CameraPairDerived>(filename,dts.pairs());
-}
-
-template<typename CameraPairDerived>
-void readTransformsASCII(const string& filename,pair_ptr_unordered_map<ICameraPair>& pairs)
-{
-  ifstream in(filename);
-  if(!in.is_open())
-  {
-    cerr << "readTransformsASCII: unable to open: " << filename << " for reading\n";
-    return;
-  }
-  int nPairs;
-  in >> nPairs;
-  for(int i = 0; i < nPairs; i++)
-  {
-    int cam1,cam2;
-    in >> cam1 >> cam2;
-    IntPair pairIdx(cam1,cam2);
-    if(pairs.count(pairIdx) == 0)
-    {
-      pairs.emplace(pairIdx,std::unique_ptr<ICameraPair>(new CameraPairDerived));
-    }
-    auto& pair = pairs[pairIdx];
-    Matrix3d F;
-    in >> F(0,0) >> F(0,1) >> F(0,2)
-      >> F(1,0) >> F(1,1) >> F(1,2)
-      >> F(2,0) >> F(2,1) >> F(2,2);
-    pair->setF(F);
-  }
-  in.close();
-}
+YASFM_API void writeSFMPLYFormat(const string& filename,const unordered_set<int>& addedCams,
+const ptr_vector<ICamera>& cams,const vector<Vector3d>& points,const vector<bool>& pointsMask,
+const vector<Vector3uc> *pointColors = nullptr);
+// This function is just a "header" function taking IDataset.
+// It only calls overloaded function taking full spectrum of parameters.
+YASFM_API void writeSFMPLYFormat(const string& filename,const IDataset& dts,
+const vector<Vector3uc> *pointColors = nullptr);
 */
-
-} // namespace yasfm

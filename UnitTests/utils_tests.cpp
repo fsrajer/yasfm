@@ -4,6 +4,7 @@
 #include "utils_tests.h"
 #include "utils.h"
 #include "standard_camera.h"
+#include "absolute_pose.h"
 #include <array>
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;

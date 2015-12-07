@@ -244,7 +244,7 @@ MIND THE ORDER of the input points.
 \param[in] opt Options.
 \param[in] keys1 Keys in the first camera (see function description).
 \param[in] keys2 Keys in the second camera (see function description).
-\param[in] pair Camera pair with matches and distances.
+\param[in] matches Keys matches.
 \param[out] F Fundamental matrix.
 \param[out] inliers Inliers to the best fundamental matrix.
 \return False if the estimated hypothesis was not supported by enough inliers.
@@ -324,14 +324,14 @@ H*pt1 = lambda*pt2.
 \param[in] opt Options.
 \param[in] pts1 Points 1 (see function description).
 \param[in] pts2 Points 2 (see function description).
-\param[in] matches Points matches.
+\param[in] pair Camera pair.
 \param[out] H Homography matrix.
 \param[out] inliers Inliers to the best matrix.
 \return False if the estimated hypothesis was not supported by enough inliers.
 */
-YASFM_API bool estimateHomographyPROSAC(const OptionsRANSAC& opt,const vector<Vector2d>& pts1,
-  const vector<Vector2d>& pts2,const CameraPair& pair,Matrix3d *H,
-  vector<int> *inliers = nullptr);
+YASFM_API bool estimateHomographyPROSAC(const OptionsRANSAC& opt,
+  const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,const CameraPair& pair,
+  Matrix3d *H,vector<int> *inliers = nullptr);
 
 /// Estimate homography using RANSAC.
 /**

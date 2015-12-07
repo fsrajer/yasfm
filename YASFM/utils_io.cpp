@@ -153,48 +153,6 @@ void readColors(const string& filename,const vector<Vector2d>& coord,
   ilDeleteImages(1,&imId);
 }
 
-/*
-void writeImgFnsList(const string& listFilename,const ptr_vector<ICamera>& cams)
-{
-  ofstream out(listFilename);
-  if(!out.is_open())
-  {
-    cerr << "writeImgFnsList: unable to open: " << listFilename << " for writing\n";
-    return;
-  }
-  for(const auto& cam : cams)
-  {
-    out << cam->imgFilename() << "\n";
-  }
-  out.close();
-}
-
-void writeImgFnsList(const string& listFilename,const IDataset& dts)
-{
-  writeImgFnsList(listFilename,dts.cams());
-}
-
-void writeFeatsFnsList(const string& listFilename,const ptr_vector<ICamera>& cams)
-{
-  ofstream out(listFilename);
-  if(!out.is_open())
-  {
-    cerr << "writeFeatsFnsList: unable to open: " << listFilename << " for writing\n";
-    return;
-  }
-  for(const auto& cam : cams)
-  {
-    out << cam->featsFilename() << "\n";
-  }
-  out.close();
-}
-
-void writeFeatsFnsList(const string& listFilename,const IDataset& dts)
-{
-  writeFeatsFnsList(listFilename,dts.cams());
-}
-*/
-
 void findFocalLengthInEXIF(const string& ccdDBFilename,const ptr_vector<Camera>& cams,
   vector<double> *focals)
 {
@@ -270,151 +228,216 @@ double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilena
   }
 }
 
-/*
-void writeFeaturesASCII(const IDataset& dts,bool convertDescrToUint)
+void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructedCams,
+  const ptr_vector<Camera>& cams,const Points& points)
 {
-  writeFeaturesASCII(dts.cams(),dts.dir(),convertDescrToUint);
-}
-
-void writeFeaturesASCII(const ptr_vector<ICamera>& cams,const string& dir,bool convertDescrToUint)
-{
-  for(const auto& cam : cams)
-    writeFeaturesASCII(dir,*cam,convertDescrToUint);
-}
-
-void writeFeaturesASCII(const string& dir,const ICamera& cam,bool convertDescrToUint)
-{
-  ofstream out(joinPaths(dir,cam.featsFilename()));
+  ofstream out(filename);
   if(!out.is_open())
   {
-    cerr << "writeFeaturesASCII: unable to open: " << cam.featsFilename() << " for writing\n";
+    cerr << "ERROR: writeSFMBundlerFormat: unable to open: " << filename << " for writing\n";
     return;
   }
-  out.flags(std::ios::fixed);
-  out << cam.nFeatures();
-  if(cam.nFeatures() > 0)
+  out << "# Bundle file v0.3\n";
+  out << cams.size() << " " << points.numPts() << "\n";
+
+  vector<Vector2d> x0(cams.size());
+  out.flags(std::ios::scientific);
+  for(int i = 0; i < static_cast<int>(cams.size()); i++)
   {
-    out << ' ' << cam.feature(0).descrDim() << "\n";
-    for(int i = 0; i < cam.nFeatures(); i++)
+    if(reconstructedCams.count(i) == 0)
     {
-      const IFeature& feat = cam.feature(i);
-      out << setprecision(2) << feat.y() << ' ' << setprecision(2) << feat.x();
-      for(int j = 0; j < feat.descrDim(); j++)
+      for(size_t i = 0; i < 5; i++)
+        out << "0 0 0\n";
+    } else
+    {
+      Matrix3d K = cams[i]->K();
+      double f = 0.5 * (K(0,0) + K(1,1));
+      double rad[2];
+      if(StandardCameraRadial *radCam =
+        dynamic_cast<StandardCameraRadial *>(&(*cams[i])))
       {
-        if((j % 20) == 0)
-        {
-          out << "\n";
-        }
-        if(convertDescrToUint)
-        {
-          out << ((unsigned int)floor(0.5 + 512.0f*feat.descriptor(j))) << ' ';
-        } else
-        {
-          out << setprecision(8) << feat.descriptor(j) << ' ';
-        }
+        rad[0] = radCam->radParams()[0];
+        rad[1] = radCam->radParams()[1];
+      } else
+      {
+        rad[0] = 0.;
+        rad[1] = 0.;
       }
-      out << "\n";
+      x0[i] = K.block(0,2,2,1);
+      // f k1 k2
+      out << f << " " << rad[0] << " " << rad[1] << "\n";
+      // R
+      Matrix3d R = cams[i]->R();
+      R.bottomRows(1) *= -1; // make the -z axis the viewing direction
+      for(size_t j = 0; j < 3; j++)
+        out << R(j,0) << " " << R(j,1) << " " << R(j,2) << "\n";
+      // t
+      Vector3d C = cams[i]->C();
+      Vector3d t = -R*C;
+      out << t(0) << " " << t(1) << " " << t(2) << "\n";
     }
   }
-  out.close();
-}
-
-void readFeaturesASCII(IDataset& dts)
-{
-  readFeaturesASCII(dts.cams(),dts.dir());
-}
-
-void readFeaturesASCII(ptr_vector<ICamera>& cams,const string& dir)
-{
-  for(auto& cam : cams)
-    readFeaturesASCII(dir,*cam);
-}
-
-void readFeaturesASCII(const string& dir,ICamera& cam)
-{
-  ifstream in(joinPaths(dir,cam.featsFilename()));
-  if(!in.is_open())
+  for(int i = 0; i < points.numPts(); i++)
   {
-    cerr << "readFeaturesASCII: unable to open: " << cam.featsFilename() << " for reading\n";
-    return;
-  }
-  int nFeats,descrDim;
-  in >> nFeats >> descrDim;
-  cam.reserveFeatures(nFeats);
-  float *descr = new float[descrDim];
-  for(int i = 0; i < nFeats; i++)
-  {
-    double x,y;
-    in >> y >> x;
-    for(int j = 0; j < descrDim; j++)
+    out.flags(std::ios::scientific);
+    // coordinates
+    const auto& coord = points.ptCoord()[i];
+    out << coord(0) << " " << coord(1) << " " << coord(2) << "\n";
+    out.flags(std::ios::fixed);
+    // color
+    const auto& col = points.ptData()[i].color;
+    Eigen::Vector3i color = col.cast<int>();
+    out << color(0) << " " << color(1) << " " << color(2) << "\n";
+    // views
+    vector<BundlerPointView> views;
+    for(const auto& camKey : points.ptData()[i].reconstructed)
     {
-      in >> *(descr+j);
+      if(reconstructedCams.count(camKey.first) > 0)
+      {
+        const auto& key = cams[camKey.first]->key(camKey.second);
+        Vector2d keyCentered = key - x0[camKey.first];
+        views.emplace_back(camKey.first,camKey.second,
+          keyCentered(0),keyCentered(1));
+      }
     }
-    cam.addFeature(x,y,descrDim,descr,nullptr);
-  }
-  delete[] descr;
-  in.close();
-}
-
-void writeKeysASCII(const IDataset& dts)
-{
-  writeKeysASCII(dts.cams(),dts.dir());
-}
-
-void writeKeysASCII(const ptr_vector<ICamera>& cams,const string& dir)
-{
-  for(const auto& cam : cams)
-    writeKeysASCII(dir,*cam);
-}
-
-void writeKeysASCII(const string& dir,const ICamera& cam)
-{
-  ofstream out(joinPaths(dir,cam.featsFilename()));
-  if(!out.is_open())
-  {
-    cerr << "writeKeysASCII: unable to open: " << cam.featsFilename() << " for writing\n";
-    return;
-  }
-  out.flags(std::ios::fixed);
-  out << cam.nFeatures() << "\n";
-  for(int i = 0; i < cam.nFeatures(); i++)
-  {
-    out << setprecision(2) << cam.feature(i).y() << ' ' << setprecision(2) << cam.feature(i).x() << "\n";
+    out << views.size();
+    for(const auto& view : views)
+    {
+      out << " " << view.camIdx << " " << view.keyIdx << " " <<
+        view.x << " " << view.y;
+    }
+    out << "\n";
   }
   out.close();
 }
 
-void readKeysASCII(IDataset& dts)
+void writeSFMBundlerFormat(const string& filename,const Dataset& data)
 {
-  readKeysASCII(dts.cams(),dts.dir());
+  writeSFMBundlerFormat(filename,data.reconstructedCams(),data.cams(),data.points());
 }
 
-void readKeysASCII(ptr_vector<ICamera>& cams,const string& dir)
+ostream& operator<<(ostream& file,const NViewMatch& m)
 {
-  for(auto& cam : cams)
-    readKeysASCII(dir,*cam);
+  file << m.size();
+  for(const auto& entry : m)
+    file << " " << entry.first << " " << entry.second;
+  return file;
 }
 
-void readKeysASCII(const string& dir,ICamera& cam)
+istream& operator>>(istream& file,NViewMatch& m)
 {
-  ifstream in(joinPaths(dir,cam.featsFilename()));
-  if(!in.is_open())
+  int n;
+  file >> n;
+  m.clear();
+  m.reserve(n);
+  int key;
+  for(int i = 0; i < n; i++)
   {
-    cerr << "readKeysASCII: unable to open: " << cam.featsFilename() << " for reading" << "\n";
-    return;
+    file >> key;
+    file >> m[key];
   }
-  int nKeys;
-  in >> nKeys;
-  cam.reserveFeatures(nKeys);
-  for(size_t i = 0; i < nKeys; i++)
-  {
-    double x,y;
-    in >> y >> x;
-    cam.addFeature(x,y);
-  }
-  in.close();
+  return file;
 }
 
+} // namespace yasfm
+
+namespace
+{
+
+bool hasExtension(const string& filename,const string& extension)
+{
+  if(filename.length() < extension.length())
+    return false;
+  string filenameExt = filename.substr(filename.length() - extension.length());
+  std::transform(filenameExt.begin(),filenameExt.end(),filenameExt.begin(),::tolower);
+  return (filenameExt.compare(extension) == 0);
+}
+
+bool hasExtension(const string& filename,const vector<string>& allowedExtensions)
+{
+  for(const string& ext : allowedExtensions)
+  {
+    if(hasExtension(filename,ext))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
+double findCCDWidthInDB(const string& dbFilename,const string& cameraMake,const string& cameraModel)
+{
+  ifstream file(dbFilename);
+  if(!file.is_open())
+  {
+    cerr << "ERROR: could not open file: " << dbFilename << "\n";
+    return 0.;
+  }
+  string makeModel = cameraMake + " " + cameraModel;
+  string line;
+  while(getline(file,line))
+  {
+    string readMakeModel("");
+    if(readCameraMakeModelFromDBEntry(line,&readMakeModel))
+    {
+      if(readMakeModel.compare(makeModel) == 0)
+      {
+        file.close();
+        return readCCDWidthFromDBEntry(line);
+      }
+    }
+  }
+  file.close();
+  return 0.;
+}
+
+bool readCameraMakeModelFromDBEntry(const string& entry,string *pmakeModel)
+{
+  auto& makeModel = *pmakeModel;
+  size_t idx1 = entry.find_first_of("\"");
+  size_t idx2 = entry.find_first_of("\"",idx1 + 1);
+  if(idx1 == string::npos || idx2 == string::npos)
+  {
+    makeModel = "";
+    return false;
+  }
+
+  size_t idxCheck = entry.find("=>");
+  if(idx1 > idxCheck || idx2 > idxCheck)
+  {
+    makeModel = "";
+    return false;
+  }
+
+  makeModel = entry.substr(idx1 + 1,idx2 - idx1 - 1);
+  return true;
+}
+
+double readCCDWidthFromDBEntry(const string& entry)
+{
+  size_t idx1 = entry.find("=>");
+  size_t idx2 = entry.find_first_of(',',idx1 + 1);
+  if(idx1 == string::npos || idx2 == string::npos)
+  {
+    return 0.;
+  }
+  string out = entry.substr(idx1 + 2,idx2 - idx1 - 2);
+  idx1 = out.find_last_of(" \t");
+  out = out.substr(idx1 + 1,idx2 - idx1);
+
+  try
+  {
+    return std::stod(out);
+  } catch(const std::invalid_argument&)
+  {
+    return 0.;
+  }
+}
+
+} // namespace
+
+
+/*
 void writeFeaturesBinary(const IDataset& dts)
 {
   writeFeaturesBinary(dts.cams(),dts.dir());
@@ -495,206 +518,6 @@ void readFeaturesBinary(const string& dir,ICamera& cam)
   in.close();
 }
 
-void writeMatchesASCII(const string& filename,const IDataset& dts)
-{
-  writeMatchesASCII(filename,dts.pairs());
-}
-
-void writeMatchesASCII(const string& filename,const pair_ptr_unordered_map<ICameraPair>& pairs)
-{
-  ofstream out(filename);
-  if(!out.is_open())
-  {
-    cerr << "writeMatchesASCII: unable to open: " << filename << " for writing" << "\n";
-    return;
-  }
-  out.flags(std::ios::fixed);
-  out << pairs.size() << "\n";
-  for(const auto& entry : pairs)
-  {
-    IntPair idx = entry.first;
-    const auto& pair = *(entry.second);
-    out << idx.first << ' ' << idx.second << "\n";
-    out << pair.nMatches() << "\n";
-    for(int i = 0; i < pair.nMatches(); i++)
-    {
-      out << pair.match(i).first << ' ' <<
-        pair.match(i).second << ' ' <<
-        setprecision(3) << pair.minScore(i) << "\n";
-    }
-  }
-  out.close();
-}
-
-void writeTransformsASCII(const string& filename,const IDataset& dts)
-{
-  writeTransformsASCII(filename,dts.pairs());
-}
-
-void writeTransformsASCII(const string& filename,const pair_ptr_unordered_map<ICameraPair>& pairs)
-{
-  ofstream out(filename);
-  if(!out.is_open())
-  {
-    cerr << "writeTransformsASCII: unable to open: " << filename << " for writing" << "\n";
-    return;
-  }
-  out << pairs.size() << "\n";
-  for(const auto& entry : pairs)
-  {
-    IntPair idx = entry.first;
-    const auto& pair = *(entry.second);
-    out << idx.first << ' ' << idx.second << "\n";
-    out << pair.F() << "\n";
-  }
-  out.close();
-}
-
-void writeTracksASCII(const string& filename,const vector<NViewMatch>& tracks)
-{
-  ofstream out(filename);
-  if(!out.is_open())
-  {
-    cerr << "writeTracksASCII: unable to open: " << filename << " for writing" << "\n";
-    return;
-  }
-  out << tracks.size() << "\n";
-  for(const auto& track : tracks)
-  {
-    out << track.size();
-    for(const auto& camKey : track)
-    {
-      out << " " << camKey.first << " " << camKey.second;
-    }
-    out << "\n";
-  }
-  out.close();
-}
-
-void readTracksASCII(const string& filename,IDataset& dts)
-{
-  readTracksASCII(filename,dts.tracks(),&(dts.tracks2points()));
-}
-
-void readTracksASCII(const string& filename,vector<NViewMatch>& tracks,
-  vector<int> *tracks2points)
-{
-  ifstream in(filename);
-  if(!in.is_open())
-  {
-    cerr << "readTracksASCII: unable to open: " << filename << " for reading" << "\n";
-    return;
-  }
-  int nTracks;
-  in >> nTracks;
-  tracks.resize(nTracks);
-  for(int i = 0; i < nTracks; i++)
-  {
-    int trackSize;
-    in >> trackSize;
-    tracks[i].reserve(trackSize);
-    for(int j = 0; j < trackSize; j++)
-    {
-      int camIdx,keyIdx;
-      in >> camIdx >> keyIdx;
-      tracks[i][camIdx] = keyIdx;
-    }
-  }
-  in.close();
-  if(tracks2points)
-    tracks2points->resize(tracks.size(),-1);
-}
-*/
-
-void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructedCams,
-  const ptr_vector<Camera>& cams,const Points& points)
-{
-  ofstream out(filename);
-  if(!out.is_open())
-  {
-    cerr << "ERROR: writeSFMBundlerFormat: unable to open: " << filename << " for writing\n";
-    return;
-  }
-  out << "# Bundle file v0.3\n";
-  out << cams.size() << " " << points.numPts() << "\n";
-  
-  vector<Vector2d> x0(cams.size());
-  out.flags(std::ios::scientific);
-  for(int i = 0; i < static_cast<int>(cams.size()); i++)
-  {
-    if(reconstructedCams.count(i) == 0)
-    {
-      for(size_t i = 0; i < 5; i++)
-        out << "0 0 0\n";
-    } else
-    {
-      Matrix3d K = cams[i]->K();
-      double f = 0.5 * (K(0,0) + K(1,1));
-      double rad[2];
-      if(StandardCameraRadial *radCam = 
-        dynamic_cast<StandardCameraRadial *>(&(*cams[i])))
-      {
-        rad[0] = radCam->radParams()[0];
-        rad[1] = radCam->radParams()[1];
-      } else
-      {
-        rad[0] = 0.;
-        rad[1] = 0.;
-      }
-      x0[i] = K.block(0,2,2,1);
-      // f k1 k2
-      out << f << " " << rad[0] << " " << rad[1] << "\n";
-      // R
-      Matrix3d R = cams[i]->R();
-      R.bottomRows(1) *= -1; // make the -z axis the viewing direction
-      for(size_t j = 0; j < 3; j++)
-        out << R(j,0) << " " << R(j,1) << " " << R(j,2) << "\n";
-      // t
-      Vector3d C = cams[i]->C();
-      Vector3d t = -R*C;
-      out << t(0) << " " << t(1) << " " << t(2) << "\n";
-    }
-  }
-  for(int i = 0; i < points.numPts(); i++)
-  {
-    out.flags(std::ios::scientific);
-    // coordinates
-    const auto& coord = points.ptCoord()[i];
-    out << coord(0) << " " << coord(1) << " " << coord(2) << "\n";
-    out.flags(std::ios::fixed);
-    // color
-    const auto& col = points.ptData()[i].color;
-    Eigen::Vector3i color = col.cast<int>();
-    out << color(0) << " " << color(1) << " " << color(2) << "\n";
-    // views
-    vector<BundlerPointView> views;
-    for(const auto& camKey : points.ptData()[i].reconstructed)
-    {
-      if(reconstructedCams.count(camKey.first) > 0)
-      {
-        const auto& key = cams[camKey.first]->key(camKey.second);
-        Vector2d keyCentered = key - x0[camKey.first];
-        views.emplace_back(camKey.first,camKey.second,
-          keyCentered(0),keyCentered(1));
-      }
-    }
-    out << views.size();
-    for(const auto& view : views)
-    {
-      out << " " << view.camIdx << " " << view.keyIdx << " " <<
-        view.x << " " << view.y;
-    }
-    out << "\n";    
-  }
-  out.close();
-}
-
-void writeSFMBundlerFormat(const string& filename, const Dataset& data)
-{
-  writeSFMBundlerFormat(filename,data.reconstructedCams(),data.cams(),data.points());
-}
-
-/*
 void writeSFMPLYFormat(const string& filename,const unordered_set<int>& addedCams,
   const ptr_vector<ICamera>& cams,const vector<Vector3d>& points,const vector<bool>& pointsMask,
   const vector<Vector3uc> *pointColors)
@@ -754,120 +577,3 @@ void writeSFMPLYFormat(const string& filename,const IDataset& dts,
     dts.pointsMask(),pointColors);
 }
 */
-
-ostream& operator<<(ostream& file,const NViewMatch& m)
-{
-  file << m.size();
-  for(const auto& entry : m)
-    file << " " << entry.first << " " << entry.second;
-  return file;
-}
-
-istream& operator>>(istream& file,NViewMatch& m)
-{
-  int n;
-  file >> n;
-  m.clear();
-  m.reserve(n);
-  int key;
-  for(int i = 0; i < n; i++)
-  {
-    file >> key;
-    file >> m[key];
-  }
-  return file;
-}
-
-} // namespace yasfm
-
-namespace
-{
-
-bool hasExtension(const string& filename,const string& extension)
-{
-  if(filename.length() < extension.length())
-    return false;
-  string filenameExt = filename.substr(filename.length() - extension.length());
-  std::transform(filenameExt.begin(),filenameExt.end(),filenameExt.begin(),::tolower);
-  return (filenameExt.compare(extension) == 0);
-}
-
-bool hasExtension(const string& filename,const vector<string>& allowedExtensions)
-{
-  for(const string& ext : allowedExtensions)
-  {
-    if(hasExtension(filename,ext))
-    { return true; }
-  }
-  return false;
-}
-
-double findCCDWidthInDB(const string& dbFilename,const string& cameraMake,const string& cameraModel)
-{
-  ifstream file(dbFilename);
-  if(!file.is_open())
-  {
-    cerr << "ERROR: could not open file: " << dbFilename << "\n";
-    return 0.;
-  }
-  string makeModel = cameraMake + " " + cameraModel;
-  string line;
-  while(getline(file,line))
-  {
-    string readMakeModel("");
-    if(readCameraMakeModelFromDBEntry(line,readMakeModel))
-    {
-      if(readMakeModel.compare(makeModel) == 0)
-      {
-        file.close();
-        return readCCDWidthFromDBEntry(line);
-      }
-    }
-  }
-  file.close();
-  return 0.;
-}
-
-bool readCameraMakeModelFromDBEntry(const string& entry,string& makeModel)
-{
-  size_t idx1 = entry.find_first_of("\"");
-  size_t idx2 = entry.find_first_of("\"",idx1 + 1);
-  if(idx1 == string::npos || idx2 == string::npos)
-  {
-    makeModel = "";
-    return false;
-  }
-
-  size_t idxCheck = entry.find("=>");
-  if(idx1 > idxCheck || idx2 > idxCheck)
-  {
-    makeModel = "";
-    return false;
-  }
-
-  makeModel = entry.substr(idx1 + 1,idx2 - idx1 - 1);
-  return true;
-}
-
-double readCCDWidthFromDBEntry(const string& entry)
-{
-  size_t idx1 = entry.find("=>");
-  size_t idx2 = entry.find_first_of(',',idx1 + 1);
-  if(idx1 == string::npos || idx2 == string::npos)
-  {
-    return 0.;
-  }
-  string out = entry.substr(idx1 + 2,idx2 - idx1 - 2);
-  idx1 = out.find_last_of(" \t");
-  out = out.substr(idx1 + 1,idx2 - idx1);
-
-  try
-  {
-    return std::stod(out);
-  }catch(const std::invalid_argument&)
-  {
-    return 0.;
-  }
-}
-
-} // namespace

@@ -4,6 +4,7 @@
 #include "Eigen/Dense"
 #include "utils.h"
 
+using namespace yasfm;
 using std::vector;
 using std::string;
 using Eigen::Matrix3d;

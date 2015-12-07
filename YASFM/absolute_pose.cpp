@@ -10,6 +10,7 @@
 
 #include "absolute_pose.h"
 
+#include <algorithm>
 #include <iostream>
 
 using Eigen::JacobiSVD;
@@ -21,6 +22,51 @@ using std::cout;
 
 namespace yasfm
 {
+void chooseWellMatchedCameras(int minMatchesThresh,double factor,
+  const vector<vector<IntPair>>& camToSceneMatches,
+  uset<int> *wellMatchedCams)
+{
+  int maxMatches = 0;
+  for(const auto& camMatches : camToSceneMatches)
+  {
+    if(camMatches.size() > maxMatches)
+    {
+      maxMatches = static_cast<int>(camMatches.size());
+    }
+  }
+  int minMatches = static_cast<int>(floor(maxMatches*factor));
+  int thresh = std::max<int>(minMatchesThresh,minMatches);
+  for(int i = 0; i < static_cast<int>(camToSceneMatches.size()); i++)
+  {
+    if(camToSceneMatches[i].size() >= thresh)
+    {
+      wellMatchedCams->insert(i);
+    }
+  }
+}
+
+double computeAverageReprojectionError(const ptr_vector<Camera>& cams,
+  const Points& points)
+{
+  double cumulativeError = 0.;
+  int observationsCount = 0;
+  for(int iPt = 0; iPt < points.numPts(); iPt++)
+  {
+    for(const auto& camKey : points.ptData()[iPt].reconstructed)
+    {
+      const auto& cam = *cams[camKey.first];
+      const auto& key = cam.key(camKey.second);
+      Vector2d proj = cam.project(points.ptCoord()[iPt]);
+      cumulativeError += (proj - key).norm();
+      observationsCount++;
+    }
+  }
+
+  if(observationsCount > 0)
+    return cumulativeError / observationsCount;
+  else
+    return 0.;
+}
 
 bool resectCamera5AndHalfPtRANSAC(const OptionsRANSAC& opt,
   const vector<IntPair>& camToSceneMatches,const vector<Vector3d>& points,

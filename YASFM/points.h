@@ -60,11 +60,11 @@ Trianguates all points given by two-view matches. A point is reconstructed only 
 it is triangulated in front of both cameras. Points colors are chosen from the first
 key.
 
-\param[in] camIdxs Camera pair indices.
+\param[in] camsIdxs Camera pair indices.
 \param[in] cam1 First camera.
 \param[in] cam2 Second camera.
 \param[in] nViewMatchIdxs Corresponding indices to points->matchesToReconstruct.
-\params[out] points Points.
+\param[out] points Points.
 */
 YASFM_API void reconstructPoints(const IntPair& camsIdxs,const Camera& cam1,
   const Camera& cam2,const vector<int>& nViewMatchIdxs,Points *points);
@@ -77,7 +77,7 @@ observation.
 
 \param[in] cams Cameras.
 \param[in] matchesToReconstruct Points views.
-\params[out] points Points.
+\param[out] points Points.
 */
 YASFM_API void reconstructPoints(const ptr_vector<Camera>& cams, 
   const vector<SplitNViewMatch>& matchesToReconstruct,Points *points);

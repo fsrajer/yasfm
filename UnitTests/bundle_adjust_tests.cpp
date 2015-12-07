@@ -3,6 +3,7 @@
 #include "bundle_adjust.h"
 #include "utils_tests.h"
 #include "standard_camera.h"
+#include "absolute_pose.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace yasfm;
