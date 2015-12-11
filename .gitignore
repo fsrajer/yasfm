@@ -1,0 +1,83 @@
+
+# /
+/Debug
+/Documentation
+/Release
+/YASFM.opensdf
+/YASFM.sdf
+/YASFM.suo
+/YASFM.v12.suo
+/ipch
+
+# /Incremental/
+/Incremental/Incremental.vcxproj.user
+/Incremental/Debug
+/Incremental/x64
+
+# /UnitTests/
+/UnitTests/UnitTests.vcxproj.user
+/UnitTests/x64
+
+# /YASFM/
+/YASFM/YASFM.vcxproj.user
+/YASFM/x64
+
+# /bin/
+/bin/Incremental.exe
+/bin/Incremental.pdb
+/bin/UnitTests-static.bsc
+/bin/UnitTests-static.dll
+/bin/UnitTests-static.pdb
+/bin/YASFM.dll
+/bin/YASFM.pdb
+/bin/Incremental.v12.suo
+
+# /bin/Debug/
+/bin/Debug/Incrementald.exe
+/bin/Debug/Incrementald.ilk
+/bin/Debug/Incrementald.pdb
+/bin/Debug/YASFMd.dll
+/bin/Debug/YASFMd.ilk
+/bin/Debug/YASFMd.pdb
+
+# /lib/
+/lib/UnitTests-static.exp
+/lib/UnitTests-static.lib
+/lib/YASFM-static.bsc
+/lib/YASFM-static.lib
+/lib/YASFM.exp
+/lib/YASFM.lib
+
+# /lib/Debug/
+/lib/Debug/EAST64d.exp
+/lib/Debug/EAST64d.lib
+/lib/Debug/EASTd.exp
+/lib/Debug/EASTd.lib
+/lib/Debug/YASFMd.exp
+/lib/Debug/YASFMd.lib
+
+# /libs_build/
+/libs_build/ceres
+
+# /libs_build/5pt-6pt-Li-Hartley/
+/libs_build/5pt-6pt-Li-Hartley/partsolveE6.mexw32
+/libs_build/5pt-6pt-Li-Hartley/solveE.mexw32
+/libs_build/5pt-6pt-Li-Hartley/solveE_nister.mexw32
+/libs_build/5pt-6pt-Li-Hartley/partsolveE.mexw32
+
+# /libs_build/5pt-6pt-Li-Hartley/5point/
+/libs_build/5pt-6pt-Li-Hartley/5point/5point.sdf
+/libs_build/5pt-6pt-Li-Hartley/5point/5point.v12.suo
+
+# /libs_build/5pt-6pt-Li-Hartley/lib/
+/libs_build/5pt-6pt-Li-Hartley/lib/5pointd.lib
+
+# /libs_build/cminpack/
+/libs_build/cminpack/cminpack.opensdf
+/libs_build/cminpack/cminpack.sdf
+/libs_build/cminpack/cminpack.v12.suo
+/libs_build/cminpack/x64
+
+# /libs_build/jhead-3.00/Jhead/
+/libs_build/jhead-3.00/Jhead/Jhead.sdf
+/libs_build/jhead-3.00/Jhead/Jhead.v12.suo
