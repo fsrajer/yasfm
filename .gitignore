@@ -81,3 +81,12 @@
 # /libs_build/jhead-3.00/Jhead/
 /libs_build/jhead-3.00/Jhead/Jhead.sdf
 /libs_build/jhead-3.00/Jhead/Jhead.v12.suo
+
+# /libs_build/glew-1.12.0/
+/libs_build/glew-1.12.0/bin
+/libs_build/glew-1.12.0/lib
+
+# /libs_build/glew-1.12.0/build/vc12/
+/libs_build/glew-1.12.0/build/vc12/tmp
+/libs_build/glew-1.12.0/build/vc12/glew.sdf
+/libs_build/glew-1.12.0/build/vc12/glew.v12.suo

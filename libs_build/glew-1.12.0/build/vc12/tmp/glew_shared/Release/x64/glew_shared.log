@@ -1,0 +1,17 @@
+﻿Build started 5/2/2015 22:53:31.
+     1>Project "C:\Users\Filip\Workspace\cmp\EAST_libs_build\glew-1.12.0\build\vc12\glew_shared.vcxproj" on node 2 (Build target(s)).
+     1>ClCompile:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\CL.exe /c /I..\..\include /Zi /nologo /W3 /WX- /O2 /Ob1 /D WIN32 /D WIN32_LEAN_AND_MEAN /D VC_EXTRALEAN /D GLEW_BUILD /D _WINDLL /GF /Gm- /EHsc /MT /GS /Gy /fp:precise /Zc:wchar_t /Zc:forScope /Fo"tmp\glew_shared\Release\x64\\" /Fd"tmp\glew_shared\Release\x64\vc120.pdb" /Gd /TC /errorReport:prompt ..\..\src\glew.c
+         glew.c
+       ResourceCompile:
+         C:\Program Files (x86)\Windows Kits\8.1\bin\x86\rc.exe /D NDEBUG /l"0x0409" /nologo /fo"tmp\glew_shared\Release\x64\glew.res" ..\glew.rc 
+       Link:
+         C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\bin\x86_amd64\link.exe /ERRORREPORT:PROMPT /OUT:"..\..\bin\Release\x64\glew64.dll" /INCREMENTAL:NO /NOLOGO opengl32.lib kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib odbccp32.lib /MANIFEST /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /manifest:embed /PDB:"..\..\bin\Release\x64\glew64.pdb" /SUBSYSTEM:CONSOLE /TLBID:1 /BASE:"0x62AA0000" /DYNAMICBASE /NXCOMPAT /IMPLIB:"..\..\lib\Release\x64\glew64.lib" /MACHINE:X64  /ignore:4089 /DLL tmp\glew_shared\Release\x64\glew.res
+         tmp\glew_shared\Release\x64\glew.obj
+            Creating library ..\..\lib\Release\x64\glew64.lib and object ..\..\lib\Release\x64\glew64.exp
+         glew_shared.vcxproj -> C:\Users\Filip\Workspace\cmp\EAST_libs_build\glew-1.12.0\build\vc12\..\..\bin\Release\x64\glew64.dll
+     1>Done Building Project "C:\Users\Filip\Workspace\cmp\EAST_libs_build\glew-1.12.0\build\vc12\glew_shared.vcxproj" (Build target(s)).
+
+Build succeeded.
+
+Time Elapsed 00:00:02.69
