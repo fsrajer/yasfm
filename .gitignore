@@ -58,6 +58,7 @@
 
 # /libs_build/
 /libs_build/ceres
+/libs_build/eigen-eigen-10219c95fe65
 
 # /libs_build/5pt-6pt-Li-Hartley/
 /libs_build/5pt-6pt-Li-Hartley/partsolveE6.mexw32
