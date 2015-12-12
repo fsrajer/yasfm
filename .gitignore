@@ -54,7 +54,6 @@
 /lib/Debug/YASFMd.lib
 
 # /libs_build/
-/libs_build/ceres
 /libs_build/eigen-eigen-10219c95fe65
 
 # /libs_build/5pt-6pt-Li-Hartley/
@@ -62,11 +61,27 @@
 /libs_build/5pt-6pt-Li-Hartley/solveE.mexw32
 /libs_build/5pt-6pt-Li-Hartley/solveE_nister.mexw32
 /libs_build/5pt-6pt-Li-Hartley/partsolveE.mexw32
-
-# /libs_build/5pt-6pt-Li-Hartley/5point/
-
-# /libs_build/5pt-6pt-Li-Hartley/lib/
 /libs_build/5pt-6pt-Li-Hartley/lib/5pointd.lib
+
+# /libs_build/ceres/ceres/
+/libs_build/ceres/ceres-solver/data
+
+# /libs_build/ceres/glog-0.3.3/
+/libs_build/ceres/glog-0.3.3/Debug
+/libs_build/ceres/glog-0.3.3/x64
+
+# /libs_build/ceres/gflags/
+/libs_build/ceres/gflags/build/*
+!/libs_build/ceres/gflags/build/CMakeCache.txt
+/libs_build/ceres/gflags/install
+
+# /libs_build/ceres/glog-0.3.3/vsprojects
+/libs_build/ceres/glog-0.3.3/vsprojects/*/Debug
+/libs_build/ceres/glog-0.3.3/vsprojects/*/x64
+
+# /libs_build/ceres/suitesparse-metis-for-windows/build/
+/libs_build/ceres/suitesparse-metis-for-windows/build/*
+!/libs_build/ceres/suitesparse-metis-for-windows/build/CMakeCache.txt
 
 # /libs_build/cminpack/
 /libs_build/cminpack/x64
@@ -74,16 +89,10 @@
 # /libs_build/glew-1.12.0/
 /libs_build/glew-1.12.0/bin
 /libs_build/glew-1.12.0/lib
-
-# /libs_build/glew-1.12.0/build/vc12/
 /libs_build/glew-1.12.0/build/vc12/tmp
 
 # /libs_build/SiftGPU/bin/
 /libs_build/SiftGPU/bin/SiftGPU64*
-
-# /libs_build/SiftGPU/msvc/
 /libs_build/SiftGPU/msvc/*/*_x64
-
-# /libs_build/SiftGPU/msvc/TestWin/
 /libs_build/SiftGPU/msvc/TestWin/Debug
 /libs_build/SiftGPU/msvc/TestWin/Release
