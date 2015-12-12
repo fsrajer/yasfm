@@ -77,3 +77,13 @@
 
 # /libs_build/glew-1.12.0/build/vc12/
 /libs_build/glew-1.12.0/build/vc12/tmp
+
+# /libs_build/SiftGPU/bin/
+/libs_build/SiftGPU/bin/SiftGPU64*
+
+# /libs_build/SiftGPU/msvc/
+/libs_build/SiftGPU/msvc/*/*_x64
+
+# /libs_build/SiftGPU/msvc/TestWin/
+/libs_build/SiftGPU/msvc/TestWin/Debug
+/libs_build/SiftGPU/msvc/TestWin/Release
