@@ -1,25 +1,23 @@
+# Visual Studio files
+*.sdf
+*.opensdf
+*.suo
+*.vcxproj.user
 
 # /
 /Debug
 /Documentation
 /Release
-/YASFM.opensdf
-/YASFM.sdf
-/YASFM.suo
-/YASFM.v12.suo
 /ipch
 
 # /Incremental/
-/Incremental/Incremental.vcxproj.user
 /Incremental/Debug
 /Incremental/x64
 
 # /UnitTests/
-/UnitTests/UnitTests.vcxproj.user
 /UnitTests/x64
 
 # /YASFM/
-/YASFM/YASFM.vcxproj.user
 /YASFM/x64
 
 # /bin/
@@ -30,7 +28,6 @@
 /bin/UnitTests-static.pdb
 /bin/YASFM.dll
 /bin/YASFM.pdb
-/bin/Incremental.v12.suo
 
 # /bin/Debug/
 /bin/Debug/Incrementald.exe
@@ -67,21 +64,12 @@
 /libs_build/5pt-6pt-Li-Hartley/partsolveE.mexw32
 
 # /libs_build/5pt-6pt-Li-Hartley/5point/
-/libs_build/5pt-6pt-Li-Hartley/5point/5point.sdf
-/libs_build/5pt-6pt-Li-Hartley/5point/5point.v12.suo
 
 # /libs_build/5pt-6pt-Li-Hartley/lib/
 /libs_build/5pt-6pt-Li-Hartley/lib/5pointd.lib
 
 # /libs_build/cminpack/
-/libs_build/cminpack/cminpack.opensdf
-/libs_build/cminpack/cminpack.sdf
-/libs_build/cminpack/cminpack.v12.suo
 /libs_build/cminpack/x64
-
-# /libs_build/jhead-3.00/Jhead/
-/libs_build/jhead-3.00/Jhead/Jhead.sdf
-/libs_build/jhead-3.00/Jhead/Jhead.v12.suo
 
 # /libs_build/glew-1.12.0/
 /libs_build/glew-1.12.0/bin
@@ -89,5 +77,3 @@
 
 # /libs_build/glew-1.12.0/build/vc12/
 /libs_build/glew-1.12.0/build/vc12/tmp
-/libs_build/glew-1.12.0/build/vc12/glew.sdf
-/libs_build/glew-1.12.0/build/vc12/glew.v12.suo
