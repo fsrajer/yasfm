@@ -9,6 +9,7 @@
 	- User specified groups sharing calibration
 	- Supply cameras with non-shared and shared parameters
 	- When asking a camera for ceres::cost, tell them if we want version with shared parameters or not
+:Use Tomas Glabazna's SIFT optimal parameters search to determine best SIFT parameters.
 :Rolling shutter
 :Distortion division model
 :5pt relative pose 
