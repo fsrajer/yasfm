@@ -328,13 +328,13 @@ void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
   }
 }
 
-void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt,
+void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
   const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
 {
-  verifyMatchesGeometrically(solverOpt,true,cams,pairs);
+  verifyMatchesEpipolar(solverOpt,true,cams,pairs);
 }
 
-void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt,
+void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
   bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
 {
   clock_t start,end;

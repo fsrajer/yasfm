@@ -193,7 +193,7 @@ YASFM_API void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
   const vector<IntPair>& matches,const vector<Vector2d>& keys1,
   const vector<Vector2d>& keys2,Matrix3d *R,Vector3d *C);
 
-/// Verify matches geometrically.
+/// Verify matches geometrically using epipolar geometry.
 /**
 For every camera pair, estimates fundamental matrix using PROSAC (that is why we
 need dists). Then, only matches which are inliers to the fundamental matrix are
@@ -205,7 +205,7 @@ this using removePoorlyMatchedPairs().
 \param[in] cams Cameras needed for the keys.
 \param[in,out] pairs Camera pairs which will get verified.
 */
-YASFM_API void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt, 
+YASFM_API void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
   bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs);
 
 /// Sets verbosity to true and calls overloaded function.
@@ -214,7 +214,7 @@ YASFM_API void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt,
 \param[in] cams Cameras needed for the keys.
 \param[in,out] pairs Camera pairs which will get verified.
 */
-YASFM_API void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt,
+YASFM_API void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
   const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs);
 
 /// Estimate fundamental matrix using PROSAC.
