@@ -319,8 +319,8 @@ Matrix34d generateRandomProjection()
       Vector2d proj = cams[0]->project(ptCoord[0]);
       float descr = 0;
 
-      cams[0]->setFeature(0,proj(0),proj(1),&descr);
-      cams[1]->setFeature(0,proj(0),proj(1),&descr);
+      cams[0]->setFeature(0,proj(0),proj(1),0,0,&descr);
+      cams[1]->setFeature(0,proj(0),proj(1),0,0,&descr);
 
       err = computeAverageReprojectionError(cams,points);
 

@@ -323,8 +323,8 @@ namespace yasfm_tests
       for(size_t i = 0; i < keys1.size(); i++)
       {
         float dummy;
-        cam1.setFeature((int)i,keys1[i](0),keys1[i](1),&dummy);
-        cam2.setFeature((int)i,keys2[i](0),keys2[i](1),&dummy);
+        cam1.setFeature((int)i,keys1[i](0),keys1[i](1),0,0,&dummy);
+        cam2.setFeature((int)i,keys2[i](0),keys2[i](1),0,0,&dummy);
       }
 
       inliers.clear();

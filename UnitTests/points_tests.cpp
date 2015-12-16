@@ -31,7 +31,7 @@ namespace yasfm_tests
         for(int i = 0; i < 5; i++)
         {
           float dummy;
-          cams[camIdx]->setFeature(i,0.,0.,&dummy);
+          cams[camIdx]->setFeature(i,0.,0.,0,0,&dummy);
         }
       }
 
@@ -153,10 +153,10 @@ namespace yasfm_tests
         float dummy;
         Vector3d proj = P0 * coord[i].homogeneous();
         Vector2d p = proj.hnormalized();
-        cam0.setFeature(i,p(0),p(1),&dummy);
+        cam0.setFeature(i,p(0),p(1),0,0,&dummy);
         proj = P1 * coord[i].homogeneous();
         p = proj.hnormalized();
-        cam1.setFeature(i,p(0),p(1),&dummy);
+        cam1.setFeature(i,p(0),p(1),0,0,&dummy);
         pts.matchesToReconstruct().emplace_back();
         pts.matchesToReconstruct().back().emplace(0,i);
         pts.matchesToReconstruct().back().emplace(1,i);
@@ -193,7 +193,7 @@ namespace yasfm_tests
           float dummy;
           Vector3d proj = cams[i]->P() * coord[iPt].homogeneous();
           Vector2d p = proj.hnormalized();
-          cams[i]->setFeature(iPt,p(0),p(1),&dummy);
+          cams[i]->setFeature(iPt,p(0),p(1),0,0,&dummy);
           matches[0].observedPart.emplace(i,0);
         }
       }
@@ -276,7 +276,7 @@ namespace yasfm_tests
         {
           Vector2d p = Vector2d::Random();
           float dummy;
-          cams[i]->setFeature(j,p(0),p(1),&dummy);
+          cams[i]->setFeature(j,p(0),p(1),0,0,&dummy);
         }
       }
       vector<NViewMatch> matches;
@@ -385,14 +385,14 @@ namespace yasfm_tests
       }
       float dummy;
       Vector2d p = cams[0]->project(coord[0]);
-      cams[0]->setFeature(0,p(0),p(1),&dummy);
+      cams[0]->setFeature(0,p(0),p(1),0,0,&dummy);
       p = cams[1]->project(coord[0]);
-      cams[1]->setFeature(0,p(0),p(1),&dummy);
+      cams[1]->setFeature(0,p(0),p(1),0,0,&dummy);
       p = cams[0]->project(coord[1]);
-      cams[0]->setFeature(1,p(0),p(1),&dummy);
+      cams[0]->setFeature(1,p(0),p(1),0,0,&dummy);
       p = cams[1]->project(coord[1]);
       p(0) += 100;
-      cams[1]->setFeature(1,p(0),p(1),&dummy);
+      cams[1]->setFeature(1,p(0),p(1),0,0,&dummy);
       views[1].unobservedPart.emplace(11,1);
       pts.addPoints(coord,colors,views);
 
@@ -416,7 +416,7 @@ namespace yasfm_tests
         cams[i]->resizeFeatures(1,0);
         Vector2d p = cams[i]->project(pt);
         float dummy;
-        cams[i]->setFeature(0,p(0),p(1),&dummy);
+        cams[i]->setFeature(0,p(0),p(1),0,0,&dummy);
         views.emplace(i,0);
       }
 

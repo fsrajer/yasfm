@@ -39,15 +39,16 @@ Camera::Camera(istream& file,int mode,const string& featuresDir)
   featuresFile >> nKeys >> descrDim;
 
   keys_.resize(nKeys);
+  keysScales_.resize(nKeys);
+  keysOrientations_.resize(nKeys);
   if(mode & ReadAll)
     descr_.resize(descrDim,nKeys);
   else
     descr_.resize(0,0);
 
-  double dummy;
   for(int i = 0; i < nKeys; i++)
   {
-    featuresFile >> keys_[i](1) >> keys_[i](0) >> dummy >> dummy;
+    featuresFile >> keys_[i](1) >> keys_[i](0) >> keysScales_[i] >> keysOrientations_[i];
     if(mode & ReadAll)
     {
       for(int d = 0; d < descrDim; d++)
@@ -76,13 +77,18 @@ Camera::~Camera()
 void Camera::resizeFeatures(int num,int dim)
 {
   keys_.resize(num);
+  keysScales_.resize(num);
+  keysOrientations_.resize(num);
   descr_.resize(dim,num);
 }
 
-void Camera::setFeature(int idx,double x,double y,const float* const descr)
+void Camera::setFeature(int idx,double x,double y,double scale,double orientation,
+  const float* const descr)
 {
   keys_[idx](0) = x;
   keys_[idx](1) = y;
+  keysScales_[idx] = scale;
+  keysOrientations_[idx] = orientation;
   Map<const ArrayXf> descrMapped(descr,descr_.rows());
   descr_.col(idx) = descrMapped;
 }
@@ -102,6 +108,8 @@ int Camera::imgWidth() const { return imgWidth_; }
 int Camera::imgHeight() const { return imgHeight_; }
 const vector<Vector2d>& Camera::keys() const { return keys_; }
 const Vector2d& Camera::key(int i) const { return keys_[i]; }
+const vector<double>& Camera::keysScales() const { return keysScales_; }
+const vector<double>& Camera::keysOrientations() const { return keysOrientations_; }
 const ArrayXXf& Camera::descr() const { return descr_; }
 const vector<Vector3uc>& Camera::keysColors() const { return keysColors_; }
 const Vector3uc& Camera::keyColor(int i) const { return keysColors_[i]; }
@@ -141,7 +149,8 @@ void Camera::writeASCII(ostream& file,int mode,
     for(size_t i = 0; i < keys_.size(); i++)
     {
       // save in format y, x, 0, 0
-      featuresFile << setprecision(2) << keys_[i](1) << " " << keys_[i](0) << " 0 0\n";
+      featuresFile << setprecision(2) << keys_[i](1) << " " << keys_[i](0) << " " 
+        << keysScales_[i] << " " << keysOrientations_[i] << "\n";
       if((mode & WriteDescriptors) && descr_.cols() != 0)
       {
         featuresFile << setprecision(8);
