@@ -215,4 +215,52 @@ struct YASFM_API OptionsBundleAdjustment
   bool robustify;
 };
 
+/// Options for geometric verification
+struct OptionsGeometricVerification
+{
+  YASFM_API OptionsGeometricVerification()
+  {
+    similarityThresh = 20;
+    affinityThresh = 10;
+    homographyThresh = 5;
+    minInliersPerTransform = 10;
+    maxTransforms = 7;
+    nRefineIterations = 8;
+    minInliersToRefine = 4;
+    stopInlierFraction = 0.7;
+  }
+
+  /// Threshold defining inliers for estimated similarity.
+  double similarityThresh;
+
+  /// Threshold defining inliers for estimated affinity.
+  double affinityThresh;
+
+  /// Threshold defining inliers for estimated homography.
+  double homographyThresh;
+
+  /// Minimum number of inliers to one transformation.
+  int minInliersPerTransform;
+
+  /// Maximum number of transformations that should be estimated.
+  int maxTransforms;
+
+  /// Number of refine iterations that should be done to a transformation.
+  /// 1st iteration is estimated using key coordinates, scale and orientation.
+  /// 2-4th iterations are affinities
+  /// 5+th iterations are homographies
+  int nRefineIterations;
+
+  /// Minimum number of inliers to continue in further refining.
+  int minInliersToRefine;
+
+  /// Value in [0,1]. If there is this fraction of inliers found the 
+  /// refine phase is terminated.
+  double stopInlierFraction;
+
+  /// Write to a file to record which parameters were used.
+  /// \param[in,out] file Opened output file.
+  YASFM_API void write(ostream& file) const;
+};
+
 }

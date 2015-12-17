@@ -558,6 +558,128 @@ bool estimateHomographyPROSAC(const OptionsRANSAC& opt,const vector<Vector2d>& p
   return (nInliers > 0);
 }
 
+void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
+{
+  verifyMatchesGeometrically(opt,true,cams,pairs);
+}
+
+void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
+{
+  clock_t start,end;
+  for(auto it = pairs->begin(); it != pairs->end();)
+  {
+    IntPair camsIdx = it->first;
+    auto &pair = it->second;
+
+    if(verbose)
+    {
+      cout << "verifying: " << camsIdx.first << " -> " << camsIdx.second << "\t";
+      cout << pair.matches.size();
+      start = clock();
+    }
+
+    vector<int> inliers;
+    int nInliers = verifyMatchesGeometrically(opt,
+      *cams[camsIdx.first],*cams[camsIdx.second],pair.matches,&inliers);
+    if(nInliers >= opt.minInliersPerTransform)
+    {
+      filterVector(inliers,&pair.matches);
+      filterVector(inliers,&pair.dists);
+      ++it;
+    } else
+    {
+      it = pairs->erase(it);
+    }
+
+    if(verbose)
+    {
+      end = clock();
+      cout << "->" << inliers.size() << " matches" << "\t";
+      cout << "took: " << (double)(end - start) / (double)CLOCKS_PER_SEC << "s\n";
+    }
+  }
+}
+
+YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  const Camera& cam1,const Camera& cam2,const vector<IntPair>& allMatches,
+  vector<int> *poutInliers)
+{
+  auto& outInliers = *poutInliers;
+
+  int nAllMatches = static_cast<int>(allMatches.size());
+  vector<IntPair> remainingMatches = allMatches;
+  vector<int> remainingToAll(nAllMatches);
+  for(int i = 0; i < nAllMatches; i++)
+    remainingToAll[i] = i;
+
+  vector<int> bestInliers,currInliers;
+  bestInliers.reserve(nAllMatches);
+  currInliers.reserve(nAllMatches);
+
+  for(int iTransform = 0; iTransform < opt.maxTransforms; iTransform++)
+  {
+    bestInliers.clear();
+
+    for(size_t iMatch = 0; iMatch < remainingMatches.size(); iMatch++)
+    {
+      int k1 = remainingMatches[iMatch].first;
+      int k2 = remainingMatches[iMatch].second;
+      currInliers.clear();
+
+      for(int iRefine = 0; iRefine < opt.nRefineIterations; iRefine++)
+      {
+        Matrix3d H;
+        double thresh;
+        if(iRefine == 0)
+        {
+          computeSimilarityFromMatch(cam1.key(k1),cam1.keysScales()[k1],
+            cam1.keysOrientations()[k1],cam2.key(k2),cam2.keysScales()[k2],
+            cam2.keysOrientations()[k2],&H);
+          thresh = opt.similarityThresh;
+        } else if(iRefine <= 4)
+        {
+          estimateAffinity(cam1.keys(),cam2.keys(),remainingMatches,
+            currInliers,&H);
+          thresh = opt.affinityThresh;
+        } else
+        {
+          estimateHomography(cam1.keys(),cam2.keys(),remainingMatches,
+            currInliers,&H);
+          thresh = opt.homographyThresh;
+        }
+
+        currInliers.clear();
+        findHomographyInliers(thresh,cam1.keys(),cam2.keys(),
+          remainingMatches,H,&currInliers);
+        
+        if(currInliers.size() < opt.minInliersToRefine)
+          break;
+        
+        if(currInliers.size() > opt.stopInlierFraction * remainingMatches.size())
+          break;
+      }
+
+      if(currInliers.size() > bestInliers.size())
+        bestInliers = currInliers;
+    }
+
+    if(bestInliers.size() < opt.minInliersPerTransform)
+      break;
+
+    for(int remainingMatchesInlier : bestInliers)
+      outInliers.push_back(remainingToAll[remainingMatchesInlier]);
+    filterOutOutliers(bestInliers,&remainingMatches);
+    filterOutOutliers(bestInliers,&remainingToAll);
+
+    if(remainingMatches.size() < opt.minInliersPerTransform)
+      break;
+  }
+
+  return static_cast<int>(outInliers.size());
+}
+
 void computeSimilarityFromMatch(const Vector2d& coord1,double scale1,
   double orientation1,const Vector2d& coord2,double scale2,double orientation2,
   Matrix3d *S)

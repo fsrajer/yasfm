@@ -354,6 +354,49 @@ YASFM_API bool estimateHomographyRANSAC(const OptionsRANSAC& opt,
   const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
   const vector<IntPair>& matches,Matrix3d *H,vector<int> *inliers = nullptr);
 
+/// Verify matches geometrically.
+/**
+Verifies every camera pair. Firstly estimates a transformation and saves 
+inliers, then estimates another transformation and so on until there is
+enough matches. A transformation can be similarity, affinity or
+homography.
+Then, as output, only matches which are inliers are kept. Empty pairs get removed.
+
+\param[in] opt Options for estimating transformations.
+\param[in] verbose Should this print status?
+\param[in] cams Cameras.
+\param[in,out] pairs Camera pairs which will get verified.
+*/
+YASFM_API void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs);
+
+/// Sets verbosity to true and calls overloaded function.
+/**
+\param[in] opt Options for estimating transformations.
+\param[in] cams Cameras.
+\param[in,out] pairs Camera pairs which will get verified.
+*/
+YASFM_API void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs);
+
+/// Verify matches geometrically.
+/**
+Firstly estimates a transformation and saves
+inliers, then estimates another transformation and so on until there is
+enough matches. A transformation can be similarity, affinity or
+homography.
+
+\param[in] opt Options for estimating transformations.
+\param[in] cam1 First camera.
+\param[in] cam2 Second camera.
+\param[in] matches Keys matches.
+\param[out] inliers Indices of geometrically verified matches.
+\return Number of inliers.
+*/
+YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  const Camera& cam1,const Camera& cam2,const vector<IntPair>& matches,
+  vector<int> *inliers);
+
 /// Compute similarity transform given one feature match.
 /**
 Computes similarity S such that:

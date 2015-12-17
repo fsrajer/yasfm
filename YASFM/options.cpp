@@ -63,4 +63,16 @@ void OptionsBundleAdjustment::write(ostream& file) const
   file << " robustify: " << robustify << "\n";
 }
 
+void OptionsGeometricVerification::write(ostream& file) const
+{
+  file << " similarityThresh: " << similarityThresh << "\n";
+  file << " affinityThresh: " << affinityThresh << "\n";
+  file << " homographyThresh: " << homographyThresh << "\n";
+  file << " minInliersPerTransform: " << minInliersPerTransform << "\n";
+  file << " maxTransforms: " << maxTransforms << "\n";
+  file << " nRefineIterations: " << nRefineIterations << "\n";
+  file << " minInliersToRefine: " << minInliersToRefine << "\n";
+  file << " stopInlierFraction: " << stopInlierFraction << "\n";
+}
+
 }
