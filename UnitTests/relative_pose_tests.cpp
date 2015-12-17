@@ -343,6 +343,52 @@ namespace yasfm_tests
       }
     }
 
+    TEST_METHOD(computeSimilarityFromMatchTest)
+    {
+      const double cPrecision = 1e-8;
+      Vector2d k1(Vector2d::Zero()),k2(Vector2d::Zero());
+      double s1 = 1.,s2 = 1.,o1 = 0.,o2 = 0.;
+
+      // none
+      Matrix3d S;
+      computeSimilarityFromMatch(k1,s1,o1,k2,s2,o2,&S);
+      Assert::IsTrue(S.isIdentity());
+
+      // scale
+      s1 = 2.;
+      s2 = 4.;
+      computeSimilarityFromMatch(k1,s1,o1,k2,s2,o2,&S);
+      Assert::IsTrue(S(0,0) == 2.);
+      Assert::IsTrue(S(1,1) == 2.);
+      S(0,0) = S(1,1) = 1.;
+      Assert::IsTrue(S.isIdentity());
+      s1 = 1.;
+      s2 = 1.;
+
+      // translation
+      k1 << 4,5;
+      k2 << 1,1;
+      computeSimilarityFromMatch(k1,s1,o1,k2,s2,o2,&S);
+      Assert::IsTrue(abs(S(0,2) + 3.) < cPrecision);
+      Assert::IsTrue(abs(S(1,2) + 4.) < cPrecision);
+      S(0,2) = S(1,2) = 0.;
+      Assert::IsTrue(S.isIdentity());
+      k1 << 0,0;
+      k2 << 0,0;
+
+      // rotation
+      o1 = M_PI/4;
+      o2 = 3*M_PI/4;
+      computeSimilarityFromMatch(k1,s1,o1,k2,s2,o2,&S);
+      Assert::IsTrue(abs(S(0,0)) < cPrecision);
+      Assert::IsTrue(abs(S(1,1)) < cPrecision);
+      Assert::IsTrue(abs(S(0,1) + 1.) < cPrecision);
+      Assert::IsTrue(abs(S(1,0) - 1.) < cPrecision);
+      S(0,0) = S(1,1) = 1.;
+      S(0,1) = S(1,0) = 0.;
+      Assert::IsTrue(S.isIdentity());
+    }
+
     TEST_METHOD(estimateHomographyMinimalTest)
     {
       vector<Vector2d> pts1,pts2;
