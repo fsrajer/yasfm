@@ -367,6 +367,21 @@ YASFM_API void computeSimilarityFromMatch(const Vector2d& coord1,double scale1,
   double orientation1,const Vector2d& coord2,double scale2,double orientation2,
   Matrix3d *S);
 
+/// Compute affine transform given a set of matches.
+/**
+Computes affinity A using least squares such that:
+A*pt1 = lambda*pt2.
+
+\param[in] keys1 First keys.
+\param[in] keys2 Second keys.
+\param[in] matches Keys matches.
+\param[in] matchesToUse Matches which should be used.
+\param[out] A Affine transform.
+*/
+YASFM_API void estimateAffinity(const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,Matrix3d *A);
+
 /// Compute homography (minimal solver).
 /**
 Computes homography H from four matches using svd decomposition.

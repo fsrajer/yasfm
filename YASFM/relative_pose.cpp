@@ -578,6 +578,31 @@ void computeSimilarityFromMatch(const Vector2d& coord1,double scale1,
   *S = A2*A1.inverse();
 }
 
+void estimateAffinity(const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,Matrix3d *pA)
+{
+  auto& A = *pA;
+  int nUseful = static_cast<int>(matchesToUse.size());
+  MatrixXd M(MatrixXd::Zero(2*nUseful,6));
+  VectorXd b(2*nUseful);
+  for(int i = 0; i < nUseful; i++)
+  {
+    const auto& key1 = keys1[matches[matchesToUse[i]].first];
+    const auto& key2 = keys2[matches[matchesToUse[i]].second];
+    M.block(i,0,1,3) = key1.homogeneous().transpose();
+    M.block(i+nUseful,3,1,3) = key1.homogeneous().transpose();
+    b(i) = key2(0);
+    b(i+nUseful) = key2(1);
+  }
+  VectorXd a = M.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+  A.row(0) = a.topRows(3).transpose();
+  A.row(1) = a.bottomRows(3).transpose();
+  A(2,0) = 0.;
+  A(2,1) = 0.;
+  A(2,2) = 1.;
+}
+
 void estimateHomographyMinimal(const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
   const vector<IntPair>& matches,Matrix3d *H)
 {
