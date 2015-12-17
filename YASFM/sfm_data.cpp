@@ -1,12 +1,3 @@
-/*
-* Filip Srajer
-* filip.srajer (at) fel.cvut.cz
-* Center for Machine Perception
-* Czech Technical University in Prague
-*
-* This software is under construction.
-* 10/2015
-*/
 #include "sfm_data.h"
 
 #include <iostream>
