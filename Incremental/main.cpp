@@ -162,7 +162,6 @@ int main(int argc,const char* argv[])
 
   //verifyMatchesGeometrically(opt.geometricVerification,data.cams(),&data.pairs());
   verifyMatchesEpipolar(opt.epipolarVerification,data.cams(),&data.pairs());
-  removePoorlyMatchedPairs(opt.minNumPairwiseMatches,&data.pairs());
   
   data.writeASCII("matched.txt",Camera::WriteNoFeatures);
   data.clearDescriptors();

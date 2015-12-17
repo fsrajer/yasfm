@@ -201,8 +201,7 @@ YASFM_API void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
 /**
 For every camera pair, estimates fundamental matrix using PROSAC (that is why we
 need dists). Then, only matches which are inliers to the fundamental matrix are
-kept (as well as corresponding dists). Hence you may want to clear empty pairs after
-this using removePoorlyMatchedPairs().
+kept (as well as corresponding dists). The empty pairs get removed.
 
 \param[in] solverOpt Options for estimating transformations.
 \param[in] verbose Should this print status?
