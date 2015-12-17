@@ -412,6 +412,29 @@ namespace yasfm_tests
       Assert::IsTrue(A.isApprox(_A,1e-5));
     }
 
+    TEST_METHOD(estimateHomographyTest)
+    {
+      int n = 10;
+      vector<Vector2d> keys1(n),keys2(n);
+      vector<IntPair> matches;
+      vector<int> matchesToUse;
+      Matrix3d H(Matrix3d::Random());
+      H(2,2) = 1.;
+      for(int i = 0; i < n; i++)
+      {
+        keys1[i] = Vector2d::Random();
+        Vector3d tmp = H * keys1[i].homogeneous();
+        keys2[i] = tmp.hnormalized();
+        keys2[i] += 1e-8*Vector2d::Random();
+        matches.emplace_back(i,i);
+        matchesToUse.push_back(i);
+      }
+      Matrix3d _H;
+      estimateHomography(keys1,keys2,matches,matchesToUse,&_H);
+      _H /= _H(2,2);
+      Assert::IsTrue(H.isApprox(_H,1e-5));
+    }
+
     TEST_METHOD(estimateHomographyMinimalTest)
     {
       vector<Vector2d> pts1,pts2;
