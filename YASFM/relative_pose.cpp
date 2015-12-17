@@ -603,6 +603,39 @@ void estimateAffinity(const vector<Vector2d>& keys1,
   A(2,2) = 1.;
 }
 
+void estimateHomography(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,Matrix3d *pH)
+{
+  auto& H = *pH;
+  int nUseful = static_cast<int>(matchesToUse.size());
+
+  Matrix3d C1,C2;
+  matchedPointsCenteringMatrix<true>(pts1,matches,matchesToUse,&C1);
+  matchedPointsCenteringMatrix<false>(pts2,matches,matchesToUse,&C2);
+
+  MatrixXd A(MatrixXd::Zero(2*nUseful,9));
+  for(int i = 0; i < nUseful; i++)
+  {
+    Vector3d pt1 = C1 * pts1[matches[matchesToUse[i]].first].homogeneous();
+    Vector3d pt2 = C2 * pts2[matches[matchesToUse[i]].second].homogeneous();
+
+    A.block(i,0,1,3) = pt1.transpose();
+    A.block(i,6,1,3) = -pt2(0) * pt1.transpose();
+    A.block(i+nUseful,3,1,3) = pt1.transpose();
+    A.block(i+nUseful,6,1,3) = -pt2(1) * pt1.transpose();
+  }
+
+  JacobiSVD<MatrixXd> svd(A,Eigen::ComputeThinU | Eigen::ComputeFullV);
+  VectorXd h = svd.matrixV().rightCols(1);
+  Matrix3d H0;
+  H0.row(0) = h.topRows(3).transpose();
+  H0.row(1) = h.middleRows(3,3).transpose();
+  H0.row(2) = h.bottomRows(3).transpose();
+
+  H = C2.inverse() * H0 * C1;
+}
+
 void estimateHomographyMinimal(const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
   const vector<IntPair>& matches,Matrix3d *H)
 {

@@ -29,6 +29,10 @@ using Eigen::VectorXd;
 using std::vector;
 using namespace yasfm;
 
+////////////////////////////////////////////////////
+///////////////   Declarations   ///////////////////
+////////////////////////////////////////////////////
+
 namespace yasfm
 {
 
@@ -382,6 +386,21 @@ YASFM_API void estimateAffinity(const vector<Vector2d>& keys1,
   const vector<Vector2d>& keys2,const vector<IntPair>& matches,
   const vector<int>& matchesToUse,Matrix3d *A);
 
+/// Compute homography.
+/**
+Computes homography H from matches using svd decomposition.
+H*pt1 = lambda*pt2.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] matches Points matches.
+\param[in] matchesToUse Matches which should be used.
+\param[out] H Homography matrix.
+*/
+YASFM_API void estimateHomography(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,Matrix3d *H);
+
 /// Compute homography (minimal solver).
 /**
 Computes homography H from four matches using svd decomposition.
@@ -618,5 +637,71 @@ p(x) = 5x^3 - x has representation [5 0 -1 0]
 \param[out] roots Polynomial roots.
 */
 void solveSecondOrderPoly(const Vector3d& coeffs, VectorXd *roots);
+
+/// Compute matrix transforming points to reasonably scaled data.
+/**
+Compute matrix moving mean to zero and standard deviation to 1.
+If UseFirstMatch is true, then:
+Use only points pts[matches[matchesToUse[i]].first].
+else:
+Use only points pts[matches[matchesToUse[i]].second].
+
+\param[in] pts Points.
+\param[in] matches Matches.
+\param[in] matchesToUse Which matches to use.
+\param[out] C Centering matrix.
+*/
+template<bool UseFirstMatch>
+void matchedPointsCenteringMatrix(const vector<Vector2d>& pts,
+  const vector<IntPair>& matches,const vector<int>& matchesToUse,Matrix3d *C);
+
+} // namespace
+
+
+////////////////////////////////////////////////////
+///////////////   Definitions   ////////////////////
+////////////////////////////////////////////////////
+
+namespace
+{
+
+template<bool UseFirstMatch>
+void matchedPointsCenteringMatrix(const vector<Vector2d>& pts,
+  const vector<IntPair>& matches,const vector<int>& matchesToUse,Matrix3d *pC)
+{
+  auto& C = *pC;
+  int n = static_cast<int>(matchesToUse.size());
+
+  Vector2d mean(Vector2d::Zero());
+  for(int i = 0; i < n; i++)
+  {
+    if(UseFirstMatch)
+      mean += pts[matches[matchesToUse[i]].first];
+    else
+      mean += pts[matches[matchesToUse[i]].second];
+  }
+  mean /= n;
+
+  Vector2d stdDev(Vector2d::Zero());
+  for(int i = 0; i < n; i++)
+  {
+    const Vector2d *pt;
+    if(UseFirstMatch)
+      pt = &pts[matches[matchesToUse[i]].first];
+    else
+      pt = &pts[matches[matchesToUse[i]].second];
+    stdDev += (*pt - mean).cwiseAbs2();
+  }
+  stdDev = (stdDev/n).cwiseSqrt();
+
+  if(stdDev(0) < 0.1)
+    stdDev(0) = 0.1;
+  if(stdDev(1) < 0.1)
+    stdDev(1) = 0.1;
+
+  C << 1./stdDev(0),0.,-mean(0)/stdDev(0),
+    0.,1./stdDev(1),-mean(1)/stdDev(1),
+    0.,0.,1.;
+}
 
 } // namespace
