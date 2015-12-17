@@ -435,6 +435,29 @@ namespace yasfm_tests
       Assert::IsTrue(H.isApprox(_H,1e-5));
     }
 
+    TEST_METHOD(findHomographyInliersTest)
+    {
+      int n = 10;
+      vector<Vector2d> keys1(n),keys2(n);
+      vector<IntPair> matches;
+      vector<int> matchesToUse;
+      Matrix3d H(Matrix3d::Random());
+      for(int i = 0; i < n; i++)
+      {
+        keys1[i] = Vector2d::Random();
+        Vector3d tmp = H * keys1[i].homogeneous();
+        keys2[i] = tmp.hnormalized();
+        matches.emplace_back(i,i);
+        matchesToUse.push_back(i);
+      }
+      keys2[0](0) += 2.;
+      double thresh = 1.9;
+      vector<int> inliers;
+      findHomographyInliers(thresh,keys1,keys2,matches,H,&inliers);
+
+      Assert::IsTrue(inliers.size() == n-1);
+    }
+
     TEST_METHOD(estimateHomographyMinimalTest)
     {
       vector<Vector2d> pts1,pts2;
