@@ -389,6 +389,29 @@ namespace yasfm_tests
       Assert::IsTrue(S.isIdentity());
     }
 
+    TEST_METHOD(estimateAffinityTest)
+    {
+      int n = 10;
+      vector<Vector2d> keys1(n),keys2(n);
+      vector<IntPair> matches;
+      vector<int> matchesToUse;
+      Matrix3d A(Matrix3d::Random());
+      A(2,0) = 0.;
+      A(2,1) = 0.;
+      A(2,2) = 1.;
+      for(int i = 0; i < n; i++)
+      {
+        keys1[i] = Vector2d::Random();
+        keys2[i] = A.topRows(2) * keys1[i].homogeneous();
+        keys2[i] += 1e-8*Vector2d::Random();
+        matches.emplace_back(i,i);
+        matchesToUse.push_back(i);
+      }
+      Matrix3d _A;
+      estimateAffinity(keys1,keys2,matches,matchesToUse,&_A);
+      Assert::IsTrue(A.isApprox(_A,1e-5));
+    }
+
     TEST_METHOD(estimateHomographyMinimalTest)
     {
       vector<Vector2d> pts1,pts2;
