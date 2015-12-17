@@ -558,6 +558,26 @@ bool estimateHomographyPROSAC(const OptionsRANSAC& opt,const vector<Vector2d>& p
   return (nInliers > 0);
 }
 
+void computeSimilarityFromMatch(const Vector2d& coord1,double scale1,
+  double orientation1,const Vector2d& coord2,double scale2,double orientation2,
+  Matrix3d *S)
+{
+  double c1 = cos(orientation1),
+    s1 = sin(orientation1),
+    c2 = cos(orientation2),
+    s2 = sin(orientation2);
+
+  Matrix3d A1,A2;
+  A1 << scale1*c1,scale1*(-s1),coord1(0),
+    scale1*s1,scale1*c1,coord1(1),
+    0,0,1;
+  A2 << scale2*c2,scale2*(-s2),coord2(0),
+    scale2*s2,scale2*c2,coord2(1),
+    0,0,1;
+
+  *S = A2*A1.inverse();
+}
+
 void estimateHomographyMinimal(const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
   const vector<IntPair>& matches,Matrix3d *H)
 {

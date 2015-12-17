@@ -350,6 +350,23 @@ YASFM_API bool estimateHomographyRANSAC(const OptionsRANSAC& opt,
   const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
   const vector<IntPair>& matches,Matrix3d *H,vector<int> *inliers = nullptr);
 
+/// Compute similarity transform given one feature match.
+/**
+Computes similarity S such that:
+S*pt1 = lambda*pt2.
+
+\param[in] coord1 First feature coordinates.
+\param[in] scale1 First feature scale.
+\param[in] orientation1 First feature orientation in radians.
+\param[in] coord2 Second feature coordinates.
+\param[in] scale2 Second feature scale.
+\param[in] orientation2 Second feature orientation in radians.
+\param[out] S Similarity transform.
+*/
+YASFM_API void computeSimilarityFromMatch(const Vector2d& coord1,double scale1,
+  double orientation1,const Vector2d& coord2,double scale2,double orientation2,
+  Matrix3d *S);
+
 /// Compute homography (minimal solver).
 /**
 Computes homography H from four matches using svd decomposition.
