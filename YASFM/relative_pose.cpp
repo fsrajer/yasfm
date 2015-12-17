@@ -636,6 +636,28 @@ void estimateHomography(const vector<Vector2d>& pts1,
   H = C2.inverse() * H0 * C1;
 }
 
+int findHomographyInliers(double thresh,const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,const Matrix3d& H,
+  vector<int> *pinliers)
+{
+  auto& inliers = *pinliers;
+  int nMatches = static_cast<int>(matches.size());
+  double sqThresh = thresh*thresh;
+  inliers.clear();
+  inliers.reserve(nMatches);
+  for(int iMatch = 0; iMatch < nMatches; iMatch++)
+  {
+    const auto& pt2 = pts2[matches[iMatch].second];
+    Vector3d pt1t = H * pts1[matches[iMatch].first].homogeneous();
+    double sqDist = (pt2 - pt1t.hnormalized()).squaredNorm();
+    if(sqDist < sqThresh)
+    {
+      inliers.push_back(iMatch);
+    }
+  }
+  return static_cast<int>(inliers.size());
+}
+
 void estimateHomographyMinimal(const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
   const vector<IntPair>& matches,Matrix3d *H)
 {

@@ -401,6 +401,21 @@ YASFM_API void estimateHomography(const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,
   const vector<int>& matchesToUse,Matrix3d *H);
 
+/// Find homography inliers.
+/**
+H*pt1 = lambda*pt2.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] matches Points matches.
+\param[in] H Homography matrix.
+\param[out] inliers Inliers.
+\return Number of inliers.
+*/
+YASFM_API int findHomographyInliers(double thresh,const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,const Matrix3d& H,
+  vector<int> *inliers);
+
 /// Compute homography (minimal solver).
 /**
 Computes homography H from four matches using svd decomposition.
