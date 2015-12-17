@@ -50,6 +50,7 @@ struct Options
     sift(),
     matchingFLANN(),
     minNumPairwiseMatches(16),
+    geometricVerification(),
     epipolarVerification(2048,sqrt(5.),minNumPairwiseMatches),
     initialPairRelativePose(512,1.25,10),
     homography(512,5.,10),
@@ -72,6 +73,7 @@ struct Options
   OptionsFLANN matchingFLANN;
   // Min number of matches defining a poorly matched pair. Default: 16.
   int minNumPairwiseMatches;
+  OptionsGeometricVerification geometricVerification;
   // The error is symmetric distance. Units are pixels.
   OptionsRANSAC epipolarVerification;
   // Units of the error are pixels.
@@ -158,6 +160,7 @@ int main(int argc,const char* argv[])
   //data.writeASCII("tentatively_matched.txt",Camera::WriteNoFeatures);
   //data.readASCII("tentatively_matched.txt",Camera::ReadNoDescriptors);
 
+  //verifyMatchesGeometrically(opt.geometricVerification,data.cams(),&data.pairs());
   verifyMatchesEpipolar(opt.epipolarVerification,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumPairwiseMatches,&data.pairs());
   
@@ -365,6 +368,8 @@ void Options::write(const string& filename) const
   file << "matchingFLANN:\n";
   matchingFLANN.write(file);
   file << "minNumPairwiseMatches:\n " << minNumPairwiseMatches << "\n";
+  file << "geometricVerification:\n";
+  geometricVerification.write(file);
   file << "epipolarVerification:\n";
   epipolarVerification.write(file);
   file << "initialPairRelativePose:\n";
