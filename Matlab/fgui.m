@@ -2,9 +2,6 @@
 % Filip Srajer, srajefil@fel.cvut.cz
 % 30 Dec 2014
 
-%function psg = pargui(ps,parname,gsz,xname,fname)
-
-
 function fgui(fs)
 % FGUI - simple GUI for running and viewing experiments
  
@@ -105,7 +102,7 @@ function fgui(fs)
 
     function functionHandleCallback(source, eventdata) 
         func = getfield(fs,get(source,'Tag'));
-        func(fs, get(source,'Tag'));
+        fs = func(fs, get(source,'Tag'));
     end
  
 end 
