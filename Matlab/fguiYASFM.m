@@ -13,7 +13,12 @@ fs.YASFMExe            = '..\bin\Incremental.exe';
 fs.ccdWidthDb          = '..\resources\camera_ccd_widths.txt';
 fs.firstOctave         = -1;
 fs.RunYASFM           = @fguiButtonRunYASFM;
-% fs.ReadResults         = @fguiButtonReadResults;
+
+fs.ResultsFn1           = 'init.txt';
+fs.ResultsFn2           = 'tentatively_matched.txt';
+fs.ResultsFn3           = 'matched.txt';
+fs.ResultsToReadIdx     = 1;
+fs.ReadResults          = @fguiButtonReadResults;
 
 % Visualization
 % fs.ImgIdxs           = '1 2';
