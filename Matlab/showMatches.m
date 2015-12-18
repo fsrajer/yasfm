@@ -1,7 +1,5 @@
-function showMatches(dir, listImgsFilename, listKeysFilename, ...
-                matchesFilenames,showAllKeys,...
-                justPts,showLines,...
-                pairsToShow,subfigX,subfigY,cols)
+function showMatches(data,showAllKeys,showLines,...
+    pairsToShow,subfigX,subfigY,cols)
 
 if ~exist('subfigX','var')
     subfigX = 4;
@@ -16,31 +14,16 @@ end
 subfigX = floor(subfigX/2);
 separatorWidthScale = 0.03125;
 
-listImgs = readFilenames(fullfile(dir,listImgsFilename));
-listKeys = readFilenames(fullfile(dir,listKeysFilename));
-
-nImgs = size(listImgs,2);
-if(nImgs ~= size(listKeys,2))
-    disp('number of images and number of keypoint files do not match');
-    return;
-end
+nCams = numel(data.cams);
 
 if ~exist('pairsToShow','var') || isempty(pairsToShow)
-    pairsToShow = getAllPairs(nImgs);
-elseif size(pairsToShow,1)==1
-    idxs=pairsToShow;
-    pairsToShow = getAllPairs(nImgs);
-    toKeep = ismember(pairsToShow(1,:),idxs) | ismember(pairsToShow(2,:),idxs);
-    pairsToShow=pairsToShow(:,toKeep);
+    pairsToShow = getAllPairs(nCams);
 end
 
-imgs = readImgs(dir,listImgs,pairsToShow);
-keys = readKeysAll(dir,listKeys,pairsToShow);
-
-nMatchFiles=size(matchesFilenames,2);
-matches=cell(1,nMatchFiles);
-for i=1:nMatchFiles
-    matches{i} = readMatches(fullfile(dir,matchesFilenames{i}),nImgs);
+imgs = cell(1,nCams);
+imgsToRead = unique(pairsToShow(:))';
+for i=imgsToRead
+   imgs{i} = imread(data.cams(i).fn); 
 end
 
 subfigIdx = 1;
@@ -48,13 +31,8 @@ for pair=pairsToShow
     i=pair(1);
     j=pair(2);
     
-    allempty = true;
-    for k=1:nMatchFiles
-        if ~isempty(matches{k}{i,j})
-            allempty=false;
-        end
-    end
-    if allempty
+    matches = data.pairs(i,j).matches;
+    if isempty(matches)
         continue;
     end
     
@@ -77,22 +55,21 @@ for pair=pairsToShow
     axis equal;
     axis([0 size(img,2) 0 size(img,1)]);
 
-    keys2 = keys{j};
-    keys2(1,:) = keys2(1,:)+offset;
+    keys2 = data.cams(j).keys;
+    for k=1:numel(keys2)
+        keys2(k).coord(1) = keys2(k).coord(1)+offset;
+    end
     
     if showAllKeys
-        plotKeys(keys{i},justPts,'y');
-        plotKeys(keys2,justPts,'y');
+        plotKeys(data.cams(i).keys,true,'y');
+        plotKeys(keys2,true,'y');
     end
     
-    tit = ['pair: ' num2str(i) '-' num2str(j) ', # matches:'];
-    for k=1:nMatchFiles
-        l = mod(k-1,size(cols,2))+1;
-        plotMatches(keys{i},keys2,matches{k}{i,j},justPts,showLines,cols{1,l},cols{2,l});
-        tit = [tit ' ' num2str(size(matches{k}{i,j},2)) ','];
-    end
-    tit = tit(1:end-1);
-    title(tit);
+    title(['pair: ' num2str(i) '-' num2str(j) ', # matches:' ...
+        num2str(size(matches,2))]);
+    
+    plotMatches(data.cams(i).keys,keys2,matches,showLines,...
+        cols{1,2},cols{2,2});
     
     axis off
     hold off
