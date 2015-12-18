@@ -24,7 +24,7 @@ while ~feof(fid)
                 fgetl(fid);
             elseif strcmp(name,'cams_')
                 nCams = str2double(tokens{2});
-                res.cams = readCams(fid,nCams);
+                res.cams = readCams(fid,nCams,fullfile(res.dir,'keys'));
             elseif strcmp(name,'points_')
                 [res.matchesToDo,res.pts] = readPoints(fid);
             elseif strcmp(name,'pairs_')
@@ -38,7 +38,7 @@ end
 fclose(fid);
 end
 
-function cams = readCams(fid,nCams)
+function cams = readCams(fid,nCams,keysDir)
 cams = {};
 for iCam = 1:nCams
     line = fgetl(fid);
@@ -57,6 +57,10 @@ for iCam = 1:nCams
     for i=1:(nLines-1)
         fgetl(fid);
     end
+    
+    [~,fn,~] = fileparts(cams(iCam).fn);
+    keysFn = fullfile(keysDir,[fn '.key']);
+    cams(iCam).keys = readKeys(keysFn);
 end
 end
 

@@ -1,26 +1,24 @@
-function keys = readKeys(filename,containsOnlyLocation)
-
-if ~exist('containsOnlyLocation','var')
-    containsOnlyLocation=true;
-end
+function keys = readKeys(filename)
 
 fid = fopen(filename, 'r');
 
-nKeys = fscanf(fid, '%d', 1);
-
-if containsOnlyLocation
-    keys = zeros(2, nKeys);
-else
-    keys = zeros(4, nKeys);
+if fid == -1
+    error(['ERROR: readKeys: cannot read ' filename]);
 end
 
+nKeys = fscanf(fid, '%i', 1);
+dim = fscanf(fid, '%i', 1);
+
+keys = repmat(struct('coord',[0;0],'scale',0,'orientation',0),nKeys,1);
 for i=1:nKeys
-   keys(2,i) = fscanf(fid, '%lf', 1);
-   keys(1,i) = fscanf(fid, '%lf', 1);
-   if ~containsOnlyLocation
-      keys(3,i) = fscanf(fid, '%lf', 1);
-      keys(4,i) = fscanf(fid, '%lf', 1);
-   end
+    keys(i).coord(2) = fscanf(fid, '%lf', 1);
+    keys(i).coord(1) = fscanf(fid, '%lf', 1);
+    keys(i).scale = fscanf(fid, '%lf', 1);
+    keys(i).orientation = fscanf(fid, '%lf', 1);
+    nLines = ceil(dim / 20) + 1;
+    for j=1:nLines
+        fgetl(fid);
+    end
 end
 
 fclose(fid);
