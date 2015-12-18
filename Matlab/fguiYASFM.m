@@ -30,7 +30,9 @@ fs.ShowAllKeys       = false;
 fs.ShowMatches       = @fguiButtonShowMatches;
 % fs.MaxEpLinesInImage = 40;
 % fs.ShowEpipolarLines = @fguiShowEpipolarLines;
-% fs.SfMTools          = @fguiShowInSfMTools;
+fs.SfmToolsExe        = 'C:\Users\Filip\Workspace\cmp\SFMTools\gui.exe';
+fs.FinalBundleFile    = 'bundle_final_model0.out';
+fs.SfMTools          = @fguiButtonShowInSfMTools;
 % fs.MeshLab           = @fguiShowInMeshLab;
 
 fs.subfigX = 4;
@@ -46,8 +48,6 @@ fs.subfigY = 3;
 % % fs.Tracks           = 'tracks.txt';
 % % fs.Constraints      = 'constraints.txt';
 % % fs.OutputDir        = 'output';
-% fs.FinalBundleFile    = 'bundle_final.out';
-% fs.SfmToolsExe        = 'C:\Users\Filip\Workspace\cmp\SFMTools\gui.exe';
 % fs.FinalPLYFile       = 'sfm.ply';
 % fs.MeshlabExe         = '"C:\Program Files\VCG\MeshLab\meshlab.exe"';
 
