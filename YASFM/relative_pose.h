@@ -361,6 +361,9 @@ enough matches. A transformation can be similarity, affinity or
 homography.
 Then, as output, only matches which are inliers are kept. Empty pairs get removed.
 
+Inspired by:
+https://github.com/vedaldi/practical-object-instance-recognition/blob/master/geometricVerification.m
+
 \param[in] opt Options for estimating transformations.
 \param[in] verbose Should this print status?
 \param[in] cams Cameras.
@@ -384,6 +387,9 @@ Firstly estimates a transformation and saves
 inliers, then estimates another transformation and so on until there is
 enough matches. A transformation can be similarity, affinity or
 homography.
+
+Inspired by:
+https://github.com/vedaldi/practical-object-instance-recognition/blob/master/geometricVerification.m
 
 \param[in] opt Options for estimating transformations.
 \param[in] cam1 First camera.
