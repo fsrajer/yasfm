@@ -157,7 +157,7 @@ int main(int argc,const char* argv[])
   matchFeatFLANN(opt.matchingFLANN,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumPairwiseMatches,&data.pairs());
 
-  //data.writeASCII("tentatively_matched.txt",Camera::WriteNoFeatures);
+  data.writeASCII("tentatively_matched.txt",Camera::WriteNoFeatures);
   //data.readASCII("tentatively_matched.txt",Camera::ReadNoDescriptors);
 
   //verifyMatchesGeometrically(opt.geometricVerification,data.cams(),&data.pairs());
