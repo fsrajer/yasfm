@@ -33,23 +33,9 @@ fs.ShowMatches       = @fguiButtonShowMatches;
 fs.SfmToolsExe        = 'C:\Users\Filip\Workspace\cmp\SFMTools\gui.exe';
 fs.FinalBundleFile    = 'bundle_final_model0.out';
 fs.SfMTools          = @fguiButtonShowInSfMTools;
-% fs.MeshLab           = @fguiShowInMeshLab;
 
 fs.subfigX = 4;
 fs.subfigY = 3;
-
-% fs.ListImgs           = 'list_imgs.txt';
-% % fs.Focals           = 'focal_estimates.txt';
-% fs.ListKeys           = 'list_keys.txt';
-% fs.MatchesInit        = 'matches.init.txt';
-% fs.MatchesEG          = 'matches.eg.txt';
-% % fs.MatchesHG        = 'matches.hg.txt';
-% fs.Transforms         = 'transforms.txt';
-% % fs.Tracks           = 'tracks.txt';
-% % fs.Constraints      = 'constraints.txt';
-% % fs.OutputDir        = 'output';
-% fs.FinalPLYFile       = 'sfm.ply';
-% fs.MeshlabExe         = '"C:\Program Files\VCG\MeshLab\meshlab.exe"';
 
 fs.CloseAll  = @fguiButtonCloseAllClosable;
 fs.Exit      = @fguiButtonExit;
