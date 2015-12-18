@@ -37,8 +37,9 @@ namespace yasfm
 /// The base class for all cameras.
 /**
 This class is the base class for all cameras. It handles image access
-and is able to store keypoints, their colors and descriptors. Examine
-all the functions to get an idea which do you need to override.
+and is able to store keypoints (coordinates, scales and orientations), 
+their colors and descriptors. Examine all the functions to get an idea 
+which do you need to override.
 NOTE that every DerivedCamera should have a member:
 static CameraRegister<DerivedCamera> reg_;
 and implement it in the following way:
@@ -223,7 +224,7 @@ public:
   enum WriteMode
   {
     WriteNoFeatures = 0,  ///< Don't write features at all.
-    WriteKeys = 1,        ///< Writes keypoints
+    WriteKeys = 1,        ///< Writes keypoints (coordinates, scales and orientations)
     WriteDescriptors = 2, ///< Write descriptors.
     WriteAll = 3,         ///< Write both, keys and descriptors.
     /// Convert descriptors to unsigned int before writing.
@@ -234,7 +235,8 @@ public:
   /// Enum for indicating what features information should be read.
   enum ReadMode
   {
-    ReadNoDescriptors = 0, ///< Read only keys and no descriptors
+    /// Read only keys (coordinates, scales and orientations) and no descriptors
+    ReadNoDescriptors = 0,
     ReadAll = 1            ///< Read keys and descriptors.
   };
 
@@ -255,10 +257,12 @@ public:
   \param[in] idx Index of the feature to set.
   \param[in] x x coordinate of the feature/key.
   \param[in] y y coordinate of the feature/key.
+  \param[in] scale Scale.
+  \param[in] orientation Orientation (angle in radians).
   \param[in] descr Feature descriptor.
   */
-  YASFM_API virtual void setFeature(int idx,double x,double y,
-    const float* const descr);
+  YASFM_API virtual void setFeature(int idx,double x,double y,double scale,
+    double orientation,const float* const descr);
 
   /// Read keys colors from the image file.
   /**
@@ -286,6 +290,12 @@ public:
   \return Const reference to one key.
   */
   YASFM_API virtual const Vector2d& key(int i) const;
+
+  /// \return Const reference to keys scales.
+  YASFM_API virtual const vector<double>& keysScales() const;
+
+  /// \return Const reference to keys orientations in radians.
+  YASFM_API virtual const vector<double>& keysOrientations() const;
 
   /// \return Const reference to keys colors. May be empty.
   YASFM_API virtual const vector<Vector3uc>& keysColors() const;
@@ -333,8 +343,10 @@ private:
   int imgWidth_;       ///< Image width.
   int imgHeight_;      ///< Image height.
 
-  vector<Vector2d> keys_;        ///< Keys (features coordinates).
-  vector<Vector3uc> keysColors_; ///< Keys colors.
+  vector<Vector2d> keys_;           ///< Keys (features coordinates).
+  vector<double> keysScales_;       ///< Keys scales
+  vector<double> keysOrientations_; ///< Orientation (angle in radians).
+  vector<Vector3uc> keysColors_;    ///< Keys colors.
   ArrayXXf descr_;     ///< Descriptors (one column is one descriptor).
 };
 

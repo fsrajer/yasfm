@@ -29,6 +29,10 @@ using Eigen::VectorXd;
 using std::vector;
 using namespace yasfm;
 
+////////////////////////////////////////////////////
+///////////////   Declarations   ///////////////////
+////////////////////////////////////////////////////
+
 namespace yasfm
 {
 
@@ -193,19 +197,18 @@ YASFM_API void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
   const vector<IntPair>& matches,const vector<Vector2d>& keys1,
   const vector<Vector2d>& keys2,Matrix3d *R,Vector3d *C);
 
-/// Verify matches geometrically.
+/// Verify matches geometrically using epipolar geometry.
 /**
 For every camera pair, estimates fundamental matrix using PROSAC (that is why we
 need dists). Then, only matches which are inliers to the fundamental matrix are
-kept (as well as corresponding dists). Hence you may want to clear empty pairs after
-this using removePoorlyMatchedPairs().
+kept (as well as corresponding dists). The empty pairs get removed.
 
 \param[in] solverOpt Options for estimating transformations.
 \param[in] verbose Should this print status?
 \param[in] cams Cameras needed for the keys.
 \param[in,out] pairs Camera pairs which will get verified.
 */
-YASFM_API void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt, 
+YASFM_API void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
   bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs);
 
 /// Sets verbosity to true and calls overloaded function.
@@ -214,7 +217,7 @@ YASFM_API void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt,
 \param[in] cams Cameras needed for the keys.
 \param[in,out] pairs Camera pairs which will get verified.
 */
-YASFM_API void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt,
+YASFM_API void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
   const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs);
 
 /// Estimate fundamental matrix using PROSAC.
@@ -349,6 +352,111 @@ H*pt1 = lambda*pt2.
 YASFM_API bool estimateHomographyRANSAC(const OptionsRANSAC& opt,
   const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
   const vector<IntPair>& matches,Matrix3d *H,vector<int> *inliers = nullptr);
+
+/// Verify matches geometrically.
+/**
+Verifies every camera pair. Firstly estimates a transformation and saves 
+inliers, then estimates another transformation and so on until there is
+enough matches. A transformation can be similarity, affinity or
+homography.
+Then, as output, only matches which are inliers are kept. Empty pairs get removed.
+
+\param[in] opt Options for estimating transformations.
+\param[in] verbose Should this print status?
+\param[in] cams Cameras.
+\param[in,out] pairs Camera pairs which will get verified.
+*/
+YASFM_API void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs);
+
+/// Sets verbosity to true and calls overloaded function.
+/**
+\param[in] opt Options for estimating transformations.
+\param[in] cams Cameras.
+\param[in,out] pairs Camera pairs which will get verified.
+*/
+YASFM_API void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs);
+
+/// Verify matches geometrically.
+/**
+Firstly estimates a transformation and saves
+inliers, then estimates another transformation and so on until there is
+enough matches. A transformation can be similarity, affinity or
+homography.
+
+\param[in] opt Options for estimating transformations.
+\param[in] cam1 First camera.
+\param[in] cam2 Second camera.
+\param[in] matches Keys matches.
+\param[out] inliers Indices of geometrically verified matches.
+\return Number of inliers.
+*/
+YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  const Camera& cam1,const Camera& cam2,const vector<IntPair>& matches,
+  vector<int> *inliers);
+
+/// Compute similarity transform given one feature match.
+/**
+Computes similarity S such that:
+S*pt1 = lambda*pt2.
+
+\param[in] coord1 First feature coordinates.
+\param[in] scale1 First feature scale.
+\param[in] orientation1 First feature orientation in radians.
+\param[in] coord2 Second feature coordinates.
+\param[in] scale2 Second feature scale.
+\param[in] orientation2 Second feature orientation in radians.
+\param[out] S Similarity transform.
+*/
+YASFM_API void computeSimilarityFromMatch(const Vector2d& coord1,double scale1,
+  double orientation1,const Vector2d& coord2,double scale2,double orientation2,
+  Matrix3d *S);
+
+/// Compute affine transform given a set of matches.
+/**
+Computes affinity A using least squares such that:
+A*pt1 = lambda*pt2.
+
+\param[in] keys1 First keys.
+\param[in] keys2 Second keys.
+\param[in] matches Keys matches.
+\param[in] matchesToUse Matches which should be used.
+\param[out] A Affine transform.
+*/
+YASFM_API void estimateAffinity(const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,Matrix3d *A);
+
+/// Compute homography.
+/**
+Computes homography H from matches using svd decomposition.
+H*pt1 = lambda*pt2.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] matches Points matches.
+\param[in] matchesToUse Matches which should be used.
+\param[out] H Homography matrix.
+*/
+YASFM_API void estimateHomography(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,Matrix3d *H);
+
+/// Find homography inliers.
+/**
+H*pt1 = lambda*pt2.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] matches Points matches.
+\param[in] H Homography matrix.
+\param[out] inliers Inliers.
+\return Number of inliers.
+*/
+YASFM_API int findHomographyInliers(double thresh,const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,const Matrix3d& H,
+  vector<int> *inliers);
 
 /// Compute homography (minimal solver).
 /**
@@ -586,5 +694,71 @@ p(x) = 5x^3 - x has representation [5 0 -1 0]
 \param[out] roots Polynomial roots.
 */
 void solveSecondOrderPoly(const Vector3d& coeffs, VectorXd *roots);
+
+/// Compute matrix transforming points to reasonably scaled data.
+/**
+Compute matrix moving mean to zero and standard deviation to 1.
+If UseFirstMatch is true, then:
+Use only points pts[matches[matchesToUse[i]].first].
+else:
+Use only points pts[matches[matchesToUse[i]].second].
+
+\param[in] pts Points.
+\param[in] matches Matches.
+\param[in] matchesToUse Which matches to use.
+\param[out] C Centering matrix.
+*/
+template<bool UseFirstMatch>
+void matchedPointsCenteringMatrix(const vector<Vector2d>& pts,
+  const vector<IntPair>& matches,const vector<int>& matchesToUse,Matrix3d *C);
+
+} // namespace
+
+
+////////////////////////////////////////////////////
+///////////////   Definitions   ////////////////////
+////////////////////////////////////////////////////
+
+namespace
+{
+
+template<bool UseFirstMatch>
+void matchedPointsCenteringMatrix(const vector<Vector2d>& pts,
+  const vector<IntPair>& matches,const vector<int>& matchesToUse,Matrix3d *pC)
+{
+  auto& C = *pC;
+  int n = static_cast<int>(matchesToUse.size());
+
+  Vector2d mean(Vector2d::Zero());
+  for(int i = 0; i < n; i++)
+  {
+    if(UseFirstMatch)
+      mean += pts[matches[matchesToUse[i]].first];
+    else
+      mean += pts[matches[matchesToUse[i]].second];
+  }
+  mean /= n;
+
+  Vector2d stdDev(Vector2d::Zero());
+  for(int i = 0; i < n; i++)
+  {
+    const Vector2d *pt;
+    if(UseFirstMatch)
+      pt = &pts[matches[matchesToUse[i]].first];
+    else
+      pt = &pts[matches[matchesToUse[i]].second];
+    stdDev += (*pt - mean).cwiseAbs2();
+  }
+  stdDev = (stdDev/n).cwiseSqrt();
+
+  if(stdDev(0) < 0.1)
+    stdDev(0) = 0.1;
+  if(stdDev(1) < 0.1)
+    stdDev(1) = 0.1;
+
+  C << 1./stdDev(0),0.,-mean(0)/stdDev(0),
+    0.,1./stdDev(1),-mean(1)/stdDev(1),
+    0.,0.,1.;
+}
 
 } // namespace

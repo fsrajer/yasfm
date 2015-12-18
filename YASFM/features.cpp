@@ -73,7 +73,7 @@ void detectSiftGPU(const SiftGPUAutoMemRelease& siftHandle,Camera *cam)
     cam->resizeFeatures(num,128);
     for(int i = 0; i < num; i++)
     {
-      cam->setFeature(i,keys[i].x,keys[i].y,descr + i * 128);
+      cam->setFeature(i,keys[i].x,keys[i].y,keys[i].s,keys[i].o,descr + i * 128);
     }
     delete[] keys;
     delete[] descr;

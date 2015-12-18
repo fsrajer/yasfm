@@ -1,7 +1,10 @@
 :Verification of matches using Tomas Pajdla's homographies (a.k.a. Practical)
+:Matlab visualization of matches able to read the new format.
+:Put options into relevant includes and not in an options.h.
 :Similarity - no exhaustive matching
 :Homography minimal solver - apply centering before svd and inverse centering after
 :VLFeat for non-GPU SIFT (add define ENABLE_OPENCL)
+:Memoptim - run big dataset and fix issues (maybe that binary IO will be neccessary)
 :Multithreading
 	- Geometric verification
 	- Homography estimation
@@ -32,4 +35,4 @@
 :USAC - implement
 :Hartley's 5pt? - occasional bugs? - unit tests failing
 :Matching - store dist ratios instead of dists - better prosac?
-:Memoptim - run big dataset and fix issues (maybe that binary IO will be neccessary)
+:Linux port

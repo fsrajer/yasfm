@@ -318,13 +318,13 @@ void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
   }
 }
 
-void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt,
+void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
   const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
 {
-  verifyMatchesGeometrically(solverOpt,true,cams,pairs);
+  verifyMatchesEpipolar(solverOpt,true,cams,pairs);
 }
 
-void verifyMatchesGeometrically(const OptionsRANSAC& solverOpt,
+void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
   bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
 {
   clock_t start,end;
@@ -556,6 +556,228 @@ bool estimateHomographyPROSAC(const OptionsRANSAC& opt,const vector<Vector2d>& p
   yasfm::quicksort(pair.dists,&matchesOrder);
   int nInliers = estimateTransformPROSAC(m,opt,matchesOrder,H,inliers);
   return (nInliers > 0);
+}
+
+void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
+{
+  verifyMatchesGeometrically(opt,true,cams,pairs);
+}
+
+void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
+{
+  clock_t start,end;
+  for(auto it = pairs->begin(); it != pairs->end();)
+  {
+    IntPair camsIdx = it->first;
+    auto &pair = it->second;
+
+    if(verbose)
+    {
+      cout << "verifying: " << camsIdx.first << " -> " << camsIdx.second << "\t";
+      cout << pair.matches.size();
+      start = clock();
+    }
+
+    vector<int> inliers;
+    int nInliers = verifyMatchesGeometrically(opt,
+      *cams[camsIdx.first],*cams[camsIdx.second],pair.matches,&inliers);
+    if(nInliers >= opt.minInliersPerTransform)
+    {
+      filterVector(inliers,&pair.matches);
+      filterVector(inliers,&pair.dists);
+      ++it;
+    } else
+    {
+      it = pairs->erase(it);
+    }
+
+    if(verbose)
+    {
+      end = clock();
+      cout << "->" << inliers.size() << " matches" << "\t";
+      cout << "took: " << (double)(end - start) / (double)CLOCKS_PER_SEC << "s\n";
+    }
+  }
+}
+
+YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  const Camera& cam1,const Camera& cam2,const vector<IntPair>& allMatches,
+  vector<int> *poutInliers)
+{
+  auto& outInliers = *poutInliers;
+
+  int nAllMatches = static_cast<int>(allMatches.size());
+  vector<IntPair> remainingMatches = allMatches;
+  vector<int> remainingToAll(nAllMatches);
+  for(int i = 0; i < nAllMatches; i++)
+    remainingToAll[i] = i;
+
+  vector<int> bestInliers,currInliers;
+  bestInliers.reserve(nAllMatches);
+  currInliers.reserve(nAllMatches);
+
+  for(int iTransform = 0; iTransform < opt.maxTransforms; iTransform++)
+  {
+    bestInliers.clear();
+
+    for(size_t iMatch = 0; iMatch < remainingMatches.size(); iMatch++)
+    {
+      int k1 = remainingMatches[iMatch].first;
+      int k2 = remainingMatches[iMatch].second;
+      currInliers.clear();
+
+      for(int iRefine = 0; iRefine < opt.nRefineIterations; iRefine++)
+      {
+        Matrix3d H;
+        double thresh;
+        if(iRefine == 0)
+        {
+          computeSimilarityFromMatch(cam1.key(k1),cam1.keysScales()[k1],
+            cam1.keysOrientations()[k1],cam2.key(k2),cam2.keysScales()[k2],
+            cam2.keysOrientations()[k2],&H);
+          thresh = opt.similarityThresh;
+        } else if(iRefine <= 4)
+        {
+          estimateAffinity(cam1.keys(),cam2.keys(),remainingMatches,
+            currInliers,&H);
+          thresh = opt.affinityThresh;
+        } else
+        {
+          estimateHomography(cam1.keys(),cam2.keys(),remainingMatches,
+            currInliers,&H);
+          thresh = opt.homographyThresh;
+        }
+
+        currInliers.clear();
+        findHomographyInliers(thresh,cam1.keys(),cam2.keys(),
+          remainingMatches,H,&currInliers);
+        
+        if(currInliers.size() < opt.minInliersToRefine)
+          break;
+        
+        if(currInliers.size() > opt.stopInlierFraction * remainingMatches.size())
+          break;
+      }
+
+      if(currInliers.size() > bestInliers.size())
+        bestInliers = currInliers;
+    }
+
+    if(bestInliers.size() < opt.minInliersPerTransform)
+      break;
+
+    for(int remainingMatchesInlier : bestInliers)
+      outInliers.push_back(remainingToAll[remainingMatchesInlier]);
+    filterOutOutliers(bestInliers,&remainingMatches);
+    filterOutOutliers(bestInliers,&remainingToAll);
+
+    if(remainingMatches.size() < opt.minInliersPerTransform)
+      break;
+  }
+
+  return static_cast<int>(outInliers.size());
+}
+
+void computeSimilarityFromMatch(const Vector2d& coord1,double scale1,
+  double orientation1,const Vector2d& coord2,double scale2,double orientation2,
+  Matrix3d *S)
+{
+  double c1 = cos(orientation1),
+    s1 = sin(orientation1),
+    c2 = cos(orientation2),
+    s2 = sin(orientation2);
+
+  Matrix3d A1,A2;
+  A1 << scale1*c1,scale1*(-s1),coord1(0),
+    scale1*s1,scale1*c1,coord1(1),
+    0,0,1;
+  A2 << scale2*c2,scale2*(-s2),coord2(0),
+    scale2*s2,scale2*c2,coord2(1),
+    0,0,1;
+
+  *S = A2*A1.inverse();
+}
+
+void estimateAffinity(const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,Matrix3d *pA)
+{
+  auto& A = *pA;
+  int nUseful = static_cast<int>(matchesToUse.size());
+  MatrixXd M(MatrixXd::Zero(2*nUseful,6));
+  VectorXd b(2*nUseful);
+  for(int i = 0; i < nUseful; i++)
+  {
+    const auto& key1 = keys1[matches[matchesToUse[i]].first];
+    const auto& key2 = keys2[matches[matchesToUse[i]].second];
+    M.block(i,0,1,3) = key1.homogeneous().transpose();
+    M.block(i+nUseful,3,1,3) = key1.homogeneous().transpose();
+    b(i) = key2(0);
+    b(i+nUseful) = key2(1);
+  }
+  VectorXd a = M.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+  A.row(0) = a.topRows(3).transpose();
+  A.row(1) = a.bottomRows(3).transpose();
+  A(2,0) = 0.;
+  A(2,1) = 0.;
+  A(2,2) = 1.;
+}
+
+void estimateHomography(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,Matrix3d *pH)
+{
+  auto& H = *pH;
+  int nUseful = static_cast<int>(matchesToUse.size());
+
+  Matrix3d C1,C2;
+  matchedPointsCenteringMatrix<true>(pts1,matches,matchesToUse,&C1);
+  matchedPointsCenteringMatrix<false>(pts2,matches,matchesToUse,&C2);
+
+  MatrixXd A(MatrixXd::Zero(2*nUseful,9));
+  for(int i = 0; i < nUseful; i++)
+  {
+    Vector3d pt1 = C1 * pts1[matches[matchesToUse[i]].first].homogeneous();
+    Vector3d pt2 = C2 * pts2[matches[matchesToUse[i]].second].homogeneous();
+
+    A.block(i,0,1,3) = pt1.transpose();
+    A.block(i,6,1,3) = -pt2(0) * pt1.transpose();
+    A.block(i+nUseful,3,1,3) = pt1.transpose();
+    A.block(i+nUseful,6,1,3) = -pt2(1) * pt1.transpose();
+  }
+
+  JacobiSVD<MatrixXd> svd(A,Eigen::ComputeThinU | Eigen::ComputeFullV);
+  VectorXd h = svd.matrixV().rightCols(1);
+  Matrix3d H0;
+  H0.row(0) = h.topRows(3).transpose();
+  H0.row(1) = h.middleRows(3,3).transpose();
+  H0.row(2) = h.bottomRows(3).transpose();
+
+  H = C2.inverse() * H0 * C1;
+}
+
+int findHomographyInliers(double thresh,const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,const Matrix3d& H,
+  vector<int> *pinliers)
+{
+  auto& inliers = *pinliers;
+  int nMatches = static_cast<int>(matches.size());
+  double sqThresh = thresh*thresh;
+  inliers.clear();
+  inliers.reserve(nMatches);
+  for(int iMatch = 0; iMatch < nMatches; iMatch++)
+  {
+    const auto& pt2 = pts2[matches[iMatch].second];
+    Vector3d pt1t = H * pts1[matches[iMatch].first].homogeneous();
+    double sqDist = (pt2 - pt1t.hnormalized()).squaredNorm();
+    if(sqDist < sqThresh)
+    {
+      inliers.push_back(iMatch);
+    }
+  }
+  return static_cast<int>(inliers.size());
 }
 
 void estimateHomographyMinimal(const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,

@@ -323,8 +323,8 @@ namespace yasfm_tests
       for(size_t i = 0; i < keys1.size(); i++)
       {
         float dummy;
-        cam1.setFeature((int)i,keys1[i](0),keys1[i](1),&dummy);
-        cam2.setFeature((int)i,keys2[i](0),keys2[i](1),&dummy);
+        cam1.setFeature((int)i,keys1[i](0),keys1[i](1),0,0,&dummy);
+        cam2.setFeature((int)i,keys2[i](0),keys2[i](1),0,0,&dummy);
       }
 
       inliers.clear();
@@ -341,6 +341,121 @@ namespace yasfm_tests
           (Ept1.topRows(2).squaredNorm() + ETpt2.topRows(2).squaredNorm());
         Assert::IsTrue(e <= opt.errorThresh);
       }
+    }
+
+    TEST_METHOD(computeSimilarityFromMatchTest)
+    {
+      const double cPrecision = 1e-8;
+      Vector2d k1(Vector2d::Zero()),k2(Vector2d::Zero());
+      double s1 = 1.,s2 = 1.,o1 = 0.,o2 = 0.;
+
+      // none
+      Matrix3d S;
+      computeSimilarityFromMatch(k1,s1,o1,k2,s2,o2,&S);
+      Assert::IsTrue(S.isIdentity());
+
+      // scale
+      s1 = 2.;
+      s2 = 4.;
+      computeSimilarityFromMatch(k1,s1,o1,k2,s2,o2,&S);
+      Assert::IsTrue(S(0,0) == 2.);
+      Assert::IsTrue(S(1,1) == 2.);
+      S(0,0) = S(1,1) = 1.;
+      Assert::IsTrue(S.isIdentity());
+      s1 = 1.;
+      s2 = 1.;
+
+      // translation
+      k1 << 4,5;
+      k2 << 1,1;
+      computeSimilarityFromMatch(k1,s1,o1,k2,s2,o2,&S);
+      Assert::IsTrue(abs(S(0,2) + 3.) < cPrecision);
+      Assert::IsTrue(abs(S(1,2) + 4.) < cPrecision);
+      S(0,2) = S(1,2) = 0.;
+      Assert::IsTrue(S.isIdentity());
+      k1 << 0,0;
+      k2 << 0,0;
+
+      // rotation
+      o1 = M_PI/4;
+      o2 = 3*M_PI/4;
+      computeSimilarityFromMatch(k1,s1,o1,k2,s2,o2,&S);
+      Assert::IsTrue(abs(S(0,0)) < cPrecision);
+      Assert::IsTrue(abs(S(1,1)) < cPrecision);
+      Assert::IsTrue(abs(S(0,1) + 1.) < cPrecision);
+      Assert::IsTrue(abs(S(1,0) - 1.) < cPrecision);
+      S(0,0) = S(1,1) = 1.;
+      S(0,1) = S(1,0) = 0.;
+      Assert::IsTrue(S.isIdentity());
+    }
+
+    TEST_METHOD(estimateAffinityTest)
+    {
+      int n = 10;
+      vector<Vector2d> keys1(n),keys2(n);
+      vector<IntPair> matches;
+      vector<int> matchesToUse;
+      Matrix3d A(Matrix3d::Random());
+      A(2,0) = 0.;
+      A(2,1) = 0.;
+      A(2,2) = 1.;
+      for(int i = 0; i < n; i++)
+      {
+        keys1[i] = Vector2d::Random();
+        keys2[i] = A.topRows(2) * keys1[i].homogeneous();
+        keys2[i] += 1e-8*Vector2d::Random();
+        matches.emplace_back(i,i);
+        matchesToUse.push_back(i);
+      }
+      Matrix3d _A;
+      estimateAffinity(keys1,keys2,matches,matchesToUse,&_A);
+      Assert::IsTrue(A.isApprox(_A,1e-5));
+    }
+
+    TEST_METHOD(estimateHomographyTest)
+    {
+      int n = 10;
+      vector<Vector2d> keys1(n),keys2(n);
+      vector<IntPair> matches;
+      vector<int> matchesToUse;
+      Matrix3d H(Matrix3d::Random());
+      H(2,2) = 1.;
+      for(int i = 0; i < n; i++)
+      {
+        keys1[i] = Vector2d::Random();
+        Vector3d tmp = H * keys1[i].homogeneous();
+        keys2[i] = tmp.hnormalized();
+        keys2[i] += 1e-8*Vector2d::Random();
+        matches.emplace_back(i,i);
+        matchesToUse.push_back(i);
+      }
+      Matrix3d _H;
+      estimateHomography(keys1,keys2,matches,matchesToUse,&_H);
+      _H /= _H(2,2);
+      Assert::IsTrue(H.isApprox(_H,1e-5));
+    }
+
+    TEST_METHOD(findHomographyInliersTest)
+    {
+      int n = 10;
+      vector<Vector2d> keys1(n),keys2(n);
+      vector<IntPair> matches;
+      vector<int> matchesToUse;
+      Matrix3d H(Matrix3d::Random());
+      for(int i = 0; i < n; i++)
+      {
+        keys1[i] = Vector2d::Random();
+        Vector3d tmp = H * keys1[i].homogeneous();
+        keys2[i] = tmp.hnormalized();
+        matches.emplace_back(i,i);
+        matchesToUse.push_back(i);
+      }
+      keys2[0](0) += 2.;
+      double thresh = 1.9;
+      vector<int> inliers;
+      findHomographyInliers(thresh,keys1,keys2,matches,H,&inliers);
+
+      Assert::IsTrue(inliers.size() == n-1);
     }
 
     TEST_METHOD(estimateHomographyMinimalTest)

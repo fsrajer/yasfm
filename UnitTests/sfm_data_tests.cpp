@@ -156,7 +156,7 @@ public:
     double x = 3,y = 5;
     ArrayXf descr(ArrayXf::Random(descrDim));
     for(int i = 0; i < nFeats; i++)
-      cam.setFeature(i,x,y,&descr(0));
+      cam.setFeature(i,x,y,0,0,&descr(0));
 
     Assert::IsTrue(cam.keys().size() == nFeats);
     Assert::IsTrue(cam.descr().cols() == nFeats);
