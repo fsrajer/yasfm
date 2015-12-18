@@ -30,7 +30,7 @@ while ~feof(fid)
             elseif strcmp(name,'pairs_')
                 nPairs = str2double(tokens{2});
                 nFields = str2double(tokens{3});
-                res.pairs = readPairs(fid,nPairs,nFields);
+                res.pairs = readPairs(fid,nPairs,nFields,numel(res.cams));
             end
         end
     end
@@ -133,26 +133,26 @@ for j=0:(m-1)
 end
 end
 
-function pairs = readPairs(fid,nPairs,nFields)
+function pairs = readPairs(fid,nPairs,nFields,nCams)
 fields = cell(nFields,1);
 for i=1:nFields
     fields{i} = fgetl(fid);
 end
-pairs = repmat(struct('cam1',-1,'cam2',-1,'matches',[]),nPairs,1);
+pairs = repmat(struct('matches',[]),nCams,nCams);
 for i=1:nPairs
     line = fgetl(fid);
     tokens = str2double(strsplit(line));
-    pairs(i).cam1 = tokens(1) + 1; % adding 1 because of matlab indexing
-    pairs(i).cam2 = tokens(2) + 1; % adding 1 because of matlab indexing
+    im1 = tokens(1) + 1; % adding 1 because of matlab indexing
+    im2 = tokens(2) + 1; % adding 1 because of matlab indexing
     if nFields >= 1 && strcmp(fields{1},'matches')
         nMatches = fscanf(fid,'%i',1);
-        pairs(i).matches = ...
+        pairs(im1,im2).matches = ...
             fscanf(fid,'%i',[2 nMatches]) + 1; % adding 1 because of matlab indexing
         fgetl(fid);
     end
     if nFields >= 2 && strcmp(fields{2},'dists')
         nDists = fscanf(fid,'%i',1);
-        pairs(i).dists = fscanf(fid,'%lf',[1 nDists]);
+        pairs(im1,im2).dists = fscanf(fid,'%lf',[1 nDists]);
         fgetl(fid);
     end
 end
