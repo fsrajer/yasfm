@@ -4,6 +4,9 @@
 *.suo
 *.vcxproj.user
 
+#MATLAB files
+*.asv
+
 # /
 /Debug
 /Documentation
