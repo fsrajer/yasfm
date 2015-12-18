@@ -21,9 +21,9 @@ fs.ResultsToReadIdx     = 1;
 fs.ReadResults          = @fguiButtonReadResults;
 
 % Visualization
-% fs.ImgIdxs           = '1 2';
-% % fs.SimplePoints      = true;
-% fs.ShowKeypoints     = @fguiShowKeypoints;
+fs.ImgIdxs           = '1 2';
+fs.SimplePoints      = false;
+fs.ShowKeypoints     = @fguiButtonShowKeypoints;
 % fs.ImgPairs            = '1-2';
 % fs.ShowLines         = false;
 % fs.ShowAllKeys       = false;

@@ -1,30 +1,22 @@
-function showKeypoints(dir, listImgsFilename, listKeysFilename, justPts, ...
-                    idxs, subfigX, subfigY)
-
+function showKeypoints(data, justPts, idxs, subfigX, subfigY)
+        
 if ~exist('subfigX','var')
     subfigX = 4;
 end
 if ~exist('subfigY','var')
     subfigY = 3;
 end
-                
-imgFns = readFilenames(fullfile(dir,listImgsFilename));
-keysFns = readFilenames(fullfile(dir,listKeysFilename));
 
-nImgs = size(imgFns,2);
-if(nImgs ~= size(keysFns,2))
-    disp('number of images and number of keypoint files do not match');
-    return;
-end
+nCams = numel(data.cams);
 
 if ~exist('idxs','var')
-    idxs=1:nImgs;
+    idxs=1:nCams;
 end
 
 subFigIdx = 1;
 for i=idxs
     
-    img = imread(fullfile(dir,imgFns{i}));
+    img = imread(data.cams(i).fn);
     subfig(subfigY, subfigX, mod(subFigIdx-1,subfigX*subfigY) + 1);
     subFigIdx = subFigIdx+1;
     
@@ -34,14 +26,9 @@ for i=idxs
     axis equal;
     axis([0 size(img,2) 0 size(img,1)]);
     
-    if justPts
-        feat = readKeys(fullfile(dir,keysFns{i}));
-    else
-        feat = readFeats(fullfile(dir,keysFns{i}));
-    end
-    plotKeys(feat, justPts);
+    plotKeys(data.cams(i).keys, justPts);
     
-    title(['img: ', num2str(i), ' # keys: ', num2str(size(feat,2))]);
+    title(['img: ', num2str(i), ' # keys: ', num2str(numel(data.cams(i).keys))]);
     hold off
 end
 
