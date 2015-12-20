@@ -274,8 +274,13 @@ public:
   /// Erase all descriptors to release memory.
   YASFM_API virtual void clearDescriptors();
   
-  /// Set the path to image file
-  YASFM_API virtual void setImgFilename(string imgFilename);
+  /// Set the image.
+  /**
+  \param[in] filename Path to the image.
+  \param[in] width Image width.
+  \param[in] height Image height
+  */
+  YASFM_API virtual void setImage(const string& filename,int width,int height);
 
   /// \return Reference to the path to the image file.
   YASFM_API const string& imgFilename() const;

@@ -109,7 +109,14 @@ void Camera::clearDescriptors()
 {
   descr_.resize(0,0);
 }
-void Camera::setImgFilename(string imgFilename) { imgFilename_ = imgFilename; }
+
+void Camera::setImage(const string& filename,int width,int height)
+{
+  imgFilename_ = filename;
+  imgWidth_ = width;
+  imgHeight_ = height;
+}
+
 const string& Camera::imgFilename() const { return imgFilename_; }
 int Camera::imgWidth() const { return imgWidth_; }
 int Camera::imgHeight() const { return imgHeight_; }
