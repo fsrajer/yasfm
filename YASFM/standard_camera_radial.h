@@ -167,7 +167,7 @@ public:
   YASFM_API virtual void constrainRadial(double *constraints,double *weights);
 
   /// \return Const pointer to the two radial parameters.
-  YASFM_API virtual const double* radParams() const;
+  YASFM_API const double* radParams() const;
 
 protected:
 

@@ -167,7 +167,7 @@ public:
   YASFM_API virtual double f() const;
 
   /// \return Const reference to the principal point.
-  YASFM_API virtual const Vector2d& x0() const;
+  YASFM_API const Vector2d& x0() const;
 
   /// Set parameters from exported ones (same format as params()).
   /// \param[in] params New camera parameters.

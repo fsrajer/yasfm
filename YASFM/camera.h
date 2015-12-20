@@ -274,40 +274,40 @@ public:
   YASFM_API virtual void clearDescriptors();
 
   /// \return Reference to the path to the image file.
-  YASFM_API virtual const string& imgFilename() const;
+  YASFM_API const string& imgFilename() const;
 
   /// \return Image width.
-  YASFM_API virtual int imgWidth() const;
+  YASFM_API int imgWidth() const;
 
   /// \return Image height.
-  YASFM_API virtual int imgHeight() const;
+  YASFM_API int imgHeight() const;
 
   /// \return Const reference to keys.
-  YASFM_API virtual const vector<Vector2d>& keys() const;
+  YASFM_API const vector<Vector2d>& keys() const;
 
   /**
   \param[in] i Index of the key.
   \return Const reference to one key.
   */
-  YASFM_API virtual const Vector2d& key(int i) const;
+  YASFM_API const Vector2d& key(int i) const;
 
   /// \return Const reference to keys scales.
-  YASFM_API virtual const vector<double>& keysScales() const;
+  YASFM_API const vector<double>& keysScales() const;
 
   /// \return Const reference to keys orientations in radians.
-  YASFM_API virtual const vector<double>& keysOrientations() const;
+  YASFM_API const vector<double>& keysOrientations() const;
 
   /// \return Const reference to keys colors. May be empty.
-  YASFM_API virtual const vector<Vector3uc>& keysColors() const;
+  YASFM_API const vector<Vector3uc>& keysColors() const;
 
   /** 
   \param[in] i Index of the key.
   \return Const reference to color of one key.
   */
-  YASFM_API virtual const Vector3uc& keyColor(int i) const;
+  YASFM_API const Vector3uc& keyColor(int i) const;
   
   /// \return Const reference to all descriptors (one column is one descriptor).
-  YASFM_API virtual const ArrayXXf& descr() const;
+  YASFM_API const ArrayXXf& descr() const;
   
   /// Call overloaded function.
   /**
