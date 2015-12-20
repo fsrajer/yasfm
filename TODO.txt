@@ -1,4 +1,3 @@
-:Homography minimal solver - apply centering before svd and inverse centering after
 :Put options into relevant includes and not in an options.h.
 :Similarity - no exhaustive matching
 :Memoptim - run big dataset and fix issues (maybe that binary IO will be neccessary)

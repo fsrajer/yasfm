@@ -780,37 +780,6 @@ int findHomographyInliers(double thresh,const vector<Vector2d>& pts1,
   return static_cast<int>(inliers.size());
 }
 
-void estimateHomographyMinimal(const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
-  const vector<IntPair>& matches,Matrix3d *H)
-{
-  if(matches.size() < 4)
-  {
-    cerr << "ERROR: estimateHomographyMinimal: "
-      << "Cannot estimate homography. " << matches.size() 
-      << " matches given but 4 needed.\n";
-    H->setZero();
-    return;
-  }
-
-  MatrixXd A(MatrixXd::Zero(8,9));
-  for(int i = 0; i < 4; i++)
-  {
-    const auto& pt1 = pts1[matches[i].first];
-    const auto& pt2 = pts2[matches[i].second];
-    
-    A.block(i,0,1,3) = pt1.homogeneous().transpose();
-    A.block(i+4,3,1,3) = pt1.homogeneous().transpose();
-    A.block(i,6,1,3) = -pt2(0) * pt1.homogeneous().transpose();
-    A.block(i+4,6,1,3) = -pt2(1) * pt1.homogeneous().transpose();
-  }
-
-  JacobiSVD<MatrixXd> svd(A,Eigen::ComputeThinU | Eigen::ComputeFullV);
-  VectorXd h = svd.matrixV().rightCols(1);
-  H->row(0) = h.topRows(3).transpose();
-  H->row(1) = h.middleRows(3,3).transpose();
-  H->row(2) = h.bottomRows(3).transpose();
-}
-
 Mediator7ptRANSAC::Mediator7ptRANSAC(const vector<Vector2d>& keys1,
   const vector<Vector2d>& keys2,const vector<IntPair>& matches)
   : minMatches_(7),keys1_(keys1),keys2_(keys2),matches_(matches)
@@ -934,12 +903,8 @@ int MediatorHomographyRANSAC::minMatches() const
 void MediatorHomographyRANSAC::computeTransformation(const vector<int>& idxs,
   vector<Matrix3d> *Hs) const
 {
-  vector<IntPair> selectedMatches;
-  selectedMatches.reserve(minMatches_);
-  for(int idx : idxs)
-    selectedMatches.push_back(matches_[idx]);
   Hs->resize(1);
-  estimateHomographyMinimal(keys1_,keys2_,selectedMatches,&(*Hs)[0]);
+  estimateHomography(keys1_,keys2_,matches_,idxs,&(*Hs)[0]);
 }
 
 double MediatorHomographyRANSAC::computeSquaredError(const Matrix3d& H,int matchIdx) const

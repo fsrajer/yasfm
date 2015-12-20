@@ -464,19 +464,6 @@ YASFM_API int findHomographyInliers(double thresh,const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,const Matrix3d& H,
   vector<int> *inliers);
 
-/// Compute homography (minimal solver).
-/**
-Computes homography H from four matches using svd decomposition.
-H*pt1 = lambda*pt2.
-
-\param[in] pts1 Points 1 (see function description).
-\param[in] pts2 Points 2 (see function description).
-\param[in] matches Points matches (of size 4).
-\param[out] H Homography matrix.
-*/
-YASFM_API void estimateHomographyMinimal(const vector<Vector2d>& pts1,
-  const vector<Vector2d>& pts2,const vector<IntPair>& matches,Matrix3d *H);
-
 /// Implementation of mediator for 7pt solver.
 class Mediator7ptRANSAC : public MediatorRANSAC<Matrix3d>
 {
