@@ -10,6 +10,19 @@ using std::cout;
 namespace yasfm
 {
 
+void OptionsBundleAdjustment::write(ostream& file) const
+{
+  file << " solverOptions (only some of them):\n";
+  file << "  max_num_iterations: " << solverOptions.max_num_iterations << "\n";
+  file << "  num_threads: " << solverOptions.num_threads << "\n";
+  file << "  function_tolerance: " << solverOptions.function_tolerance << "\n";
+  file << "  parameter_tolerance: " << solverOptions.parameter_tolerance << "\n";
+  file << "  gradient_tolerance: " << solverOptions.gradient_tolerance << "\n";
+  file << "  minimizer_type: " << solverOptions.minimizer_type << "\n";
+  file << "  linear_solver_type: " << solverOptions.linear_solver_type << "\n";
+  file << " robustify: " << robustify << "\n";
+}
+
 void bundleAdjust(const OptionsBundleAdjustment& opt,ptr_vector<Camera> *pcams,Points *ppts)
 {
   vector<bool> constantCams(pcams->size(),false),constantPts(ppts->numPts(),false);

@@ -37,7 +37,6 @@
 #pragma warning(pop)
 
 #include "defines.h"
-#include "options.h"
 #include "sfm_data.h"
 
 using std::set;
@@ -53,6 +52,45 @@ namespace yasfm
 \param[in,out] pairs Camera pairs.
 */
 YASFM_API void removePoorlyMatchedPairs(int minNumMatches,pair_umap<CameraPair> *pairs);
+
+/// Options for matching features using FLANN.
+struct OptionsFLANN
+{
+  /// Constructor setting defaults.
+  YASFM_API OptionsFLANN()
+  {
+    indexParams = flann::KDTreeIndexParams();
+    searchParams = flann::SearchParams();
+    ratioThresh = 0.6f;
+    onlyUniques = true;
+    verbose = true;
+  }
+
+  /// \return True if the matches should be filtered by ratio of distances of 
+  /// the first over the second nearest neighbors.
+  bool filterByRatio() const;
+
+  /// Write to a file to record which parameters were used.
+  /// \param[in,out] file Opened output file.
+  YASFM_API void write(ostream& file) const;
+
+  /// What method to use for matching. See FLANN for more details.
+  flann::IndexParams indexParams;
+
+  /// Nearest neighbor search parameters, eg. num of checks. See FLANN for more details.
+  flann::SearchParams searchParams;
+
+  /// Threshold for the ratio d1/d2, where di is distance to the i-th nearest neighbor
+  /// Negative values disable this filter and only the the nearest is searched.
+  float ratioThresh;
+
+  /// Discards non-unique matches, i.e., those for which two or more 
+  /// different features in feats1 matched to the same feature in feats2
+  bool onlyUniques;
+
+  /// Verbosity.
+  bool verbose;
+};
 
 /// Match features.
 /**

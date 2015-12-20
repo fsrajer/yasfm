@@ -23,7 +23,6 @@
 #include "YASFM/features.h"
 #include "YASFM/bundle_adjust.h"
 #include "YASFM/matching.h"
-#include "YASFM/options.h"
 #include "YASFM/sfm_data.h"
 #include "YASFM/points.h"
 #include "YASFM/absolute_pose.h"

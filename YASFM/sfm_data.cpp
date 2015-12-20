@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <direct.h>
+#include <iomanip>
 
 #include "camera_factory.h"
 

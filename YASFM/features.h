@@ -15,7 +15,6 @@
 #include "SiftGPU/SiftGPU.h"
 
 #include "defines.h"
-#include "options.h"
 #include "sfm_data.h"
 
 // loading dll at runtime, see SiftGPU SimpleSIFT example for 
@@ -33,6 +32,79 @@
 
 namespace yasfm
 {
+
+/// Options for detecting SIFT using SIFTGPU.
+struct OptionsSIFTGPU
+{
+
+  /// Constructor setting defaults.
+  YASFM_API OptionsSIFTGPU()
+  {
+    firstOctave = -1;
+    detectUprightSIFT = false;
+    verbosityLevel = 1;
+
+    // let SIFTGPU autoselect these
+    maxWorkingDimension = -1;
+    maxOctaves = -1;
+    dogLevelsInAnOctave = -1;
+    dogThresh = -1;
+    edgeThresh = -1;
+  }
+
+  /// /return True if maxWorkingDimension was set.
+  bool isSetMaxWorkingDimension() const;
+
+  /// /return True if maxOctaves was set.
+  bool isSetMaxOctaves() const;
+
+  /// /return True if dogLevelsInAnOctave was set.
+  bool isSetDogLevelsInAnOctave() const;
+
+  /// /return True if dogThresh was set.
+  bool isSetDogThresh() const;
+
+  /// /return True if edgeThresh was set.
+  bool isSetEdgeThresh() const;
+
+  /// Write to a file to record which parameters were used.
+  /// \param[in,out] file Opened output file.
+  YASFM_API void write(ostream& file) const;
+
+  /// Images larger than this will be downsampled. Negative value selects 
+  /// SIFTGPU default: 3200.
+  int maxWorkingDimension;
+
+  /// The smaller the more features will get detected. Min is -1.
+  int firstOctave;
+
+  /// The smaller the less features will get detected. Negative value selects 
+  /// SIFTGPU default: no limit.
+  int maxOctaves;
+
+  /// DOG levels in an octave. Can affect the number of extracted features. 
+  /// Negative value selects SIFTGPU default: 3.
+  int dogLevelsInAnOctave;
+
+  /// DOG threshold. Negative value selects SIFTGPU default: 0.02/3.
+  float dogThresh;
+
+  /// Edge threshold. Decrease to eliminate more keypoints. Negative value 
+  /// selects default: 10.
+  float edgeThresh;
+
+  /// Only one fixed orientation per keypoint location.
+  bool detectUprightSIFT;
+
+  /// Verbosity:
+  /**
+  0:   no output at all,except errors
+  1:   print out over all timing and features numbers
+  2:   print out timing for each steps
+  3/4: print out timing for each octaves/ levels
+  */
+  int verbosityLevel;
+};
 
 /// Detect SIFT for all cameras using SIFTGPU.
 /**

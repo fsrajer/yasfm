@@ -24,6 +24,26 @@ void removePoorlyMatchedPairs(int minNumMatches,pair_umap<CameraPair> *pairs)
   }
 }
 
+bool OptionsFLANN::filterByRatio() const { return ratioThresh >= 0.f; }
+
+void OptionsFLANN::write(ostream& file) const
+{
+  file << " indexParams:\n";
+  for(const auto& entry : indexParams)
+  {
+    file << "  " << entry.first << ": " << entry.second << "\n";
+  }
+  file << " searchParams:\n";
+  file << "  checks: " << searchParams.checks << "\n";
+  file << "  eps: " << searchParams.eps << "\n";
+  file << "  sorted: " << searchParams.sorted << "\n";
+  file << "  max_neighbors: " << searchParams.max_neighbors << "\n";
+  file << "  cores: " << searchParams.cores << "\n";
+  file << " ratioThresh: " << ratioThresh << "\n";
+  file << " onlyUniques: " << onlyUniques << "\n";
+  file << " verbose: " << verbose << "\n";
+}
+
 void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
   pair_umap<CameraPair> *pairs)
 {

@@ -17,7 +17,6 @@
 #include "Eigen/Dense"
 
 #include "defines.h"
-#include "options.h"
 #include "camera.h"
 #include "sfm_data.h"
 

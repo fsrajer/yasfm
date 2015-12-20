@@ -558,6 +558,18 @@ bool estimateHomographyPROSAC(const OptionsRANSAC& opt,const vector<Vector2d>& p
   return (nInliers > 0);
 }
 
+void OptionsGeometricVerification::write(ostream& file) const
+{
+  file << " similarityThresh: " << similarityThresh << "\n";
+  file << " affinityThresh: " << affinityThresh << "\n";
+  file << " homographyThresh: " << homographyThresh << "\n";
+  file << " minInliersPerTransform: " << minInliersPerTransform << "\n";
+  file << " maxTransforms: " << maxTransforms << "\n";
+  file << " nRefineIterations: " << nRefineIterations << "\n";
+  file << " minInliersToRefine: " << minInliersToRefine << "\n";
+  file << " stopInlierFraction: " << stopInlierFraction << "\n";
+}
+
 void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
 {

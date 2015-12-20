@@ -15,7 +15,6 @@
 #include "Eigen\Dense"
 
 #include "defines.h"
-#include "options.h"
 #include "ransac.h"
 #include "sfm_data.h"
 

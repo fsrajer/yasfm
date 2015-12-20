@@ -14,6 +14,24 @@ using namespace yasfm;
 namespace yasfm
 {
 
+bool OptionsSIFTGPU::isSetMaxWorkingDimension() const { return maxWorkingDimension >= 0; }
+bool OptionsSIFTGPU::isSetMaxOctaves() const { return maxOctaves >= 0; }
+bool OptionsSIFTGPU::isSetDogLevelsInAnOctave() const { return dogLevelsInAnOctave >= 0; }
+bool OptionsSIFTGPU::isSetDogThresh() const { return dogThresh >= 0; }
+bool OptionsSIFTGPU::isSetEdgeThresh() const { return edgeThresh >= 0; }
+
+void OptionsSIFTGPU::write(ostream& file) const
+{
+  file << " maxWorkingDimension: " << maxWorkingDimension << "\n";
+  file << " firstOctave: " << firstOctave << "\n";
+  file << " maxOctaves: " << maxOctaves << "\n";
+  file << " dogLevelsInAnOctave: " << dogLevelsInAnOctave << "\n";
+  file << " dogThresh: " << dogThresh << "\n";
+  file << " edgeThresh: " << edgeThresh << "\n";
+  file << " detectUprightSIFT: " << detectUprightSIFT << "\n";
+  file << " verbosityLevel: " << verbosityLevel << "\n";
+}
+
 void detectSiftGPU(const OptionsSIFTGPU& opt,ptr_vector<Camera> *cams)
 {
   int maxWidth = -1;

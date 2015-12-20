@@ -12,12 +12,14 @@
 #pragma once
 
 #include <iostream>
+#include <ostream>
 #include <vector>
 
-#include "options.h"
+#include "defines.h"
 
 using std::vector;
 
+using std::ostream;
 using std::cerr;
 using std::cout;
 
@@ -27,6 +29,50 @@ using std::cout;
 
 namespace yasfm
 {
+
+/// Options for running RANSAC like algorithms.
+struct OptionsRANSAC
+{
+  /// Constructor.
+  YASFM_API OptionsRANSAC(int maxRounds,double errorThresh,
+    int minInliers)
+    : maxRounds(maxRounds),errorThresh(errorThresh),
+    minInliers(minInliers)
+  {
+    confidence = 0.95;
+    refineTolerance = 1e-12;
+  }
+
+  /// Constructor.
+  YASFM_API OptionsRANSAC(int maxRounds,double errorThresh,
+    int minInliers,double confidence)
+    : maxRounds(maxRounds),errorThresh(errorThresh),
+    minInliers(minInliers),confidence(confidence)
+  {
+    refineTolerance = 1e-12;
+  }
+
+  /// Write to a file to record which parameters were used.
+  /// \param[in,out] file Opened output file.
+  YASFM_API void write(ostream& file) const;
+
+  /// Maximum number of iterations.
+  int maxRounds;
+
+  /// Error threshold.
+  double errorThresh;
+
+  /// Minimum number of inliers.
+  int minInliers;
+
+  /// Find a good hypothesis with this confidence. The values are from range [0,1].
+  double confidence;
+
+  /// The tolerance for refining the result on inliers. Used for example to terminate
+  // optimization of non-linear function using LM method. 
+  // (Not all ransac mediators implement refine phase.)
+  double refineTolerance;
+};
 
 /// Base, interface like, class for access to data used in RANSAC like frameworks.
 template<typename MatType>

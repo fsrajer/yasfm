@@ -231,7 +231,6 @@
     <ClInclude Include="defines.h" />
     <ClInclude Include="features.h" />
     <ClInclude Include="matching.h" />
-    <ClInclude Include="options.h" />
     <ClInclude Include="points.h" />
     <ClInclude Include="ransac.h" />
     <ClInclude Include="relative_pose.h" />
@@ -248,7 +247,6 @@
     <ClCompile Include="camera_factory.cpp" />
     <ClCompile Include="features.cpp" />
     <ClCompile Include="matching.cpp" />
-    <ClCompile Include="options.cpp" />
     <ClCompile Include="points.cpp" />
     <ClCompile Include="ransac.cpp" />
     <ClCompile Include="relative_pose.cpp" />
