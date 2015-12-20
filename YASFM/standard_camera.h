@@ -54,6 +54,12 @@ public:
 
   /// Constructor.
   /**
+  Empty constructor setting values to zero.
+  */
+  YASFM_API StandardCamera();
+
+  /// Constructor.
+  /**
   Calls base class constructor and sets principal point to be the middle of the image.
 
   \param[in] imgFilename Path to the image file.

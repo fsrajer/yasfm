@@ -14,6 +14,18 @@ string StandardCameraRadial::className() const
 
 CameraRegister<StandardCameraRadial> StandardCameraRadial::reg_("StandardCameraRadial");
 
+StandardCameraRadial::StandardCameraRadial()
+	: StandardCamera()
+{
+	paramsConstraints_.push_back(0.);
+	paramsConstraints_.push_back(0.);
+	paramsConstraintsWeights_.push_back(0.);
+	paramsConstraintsWeights_.push_back(0.);
+	radParams_[0] = 0.;
+	radParams_[1] = 0.;
+	invRadParams_.fill(0.);
+}
+
 StandardCameraRadial::StandardCameraRadial(const string& imgFilename)
   : StandardCamera(imgFilename)
 {

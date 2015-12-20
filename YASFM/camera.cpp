@@ -17,6 +17,12 @@ using std::ofstream;
 namespace yasfm
 {
 
+Camera::Camera()
+{
+	imgWidth_ = -1;
+	imgHeight_ = -1;
+}
+
 Camera::Camera(const string& imgFilename)
   : imgWidth_(-1),imgHeight_(-1),imgFilename_(imgFilename)
 {
@@ -109,6 +115,7 @@ int Camera::imgWidth() const { return imgWidth_; }
 int Camera::imgHeight() const { return imgHeight_; }
 const vector<Vector2d>& Camera::keys() const { return keys_; }
 const Vector2d& Camera::key(int i) const { return keys_[i]; }
+Vector2d& Camera::key(int i)  { return keys_[i]; }
 const vector<double>& Camera::keysScales() const { return keysScales_; }
 const vector<double>& Camera::keysOrientations() const { return keysOrientations_; }
 const ArrayXXf& Camera::descr() const { return descr_; }

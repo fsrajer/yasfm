@@ -50,7 +50,8 @@ be created.
 class Camera
 {
 public:
-
+  /// Constructor. (empty)
+  YASFM_API Camera();
   /// Constructor. (Reads image dimensions.)
   /**
   Opens the image file in order to get image dimensions.
@@ -294,6 +295,12 @@ public:
   */
   YASFM_API const Vector2d& key(int i) const;
 
+  /**
+  \param[in] i Index of the key.
+  \return reference to one key.
+  */
+  YASFM_API Vector2d& key(int i);
+  
   /// \return Const reference to keys scales.
   YASFM_API const vector<double>& keysScales() const;
 

@@ -15,6 +15,14 @@ string StandardCamera::className() const
 
 CameraRegister<StandardCamera> StandardCamera::reg_("StandardCamera");
 
+StandardCamera::StandardCamera()
+	: Camera(), rot_(0., Vector3d::UnitX()), C_(Vector3d::Zero()),
+	f_(0), paramsConstraints_(nParams_, 0.), paramsConstraintsWeights_(nParams_, 0.)
+{
+	x0_(0) = -1;
+	x0_(1) = -1;
+}
+
 StandardCamera::StandardCamera(const string& imgFilename)
   : Camera(imgFilename),rot_(0.,Vector3d::UnitX()),C_(Vector3d::Zero()),
   f_(0),paramsConstraints_(nParams_,0.),paramsConstraintsWeights_(nParams_,0.)

@@ -56,6 +56,12 @@ public:
 
   /// Constructor.
   /**
+  Empty constructor setting values to zero.
+  */
+  YASFM_API StandardCameraRadial();
+
+  /// Constructor.
+  /**
   Calls base class constructor.
 
   \param[in] imgFilename Path to the image file.
