@@ -1,5 +1,6 @@
 #include "points.h"
 
+#include <algorithm>
 #include <iostream>
 #include <queue>
 
@@ -63,9 +64,11 @@ void nViewMatchesToTwoViewMatches(const vector<NViewMatch>& nViewMatches,
   }
 }
 
-void reconstructPoints(const IntPair& camsIdxs,const Camera& cam1,const Camera& cam2,
-  const vector<int>& nViewMatchIdxs,Points *points)
+void reconstructPoints(const vector<int>& nViewMatchIdxs,const IntPair& camsIdxs,
+  Camera* pcam1,Camera* pcam2,Points *points)
 {
+  auto& cam1 = *pcam1;
+  auto& cam2 = *pcam2;
   vector<Vector3d> coord(nViewMatchIdxs.size());
   vector<Vector3uc> colors(coord.size());
   Matrix34d Rt1 = cam1.pose();
@@ -92,12 +95,19 @@ void reconstructPoints(const IntPair& camsIdxs,const Camera& cam1,const Camera& 
   filterVector(isInFrontOfBoth,&nViewMatchIdxsFiltered);
   filterVector(isInFrontOfBoth,&coord);
   filterVector(isInFrontOfBoth,&colors);
+  int nPtsBefore = points->numPtsAll();
   points->addPoints(camsIdxs,nViewMatchIdxsFiltered,coord,colors);
+  for(int iNew = 0; iNew < static_cast<int>(coord.size()); iNew++)
+  {
+    cam1.visiblePoints().push_back(nPtsBefore + iNew);
+    cam2.visiblePoints().push_back(nPtsBefore + iNew);
+  }
 }
 
-void reconstructPoints(const ptr_vector<Camera>& cams,
-  const vector<SplitNViewMatch>& matchesToReconstruct,Points *points)
+void reconstructPoints(const vector<SplitNViewMatch>& matchesToReconstruct,
+  ptr_vector<Camera>* pcams,Points *points)
 {
+  auto& cams = *pcams;
   vector<Matrix34d> Rts(cams.size());
   vector<bool> RtsValid(cams.size(),false);
   vector<Vector3d> ptCoord(matchesToReconstruct.size());
@@ -145,7 +155,16 @@ void reconstructPoints(const ptr_vector<Camera>& cams,
   filterVector(isInFrontOfAll,&matchesToReconstructFiltered);
   filterVector(isInFrontOfAll,&ptCoord);
   filterVector(isInFrontOfAll,&colors);
+  int nPtsBefore = points->numPtsAll();
   points->addPoints(ptCoord,colors,matchesToReconstructFiltered);
+  for(int iNew = 0; iNew < static_cast<int>(ptCoord.size()); iNew++)
+  {
+    for(const auto& camKey : matchesToReconstructFiltered[iNew].observedPart)
+      cams[camKey.first]->visiblePoints().push_back(nPtsBefore + iNew);
+
+    for(const auto& camKey : matchesToReconstructFiltered[iNew].unobservedPart)
+      cams[camKey.first]->visiblePoints().push_back(nPtsBefore + iNew);
+  }
 }
 
 void triangulate(const Matrix34d& P1,const Matrix34d& P2,const vector<Vector2d>& keys1,
@@ -254,7 +273,7 @@ void findCamToSceneMatches(const uset<int>& camsToIgnore,int numCams,
 {
   auto &matches = *pmatches;
   matches.resize(numCams);
-  for(int ptIdx = 0; ptIdx < points.numPts(); ptIdx++)
+  for(int ptIdx = 0; ptIdx < points.numPtsAll(); ptIdx++)
   {
     for(const auto& camKey : points.ptData()[ptIdx].toReconstruct)
     {
@@ -299,11 +318,12 @@ double computeRayAngle(const Camera& cam1,int key1Idx,
 }
 
 void removeIllConditionedPoints(double rayAngleThresh,
-  const ptr_vector<Camera>& cams,Points *ppts)
+  ptr_vector<Camera> *pcams,Points *ppts)
 {
+  auto& cams = *pcams;
   auto& pts = *ppts;
-  vector<bool> wellConditioned(pts.numPts(),false);
-  for(int ptIdx = 0; ptIdx < pts.numPts(); ptIdx++)
+  vector<bool> wellConditioned(pts.numPtsAll(),false);
+  for(int ptIdx = 0; ptIdx < pts.numPtsAll(); ptIdx++)
   {
     const auto& pt = pts.ptCoord()[ptIdx];
     const auto& views = pts.ptData()[ptIdx].reconstructed;
@@ -322,20 +342,35 @@ void removeIllConditionedPoints(double rayAngleThresh,
         wellConditioned[ptIdx] = angle > rayAngleThresh;
       }
     }
+    if(!wellConditioned[ptIdx])
+    {
+      for(const auto& camKey : views)
+      {
+        auto& visPts = cams[camKey.first]->visiblePoints();
+        auto elem = std::lower_bound(visPts.begin(),visPts.end(),ptIdx);
+        if(elem != visPts.end())
+          visPts.erase(elem);
+      }
+      for(const auto& camKey : pts.ptData()[ptIdx].toReconstruct)
+      {
+        auto& visPts = cams[camKey.first]->visiblePoints();
+        auto elem = std::lower_bound(visPts.begin(),visPts.end(),ptIdx);
+        if(elem != visPts.end())
+          visPts.erase(elem);
+      }
+    }
   }
-  int numOrig = pts.numPts();
-  pts.removePoints(wellConditioned);
-  int numRemoved = numOrig - pts.numPts();
+  pts.removePointsViews(wellConditioned);
 }
 
-void removeHighReprojErrorPoints(double avgReprojErrThresh,const ptr_vector<Camera>& cams,
+void removeHighReprojErrorPoints(double avgReprojErrThresh,ptr_vector<Camera> *pcams,
   Points *ppts)
 {
+  auto& cams = *pcams;
   auto& pts = *ppts;
-  int nPts = static_cast<int>(pts.ptCoord().size());
-  vector<bool> keep(nPts);
+  vector<bool> keep(pts.numPtsAll());
   int nToRemove = 0;
-  for(int iPt = 0; iPt < nPts; iPt++)
+  for(int iPt = 0; iPt < pts.numPtsAll(); iPt++)
   {
     double err = 0;
     const auto& reconstructPointViews = pts.ptData()[iPt].reconstructed;
@@ -346,11 +381,29 @@ void removeHighReprojErrorPoints(double avgReprojErrThresh,const ptr_vector<Came
       Vector2d proj = cam.project(pts.ptCoord()[iPt]);
       err += (proj - key).norm();
     }
-    err /= reconstructPointViews.size();
+    if(!reconstructPointViews.empty())
+      err /= reconstructPointViews.size();
     keep[iPt] = err < avgReprojErrThresh;
     nToRemove += !keep[iPt];
+    if(!keep[iPt])
+    {
+      for(const auto& camKey : reconstructPointViews)
+      {
+        auto& visPts = cams[camKey.first]->visiblePoints();
+        auto elem = std::lower_bound(visPts.begin(),visPts.end(),iPt);
+        if(elem != visPts.end())
+          visPts.erase(elem);
+      }
+      for(const auto& camKey : pts.ptData()[iPt].toReconstruct)
+      {
+        auto& visPts = cams[camKey.first]->visiblePoints();
+        auto elem = std::lower_bound(visPts.begin(),visPts.end(),iPt);
+        if(elem != visPts.end())
+          visPts.erase(elem);
+      }
+    }
   }
-  pts.removePoints(keep);
+  pts.removePointsViews(keep);
 }
 
 } // namespace yasfm

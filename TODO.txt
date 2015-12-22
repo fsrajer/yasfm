@@ -1,6 +1,8 @@
 :Similarity - no exhaustive matching
 :Memoptim - run big dataset and fix issues (maybe that binary IO will be neccessary)
 :Run experiments with geometric verification instead of epipolar verification or try both
+:SFMTools - connect with YASFM
+	- Put YASFM link to bin,include,lib to SfMTools (using submodules?)
 :VLFeat for non-GPU SIFT (add define ENABLE_OPENCL)
 :Multithreading
 	- Geometric verification
@@ -24,7 +26,6 @@
 	- p3p
 	- unknown f (square pixels)
 :Matching - multithreading + GPU - use project from GPU course
-:SFMTools - connect with YASFM
 :Quaternions camera - test convergence and times
 :Compile SIFTGPU for CUDA
 :5pt verification for calibrated cameras?

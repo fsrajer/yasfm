@@ -20,9 +20,16 @@ using std::ofstream;
 namespace yasfm
 {
 
+Points::Points()
+  :nPtsAlive_(0)
+{
+
+}
+
 void Points::addPoints(const IntPair& camsIdxs,const vector<int>& matchesToReconstructIdxs,
   const vector<Vector3d>& coord,const vector<Vector3uc>& colors)
 {
+  nPtsAlive_ += static_cast<int>(coord.size());
   size_t sz = ptCoord_.size() + coord.size();
   ptCoord_.reserve(sz);
   ptData_.reserve(sz);
@@ -47,8 +54,10 @@ void Points::addPoints(const IntPair& camsIdxs,const vector<int>& matchesToRecon
 void Points::addPoints(const vector<Vector3d>& pointCoord,const vector<Vector3uc>& colors,
   const vector<SplitNViewMatch>& pointViews)
 {
-  ptCoord_.reserve(numPts() + pointCoord.size());
-  ptData_.reserve(numPts() + pointCoord.size());
+  nPtsAlive_ += static_cast<int>(pointCoord.size());
+  size_t sz = ptCoord_.size() + pointCoord.size();
+  ptCoord_.reserve(sz);
+  ptData_.reserve(sz);
   for(size_t i = 0; i < pointCoord.size(); i++)
   {
     ptCoord_.push_back(pointCoord[i]);
@@ -59,21 +68,37 @@ void Points::addPoints(const vector<Vector3d>& pointCoord,const vector<Vector3uc
   }
 }
 
-void Points::removePoints(const vector<bool>& keep)
+void Points::removePointsViews(const vector<bool>& keep)
 {
-  filterVector(keep,&ptCoord_);
-  filterVector(keep,&ptData_);
+  nPtsAlive_ = 0;
+  for(size_t i = 0; i < keep.size(); i++)
+  {
+    auto& data = ptData_[i];
+    if(!keep[i])
+    {
+      data.reconstructed.clear();
+      data.toReconstruct.clear();
+    }
+    nPtsAlive_ += !(data.reconstructed.empty() && data.toReconstruct.empty());
+  }
 }
-int Points::numPts() const 
+int Points::numPtsAll() const 
 {
   return static_cast<int>(ptCoord().size());
+}
+int Points::numPtsAlive() const
+{
+  return nPtsAlive_;
 }
 void Points::markCamAsReconstructed(int camIdx)
 {
   for(auto& entry : ptData_)
   {
-    entry.reconstructed.emplace(camIdx,entry.toReconstruct.at(camIdx));
-    entry.toReconstruct.erase(camIdx);
+    if(entry.toReconstruct.count(camIdx) > 0)
+    {
+      entry.reconstructed.emplace(camIdx,entry.toReconstruct.at(camIdx));
+      entry.toReconstruct.erase(camIdx);
+    }
   }
 }
 void Points::markCamAsReconstructed(int camIdx,
@@ -83,7 +108,10 @@ void Points::markCamAsReconstructed(int camIdx,
   for(int inlierIdx : correspondingPointsInliers)
   {
     auto& entry = ptData_[correspondingPoints[inlierIdx]];
-    entry.reconstructed.emplace(camIdx,entry.toReconstruct.at(camIdx));
+    if(entry.toReconstruct.count(camIdx) > 0)
+    {
+      entry.reconstructed.emplace(camIdx,entry.toReconstruct.at(camIdx));
+    }
   }
   for(int ptIdx : correspondingPoints)
   {
@@ -101,18 +129,28 @@ void Points::writeASCII(ostream& file) const
   file << "matchesToReconstruct_ " << matchesToReconstruct_.size() << "\n";
   for(const auto& match : matchesToReconstruct_)
     file << match << "\n";
-  file << "ptCoord_ " << ptCoord_.size() << "\n";
-  for(const auto& coord : ptCoord_)
-    file << coord(0) << " " << coord(1) << " " << coord(2) << "\n";
-  file << "ptData_ " << ptData_.size() << " " << nFieldsPointData << "\n";
+  file << "ptCoord_ " << nPtsAlive_ << "\n";
+  for(int i = 0; i < numPtsAll(); i++)
+  {
+    if(!ptData_[i].reconstructed.empty())
+    {
+      const auto& coord = ptCoord_[i];
+      file << coord(0) << " " << coord(1) << " " << coord(2) << "\n";
+    }
+  }
+    
+  file << "ptData_ " << nPtsAlive_ << " " << nFieldsPointData << "\n";
   file << "reconstructed\n";
   file << "toReconstruct\n";
   file << "color\n";
   for(const auto& data : ptData_)
   {
-    Eigen::Vector3i color = data.color.cast<int>();
-    file << data.reconstructed << " " << data.toReconstruct
-      << " " << color(0) << " " << color(1) << " " << color(1) << "\n";
+    if(!data.reconstructed.empty())
+    {
+      Eigen::Vector3i color = data.color.cast<int>();
+      file << data.reconstructed << " " << data.toReconstruct
+        << " " << color(0) << " " << color(1) << " " << color(1) << "\n";
+    }
   }
 }
 
@@ -253,7 +291,7 @@ void Dataset::writeASCII(const string& filename,int camWriteMode,
   file << "########### INFO ###########\n"
     << "# num cams: " << numCams() << "\n"
     << "# num reconstructed cams: " << reconstructedCams_.size() << "\n"
-    << "# num points: " << points_.numPts() << "\n"
+    << "# num points: " << points_.numPtsAlive() << "\n"
     << "# num unreconstructed n-view matches: "
       << points_.matchesToReconstruct().size() << "\n"
     << "############################\n";
@@ -406,6 +444,14 @@ void Dataset::readASCII(const string& filename,int camReadMode,
     }
   }
   file.close();
+  for(int iPt = 0; iPt < points_.numPtsAll(); iPt++)
+  {
+    for(const auto& camKey : points_.ptData()[iPt].reconstructed)
+      cams_[camKey.first]->visiblePoints().push_back(iPt);
+
+    for(const auto& camKey : points_.ptData()[iPt].toReconstruct)
+      cams_[camKey.first]->visiblePoints().push_back(iPt);
+  }
 }
 
 void Dataset::readKeysColors()
@@ -417,7 +463,7 @@ void Dataset::readKeysColors()
 int Dataset::countReconstructedObservations() const
 {
   size_t nObs = 0;
-  for(int iPt = 0; iPt < points().numPts(); iPt++)
+  for(int iPt = 0; iPt < points().numPtsAll(); iPt++)
   {
     nObs += points().ptData()[iPt].reconstructed.size();
   }

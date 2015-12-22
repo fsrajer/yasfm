@@ -323,6 +323,12 @@ public:
   
   /// \return Const reference to all descriptors (one column is one descriptor).
   YASFM_API const ArrayXXf& descr() const;
+
+  /// \return Indices of points visible in this camera in ascending order.
+  YASFM_API const vector<int>& visiblePoints() const;
+
+  /// \return Indices of points visible in this camera in ascending order.
+  YASFM_API vector<int>& visiblePoints();
   
   /// Call overloaded function.
   /**
@@ -363,6 +369,8 @@ private:
   vector<double> keysOrientations_; ///< Orientation (angle in radians).
   vector<Vector3uc> keysColors_;    ///< Keys colors.
   ArrayXXf descr_;     ///< Descriptors (one column is one descriptor).
+  /// Indices of points visible in this camera in ascending order.
+  vector<int> visiblePoints_;       
 };
 
 } // namespace yasfm

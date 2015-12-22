@@ -76,7 +76,7 @@ public:
     pts.addPoints(camsIdxs,matchesIdxs,coord,colors);
 
     Assert::IsTrue(pts.matchesToReconstruct().size() == 1);
-    Assert::IsTrue(pts.numPts() == 1);
+    Assert::IsTrue(pts.numPtsAll() == 1);
     Assert::IsTrue(pts.ptCoord()[0] == coord[0]);
     auto& rec = pts.ptData()[0].reconstructed;
     auto& toRec = pts.ptData()[0].toReconstruct;
@@ -94,7 +94,7 @@ public:
 
     pts.addPoints(coord,colors,views);
 
-    Assert::IsTrue(pts.numPts() == 2);
+    Assert::IsTrue(pts.numPtsAll() == 2);
     Assert::IsTrue(pts.ptCoord()[1] == coord[0]);
     auto& rec2 = pts.ptData()[1].reconstructed;
     auto& toRec2 = pts.ptData()[1].toReconstruct;
@@ -107,23 +107,27 @@ public:
     vector<bool> keep(2,true);
     keep[0] = false;
 
-    pts.removePoints(keep);
+    pts.removePointsViews(keep);
 
-    Assert::IsTrue(pts.numPts() == 1);
-    Assert::IsTrue(pts.ptCoord()[0] == coord[0]);
+    Assert::IsTrue(pts.numPtsAlive() == 1);
     auto& rec3 = pts.ptData()[0].reconstructed;
     auto& toRec3 = pts.ptData()[0].toReconstruct;
-    Assert::IsTrue(rec3.size() == 1);
-    Assert::IsTrue(rec3.count(4) == 1);
-    Assert::IsTrue(toRec3.size() == 1);
-    Assert::IsTrue(toRec3.count(5) == 1);
+    Assert::IsTrue(rec3.size() == 0);
+    Assert::IsTrue(toRec3.size() == 0);
+
+    pts.removePointsViews(keep);
+    Assert::IsTrue(pts.numPtsAlive() == 1);
+    Assert::IsTrue(rec3.size() == 0);
+    Assert::IsTrue(toRec3.size() == 0);
 
     // markCamAsReconstructed
     pts.markCamAsReconstructed(5);
-    Assert::IsTrue(rec3.size() == 2);
-    Assert::IsTrue(rec3.count(4) == 1);
-    Assert::IsTrue(rec3.count(5) == 1);
-    Assert::IsTrue(toRec3.size() == 0);
+    auto& rec4 = pts.ptData()[1].reconstructed;
+    auto& toRec4 = pts.ptData()[1].toReconstruct;
+    Assert::IsTrue(rec4.size() == 2);
+    Assert::IsTrue(rec4.count(4) == 1);
+    Assert::IsTrue(rec4.count(5) == 1);
+    Assert::IsTrue(toRec4.size() == 0);
   }
 
   TEST_METHOD(StandardCameraTest)

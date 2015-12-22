@@ -40,7 +40,7 @@ double computeAverageReprojectionError(const ptr_vector<Camera>& cams,
 {
   double cumulativeError = 0.;
   int observationsCount = 0;
-  for(int iPt = 0; iPt < points.numPts(); iPt++)
+  for(int iPt = 0; iPt < points.numPtsAll(); iPt++)
   {
     for(const auto& camKey : points.ptData()[iPt].reconstructed)
     {
