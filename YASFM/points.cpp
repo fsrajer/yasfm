@@ -254,7 +254,7 @@ void findCamToSceneMatches(const uset<int>& camsToIgnore,int numCams,
 {
   auto &matches = *pmatches;
   matches.resize(numCams);
-  for(int ptIdx = 0; ptIdx < points.numPts(); ptIdx++)
+  for(int ptIdx = 0; ptIdx < points.numPtsAll(); ptIdx++)
   {
     for(const auto& camKey : points.ptData()[ptIdx].toReconstruct)
     {
@@ -302,8 +302,8 @@ void removeIllConditionedPoints(double rayAngleThresh,
   const ptr_vector<Camera>& cams,Points *ppts)
 {
   auto& pts = *ppts;
-  vector<bool> wellConditioned(pts.numPts(),false);
-  for(int ptIdx = 0; ptIdx < pts.numPts(); ptIdx++)
+  vector<bool> wellConditioned(pts.numPtsAll(),false);
+  for(int ptIdx = 0; ptIdx < pts.numPtsAll(); ptIdx++)
   {
     const auto& pt = pts.ptCoord()[ptIdx];
     const auto& views = pts.ptData()[ptIdx].reconstructed;
@@ -323,19 +323,16 @@ void removeIllConditionedPoints(double rayAngleThresh,
       }
     }
   }
-  int numOrig = pts.numPts();
-  pts.removePoints(wellConditioned);
-  int numRemoved = numOrig - pts.numPts();
+  pts.removePointsViews(wellConditioned);
 }
 
 void removeHighReprojErrorPoints(double avgReprojErrThresh,const ptr_vector<Camera>& cams,
   Points *ppts)
 {
   auto& pts = *ppts;
-  int nPts = static_cast<int>(pts.ptCoord().size());
-  vector<bool> keep(nPts);
+  vector<bool> keep(pts.numPtsAll());
   int nToRemove = 0;
-  for(int iPt = 0; iPt < nPts; iPt++)
+  for(int iPt = 0; iPt < pts.numPtsAll(); iPt++)
   {
     double err = 0;
     const auto& reconstructPointViews = pts.ptData()[iPt].reconstructed;
@@ -346,11 +343,12 @@ void removeHighReprojErrorPoints(double avgReprojErrThresh,const ptr_vector<Came
       Vector2d proj = cam.project(pts.ptCoord()[iPt]);
       err += (proj - key).norm();
     }
-    err /= reconstructPointViews.size();
+    if(!reconstructPointViews.empty())
+      err /= reconstructPointViews.size();
     keep[iPt] = err < avgReprojErrThresh;
     nToRemove += !keep[iPt];
   }
-  pts.removePoints(keep);
+  pts.removePointsViews(keep);
 }
 
 } // namespace yasfm

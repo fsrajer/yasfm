@@ -64,6 +64,9 @@ public:
     Vector3uc color;          ///< Point color.
   } PointData;
 
+  /// Constructor
+  YASFM_API Points();
+
   /// Add new points reconstructed from two views.
   /**
   Add new points created from corresponding matchesToReconstructIdxs.
@@ -94,16 +97,22 @@ public:
   YASFM_API void addPoints(const vector<Vector3d>& pointCoord,
     const vector<Vector3uc>& colors,const vector<SplitNViewMatch>& pointViews);
 
-  /// Remove points.
+  /// Remove points views (disables the points).
   /**
-  This invalidates the indices to points you might have.
+  This clears .reconstructed and .toReconstruct in order to disable the points.
+  This is used instead of directly removing the points in order to keep the indices
+  to points, which someone might have, valid.
 
   \param[in] keep Indication which points to keep.
   */
-  YASFM_API void removePoints(const vector<bool>& keep);
+  YASFM_API void removePointsViews(const vector<bool>& keep);
   
-  /// \return Number of reconstucted points.
-  YASFM_API int numPts() const;
+  /// \return Number of reconstucted points including those with no views.
+  YASFM_API int numPtsAll() const;
+
+  /// \return Number of reconstucted points that were not removed using 
+  /// removePointsProjections.
+  YASFM_API int numPtsAlive() const;
 
   /// Update points' views.
   /**
@@ -132,7 +141,11 @@ public:
     const vector<int>& correspondingPointsInliers);
 
   /// Write all the point data including matchesToReconstruct.
-  /// \param[in,out] file Opened output file.
+  /**
+  IMPORTANT: Only alive points (with .reconstructed.size() > 0) get written out.
+
+  \param[in,out] file Opened output file.
+  */
   YASFM_API void writeASCII(ostream& file) const;
   
   /// Read points from a file.
@@ -150,7 +163,7 @@ public:
 
   /**
   Points are stored in a contiguous block so getting pointer to first points 
-  also gives you all the points.
+  also gives you all the points (including those with no projection).
 
   \param[in] ptIdx Index of the point.
   \return Point coordinates.
@@ -165,6 +178,8 @@ private:
   vector<NViewMatch> matchesToReconstruct_; 
   vector<Vector3d> ptCoord_;  ///< Points' coordinates.
   vector<PointData> ptData_;  ///< Points' data.
+  /// Number of reconstucted points that were not removed using removePointsProjections.
+  int nPtsAlive_; 
 };
 
 /// Main class for storing results of the reconstruction.

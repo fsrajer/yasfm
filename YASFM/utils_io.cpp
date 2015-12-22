@@ -228,7 +228,7 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
     return;
   }
   out << "# Bundle file v0.3\n";
-  out << cams.size() << " " << points.numPts() << "\n";
+  out << cams.size() << " " << points.numPtsAlive() << "\n";
 
   vector<Vector2d> x0(cams.size());
   out.flags(std::ios::scientific);
@@ -267,8 +267,12 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
       out << t(0) << " " << t(1) << " " << t(2) << "\n";
     }
   }
-  for(int i = 0; i < points.numPts(); i++)
+  for(int i = 0; i < points.numPtsAll(); i++)
   {
+    const auto& ptData = points.ptData()[i];
+    if(ptData.reconstructed.empty())
+      continue;
+
     out.flags(std::ios::scientific);
     // coordinates
     const auto& coord = points.ptCoord()[i];

@@ -397,7 +397,7 @@ namespace yasfm_tests
       pts.addPoints(coord,colors,views);
 
       removeHighReprojErrorPoints(avgReprojErrThresh,cams,&pts);
-      Assert::IsTrue(pts.numPts() == 1);
+      Assert::IsTrue(pts.numPtsAlive() == 1);
       Assert::IsTrue(pts.ptData()[0].toReconstruct.empty());
     }
 

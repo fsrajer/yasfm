@@ -329,26 +329,27 @@ void runSFM(const Options& opt,const string& outDir,
 
     cout << "Reconstructing " << matchesToReconstructNow.size() << " points\n";
     reconstructPoints(data.cams(),matchesToReconstructNow,&data.points());
-    int prevPts = data.points().numPts();
+    int prevPts = data.points().numPtsAlive();
     removeHighReprojErrorPoints(opt.pointsReprojErrorThresh,data.cams(),&data.points());
-    cout << "Removing " << prevPts-data.points().numPts()
+    cout << "Removing " << prevPts-data.points().numPtsAlive()
       << " points with high reprojection error\n";
 
     do
     {
-      prevPts = data.points().numPts();
+      prevPts = data.points().numPtsAlive();
       cout << "Running bundle adjustment with: \n"
         << "  " << data.reconstructedCams().size() << " cams\n"
-        << "  " << data.points().numPts() << " points\n"
+        << "  " << prevPts << " points\n"
         << "  " << data.countReconstructedObservations() << " observations\n";
       bundleAdjust(opt.bundleAdjust,&data.cams(),&data.points());
       removeHighReprojErrorPoints(opt.pointsReprojErrorThresh,data.cams(),&data.points());
-      cout << "Removing " << prevPts-data.points().numPts()
+      cout << "Removing " << prevPts-data.points().numPtsAlive()
         << " points with high reprojection error\n";
-    } while(prevPts > data.points().numPts());
+    } while(prevPts > data.points().numPtsAlive());
 
     removeIllConditionedPoints(0.5*opt.rayAngleThresh,data.cams(),&data.points());
-    cout << "Removing " << prevPts-data.points().numPts() << " ill conditioned points\n";
+    cout << "Removing " << prevPts-data.points().numPtsAlive() 
+      << " ill conditioned points\n";
 
     writeSFMBundlerFormat(joinPaths(outDir,"bundle" +
       std::to_string(data.reconstructedCams().size()) + ".out"),data);

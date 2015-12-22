@@ -126,6 +126,7 @@ center is the origin and the y axis goes from bottom to the top. In addition -z 
 be the forward axis.
 IMPORTANT: This function assumes +z to be the forward axis. Also, to get radial 
 parameters, this function tries to cast into StandardCameraRadial.
+IMPORTANT: Only alive points (with .reconstructed.size() > 0) get written out.
 
 \param[in] filename Output filename.
 \param[in] reconstructedCams Cameras that were reconstructed.
