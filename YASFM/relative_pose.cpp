@@ -145,9 +145,9 @@ void initReconstructionFromCamPair(const OptionsRANSAC& solverOpt,
     cam1.setParams(P1);
 
     cout << "Reconstructing " << nViewMatchesIdxs.size() << " points\n";
-    reconstructPoints(initPair,cam0,cam1,nViewMatchesIdxs,&data->points());
+    reconstructPoints(nViewMatchesIdxs,initPair,&cam0,&cam1,&data->points());
 
-    removeHighReprojErrorPoints(pointsReprojErrorThresh,data->cams(),&data->points());
+    removeHighReprojErrorPoints(pointsReprojErrorThresh,&data->cams(),&data->points());
     cout << "Removing " << nViewMatchesIdxs.size()-data->points().numPtsAlive()
       << " points with high reprojection error\n";
   } else
@@ -187,9 +187,9 @@ void initReconstructionFromCalibratedCamPair(const OptionsRANSAC& solverOpt,
     cam1.setC(C);
 
     cout << "Reconstructing " << nViewMatchesIdxs.size() << " points\n";
-    reconstructPoints(initPair,cam0,cam1,nViewMatchesIdxs,&data->points());
+    reconstructPoints(nViewMatchesIdxs,initPair,&cam0,&cam1,&data->points());
 
-    removeHighReprojErrorPoints(pointsReprojErrorThresh,data->cams(),&data->points());
+    removeHighReprojErrorPoints(pointsReprojErrorThresh,&data->cams(),&data->points());
     cout << "Removing " << nViewMatchesIdxs.size()-data->points().numPtsAlive()
       << " points with high reprojection error\n";
   } else

@@ -128,6 +128,8 @@ const vector<double>& Camera::keysOrientations() const { return keysOrientations
 const ArrayXXf& Camera::descr() const { return descr_; }
 const vector<Vector3uc>& Camera::keysColors() const { return keysColors_; }
 const Vector3uc& Camera::keyColor(int i) const { return keysColors_[i]; }
+const vector<int>& Camera::visiblePoints() const { return visiblePoints_; }
+vector<int>& Camera::visiblePoints() { return visiblePoints_; }
 
 void Camera::writeASCII(ostream& file,int writeMode) const
 {

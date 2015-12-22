@@ -120,15 +120,24 @@ namespace yasfm_tests
 
     TEST_METHOD(reconstructPointsTest)
     {
+      // Test empty
       IntPair camsIdxs(0,1);
       StandardCamera cam0(""),cam1("");
       vector<int> nViewMatchIdxs;
       Points pts;
-      reconstructPoints(camsIdxs,cam0,cam1,nViewMatchIdxs,&pts);
+      reconstructPoints(nViewMatchIdxs,camsIdxs,&cam0,&cam1,&pts);
       Assert::IsTrue(pts.matchesToReconstruct().empty());
       Assert::IsTrue(pts.ptCoord().empty());
       Assert::IsTrue(pts.ptData().empty());
 
+      // Add one dummy point for testing visiblePoints in cams
+      vector<Vector3d> ptCoord(1);
+      vector<Vector3uc> ptColor(1);
+      vector<SplitNViewMatch> ptViews(1);
+      pts.addPoints(ptCoord,ptColor,ptViews);
+      int nRec = 1;
+
+      // Test reconstruct points from 2 views
       Vector3d axis(Vector3d::Random());
       axis.normalize();
       AngleAxisd aa(5,axis);
@@ -163,12 +172,14 @@ namespace yasfm_tests
         nViewMatchIdxs.push_back(i);
       }
       pts.matchesToReconstruct()[0].emplace(2,0);
-      reconstructPoints(camsIdxs,cam0,cam1,nViewMatchIdxs,&pts);
+      reconstructPoints(nViewMatchIdxs,camsIdxs,&cam0,&cam1,&pts);
+      int nNew = n-1;
+      nRec += nNew;
       Assert::IsTrue(pts.matchesToReconstruct().size() == 1);
-      Assert::IsTrue(pts.ptCoord().size() == n-1);
-      Assert::IsTrue(pts.ptData().size() == n-1);
+      Assert::IsTrue(pts.ptCoord().size() == n-1+1);
+      Assert::IsTrue(pts.ptData().size() == n-1+1);
       const double precision = 1e-10;
-      Assert::IsTrue(pts.ptCoord()[0].isApprox(coord[0]));
+      Assert::IsTrue(pts.ptCoord()[1].isApprox(coord[0]));
       auto& rec = pts.ptData().back().reconstructed;
       Assert::IsTrue(rec.size() == 2);
       Assert::IsTrue(rec.count(0) == 1);
@@ -177,9 +188,17 @@ namespace yasfm_tests
       Assert::IsTrue(toRec.size() == 1);
       Assert::IsTrue(toRec.count(2) == 1);
 
+      Assert::IsTrue(cam0.visiblePoints().size() == nNew);
+      Assert::IsTrue(cam0.visiblePoints()[0] == 1);
+      Assert::IsTrue(cam0.visiblePoints().back() == nRec-1);
+      Assert::IsTrue(cam1.visiblePoints().size() == nNew);
+      Assert::IsTrue(cam1.visiblePoints()[0] == 1);
+      Assert::IsTrue(cam1.visiblePoints().back() == nRec-1);
+
       ptr_vector<Camera> cams;
       vector<SplitNViewMatch> matches(1);
-      for(int i = 0; i < 4; i++)
+      int nValidCams = 4;
+      for(int i = 0; i < nValidCams; i++)
       {
         cams.push_back(make_unique<StandardCamera>(""));
         cams[i]->setParams(generateRandomProjection());
@@ -197,11 +216,18 @@ namespace yasfm_tests
           matches[0].observedPart.emplace(i,0);
         }
       }
-      matches[0].unobservedPart.emplace(45,0);
-      reconstructPoints(cams,matches,&pts);
+      cams.push_back(make_unique<StandardCamera>(""));
+      matches[0].unobservedPart.emplace(4,0);
+      reconstructPoints(matches,&cams,&pts);
+      nRec++;
       Assert::IsTrue(pts.ptCoord().back().isApprox(coord[0]));
-      Assert::IsTrue(pts.ptData().back().reconstructed.size() == cams.size());
+      Assert::IsTrue(pts.ptData().back().reconstructed.size() == nValidCams);
       Assert::IsTrue(pts.ptData().back().toReconstruct.size() == 1);
+      for(size_t i = 0; i < cams.size(); i++)
+      {
+        Assert::IsTrue(cams[i]->visiblePoints().size() == 1);
+        Assert::IsTrue(cams[i]->visiblePoints()[0] == nRec-1);
+      }
     }
 
     TEST_METHOD(triangulateTest)
@@ -367,7 +393,7 @@ namespace yasfm_tests
       ptr_vector<Camera> cams;
       Points pts;
 
-      for(int i = 0; i < 2; i++)
+      for(int i = 0; i < 3; i++)
       {
         cams.push_back(make_unique<StandardCamera>(""));
         cams[i]->setParams(generateRandomProjection());
@@ -393,12 +419,18 @@ namespace yasfm_tests
       p = cams[1]->project(coord[1]);
       p(0) += 100;
       cams[1]->setFeature(1,p(0),p(1),0,0,&dummy);
-      views[1].unobservedPart.emplace(11,1);
+      views[1].unobservedPart.emplace(2,1);
       pts.addPoints(coord,colors,views);
+      for(int i = 0; i < (int)coord.size()+1; i++)
+      {
+        cams[0]->visiblePoints().push_back(i);
+      }
 
-      removeHighReprojErrorPoints(avgReprojErrThresh,cams,&pts);
+      removeHighReprojErrorPoints(avgReprojErrThresh,&cams,&pts);
       Assert::IsTrue(pts.numPtsAlive() == 1);
       Assert::IsTrue(pts.ptData()[0].toReconstruct.empty());
+      Assert::IsTrue(cams[0]->visiblePoints().size() == 2);
+      Assert::IsTrue(cams[0]->visiblePoints()[1] == coord.size());
     }
 
     TEST_METHOD(isWellConditionedTest)

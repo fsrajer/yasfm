@@ -444,6 +444,14 @@ void Dataset::readASCII(const string& filename,int camReadMode,
     }
   }
   file.close();
+  for(int iPt = 0; iPt < points_.numPtsAll(); iPt++)
+  {
+    for(const auto& camKey : points_.ptData()[iPt].reconstructed)
+      cams_[camKey.first]->visiblePoints().push_back(iPt);
+
+    for(const auto& camKey : points_.ptData()[iPt].toReconstruct)
+      cams_[camKey.first]->visiblePoints().push_back(iPt);
+  }
 }
 
 void Dataset::readKeysColors()
