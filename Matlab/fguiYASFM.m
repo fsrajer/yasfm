@@ -1,5 +1,3 @@
-addpath('utils');
-
 clear fs;
 closeall
 
