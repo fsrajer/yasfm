@@ -34,3 +34,4 @@
 :Hartley's 5pt? - occasional bugs? - unit tests failing
 :Matching - store dist ratios instead of dists - better prosac?
 :Linux port
+:Compare to other sfm pipelines (http://openmvg.readthedocs.org/en/latest/software/SfM/SfM/)

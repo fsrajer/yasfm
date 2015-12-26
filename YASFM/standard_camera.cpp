@@ -16,16 +16,16 @@ string StandardCamera::className() const
 CameraRegister<StandardCamera> StandardCamera::reg_("StandardCamera");
 
 StandardCamera::StandardCamera()
-	: Camera(), rot_(0., Vector3d::UnitX()), C_(Vector3d::Zero()),
-	f_(0), paramsConstraints_(nParams_, 0.), paramsConstraintsWeights_(nParams_, 0.)
+	: Camera(),params_(nParams_,0.),paramsConstraints_(nParams_, 0.), 
+  paramsConstraintsWeights_(nParams_, 0.)
 {
 	x0_(0) = -1;
 	x0_(1) = -1;
 }
 
 StandardCamera::StandardCamera(const string& imgFilename)
-  : Camera(imgFilename),rot_(0.,Vector3d::UnitX()),C_(Vector3d::Zero()),
-  f_(0),paramsConstraints_(nParams_,0.),paramsConstraintsWeights_(nParams_,0.)
+  : Camera(imgFilename),params_(nParams_,0.),
+  paramsConstraints_(nParams_,0.),paramsConstraintsWeights_(nParams_,0.)
 {
   // assume the image center to be the principal point
   x0_(0) = 0.5 * (imgWidth() - 1);
@@ -35,18 +35,17 @@ StandardCamera::StandardCamera(const string& imgFilename)
 StandardCamera::StandardCamera(istream& file,int readMode,const string& featuresDir)
   : Camera(file,readMode,featuresDir)
 {
-  file >> rot_.angle() >> rot_.axis()(0) >> rot_.axis()(1) >> rot_.axis()(2);
-  file >> C_(0) >> C_(1) >> C_(2);
-  file >> f_;
-  file >> x0_(0) >> x0_(1);
-  int nConstraints;
-  file >> nConstraints;
-  paramsConstraints_.resize(nConstraints);
-  paramsConstraintsWeights_.resize(nConstraints);
-  for(int i = 0; i < nConstraints; i++)
+  int n;
+  file >> n;
+  params_.resize(n);
+  paramsConstraints_.resize(n);
+  paramsConstraintsWeights_.resize(n);
+  for(int i = 0; i < n; i++)
   {
-    file >> paramsConstraints_[i] >> paramsConstraintsWeights_[i];
+    file >> params_[i] >> paramsConstraints_[i] >> paramsConstraintsWeights_[i];
   }
+
+  file >> x0_(0) >> x0_(1);
 }
 
 StandardCamera::~StandardCamera()
@@ -61,8 +60,9 @@ unique_ptr<Camera> StandardCamera::clone() const
 
 Vector2d StandardCamera::project(const Vector3d& pt) const
 {
-  Vector2d ptCam = (rot_ * (pt - C_)).hnormalized();
-  return f_ * ptCam + x0_;
+  Vector2d proj;
+  projectWithExternalParams(&params_[0],&pt(0),&proj(0));
+  return proj;
 }
 
 ceres::CostFunction* StandardCamera::costFunction(int keyIdx) const
@@ -80,25 +80,17 @@ ceres::CostFunction* StandardCamera::constraintsCostFunction() const
 
 void StandardCamera::params(vector<double> *pparams) const
 {
-  auto& params = *pparams;
-  params.resize(nParams_);
-  Map<Vector3d> rot(&params[rotIdx_]),C(&params[CIdx_]);
-  rot = rot_.angle() * rot_.axis();
-  C = C_;
-  params[fIdx_] = f_;
+  *pparams = params_;
 }
 
 Vector2d StandardCamera::keyNormalized(int i) const
 {
-  return (key(i) - x0_) / f_;
+  return (key(i) - x0_) / f();
 }
 
 Matrix34d StandardCamera::P() const
 {
-  Matrix34d out(Matrix34d::Identity());
-  out.rightCols(1) = -C_;
-  out = K()*rot_.toRotationMatrix()*out;
-  return out;
+  return K()*pose();
 }
 
 Matrix3d StandardCamera::K() const
@@ -112,6 +104,7 @@ Matrix3d StandardCamera::K() const
 
 Matrix34d StandardCamera::pose() const
 {
+  Map<const Vector3d> C_(&params_[CIdx_]);
   Matrix34d tmp(Matrix34d::Identity());
   tmp.col(3) = -C_;
   return R() * tmp;
@@ -119,33 +112,38 @@ Matrix34d StandardCamera::pose() const
 
 Matrix3d StandardCamera::R() const
 {
-  return rot_.toRotationMatrix();
-}
-
-Vector3d StandardCamera::C() const 
-{ 
-  return C_; 
-}
-
-const AngleAxisd& StandardCamera::rot() const { return rot_; }
-double StandardCamera::f() const { return f_; }
-const Vector2d& StandardCamera::x0() const { return x0_; }
-
-void StandardCamera::setParams(const vector<double>& params)
-{
-  Map<const Vector3d> rot(&params[rotIdx_]),C(&params[CIdx_]);
-  double angle = rot.squaredNorm();
+  Map<const Vector3d> angleaxis(&params_[rotIdx_]);
+  double angle = angleaxis.squaredNorm();
   Vector3d axis;
   if(angle == 0.)
     axis = Vector3d::UnitX();
   else
   {
     angle = sqrt(angle);
-    axis = rot / angle;
+    axis = angleaxis / angle;
   }
-  rot_ = AngleAxisd(angle,axis);
-  C_ = C;
-  f_ = params[fIdx_];
+  AngleAxisd rot(angle,axis);
+
+  return rot.toRotationMatrix();
+}
+
+Vector3d StandardCamera::C() const 
+{ 
+  return Map<const Vector3d>(&params_[CIdx_]);
+}
+
+double StandardCamera::f() const { return params_[fIdx_]; }
+const Vector2d& StandardCamera::x0() const { return x0_; }
+
+void StandardCamera::setParams(const vector<double>& params)
+{
+  params_[rotIdx_ + 0] = params[rotIdx_ + 0];
+  params_[rotIdx_ + 1] = params[rotIdx_ + 1];
+  params_[rotIdx_ + 2] = params[rotIdx_ + 2];
+  params_[CIdx_ + 0] = params[CIdx_ + 0];
+  params_[CIdx_ + 1] = params[CIdx_ + 1];
+  params_[CIdx_ + 2] = params[CIdx_ + 2];
+  params_[fIdx_] = params[fIdx_];
 }
 
 void StandardCamera::setParams(const Matrix34d& P)
@@ -155,23 +153,28 @@ void StandardCamera::setParams(const Matrix34d& P)
   P2KRC(P,&K,&R,&Ctmp);
 
   setFocal(0.5*(K(0,0)+K(1,1)));
-  C_ = Ctmp;
-  rot_.fromRotationMatrix(R);
+  setC(Ctmp);
+  setRotation(R);
 }
 
 void StandardCamera::setRotation(const Matrix3d& R)
 {
-  rot_.fromRotationMatrix(R);
+  AngleAxisd aa;
+  aa.fromRotationMatrix(R);
+
+  Map<Vector3d> aa_(&params_[rotIdx_]);
+  aa_ = aa.angle() * aa.axis();
 }
 
 void StandardCamera::setC(const Vector3d& C)
 {
+  Map<Vector3d> C_(&params_[CIdx_]);
   C_ = C;
 }
 
 void StandardCamera::setFocal(double f)
 {
-  f_ = f;
+  params_[fIdx_] = f;
 }
 
 void StandardCamera::setParamsConstraints(const vector<double>& constraints,
@@ -193,19 +196,16 @@ void StandardCamera::constrainFocal(double constraint,double weigtht)
 void StandardCamera::writeASCII(ostream& file) const
 {
   Camera::writeASCII(file);
-  file << rot_.angle() << " "
-    << rot_.axis()(0) << " "
-    << rot_.axis()(1) << " "
-    << rot_.axis()(2) << "\n";
-  file << C_(0) << " " << C_(1) << " " << C_(2) << "\n";
-  file << f_ << "\n";
-  file << x0_(0) << " " << x0_(1) << "\n";
-  file << paramsConstraints_.size();
-  for(size_t i = 0; i < paramsConstraints_.size(); i++)
+
+  file << params_.size() << "\n";
+  for(size_t i = 0; i < params_.size(); i++)
   {
-    file << " " << paramsConstraints_[i] << " " << paramsConstraintsWeights_[i];
+    file << params_[i] << " " 
+      << paramsConstraints_[i] << " " 
+      << paramsConstraintsWeights_[i] << "\n";
   }
-  file << "\n";
+
+  file << x0_(0) << " " << x0_(1) << "\n";
 }
 
 StandardCamera::ReprojectionErrorFunctor::ReprojectionErrorFunctor(double keyX,

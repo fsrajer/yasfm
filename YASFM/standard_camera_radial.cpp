@@ -17,34 +17,34 @@ CameraRegister<StandardCameraRadial> StandardCameraRadial::reg_("StandardCameraR
 StandardCameraRadial::StandardCameraRadial()
 	: StandardCamera()
 {
-	paramsConstraints_.push_back(0.);
-	paramsConstraints_.push_back(0.);
-	paramsConstraintsWeights_.push_back(0.);
-	paramsConstraintsWeights_.push_back(0.);
-	radParams_[0] = 0.;
-	radParams_[1] = 0.;
+  for(int i = 0; i < 2; i++)
+  {
+    params_.push_back(0.);
+    paramsConstraints_.push_back(0.);
+    paramsConstraintsWeights_.push_back(0.);
+  }
 	invRadParams_.fill(0.);
 }
 
 StandardCameraRadial::StandardCameraRadial(const string& imgFilename)
   : StandardCamera(imgFilename)
 {
-  paramsConstraints_.push_back(0.);
-  paramsConstraints_.push_back(0.);
-  paramsConstraintsWeights_.push_back(0.);
-  paramsConstraintsWeights_.push_back(0.);
-  radParams_[0] = 0.;
-  radParams_[1] = 0.;
+  for(int i = 0; i < 2; i++)
+  {
+    params_.push_back(0.);
+    paramsConstraints_.push_back(0.);
+    paramsConstraintsWeights_.push_back(0.);
+  }
   invRadParams_.fill(0.);
 }
 
 StandardCameraRadial::StandardCameraRadial(istream& file,int readMode,
   const string& featuresDir)
   : StandardCamera(file,readMode,featuresDir)
-{
-  int n;
-  file >> n >> radParams_[0] >> radParams_[1];
-  file >> n >> invRadParams_[0] >> invRadParams_[1] >> invRadParams_[2]
+{  
+  file >> invRadParams_[0] 
+    >> invRadParams_[1] 
+    >> invRadParams_[2]
     >> invRadParams_[3];
 }
 
@@ -59,10 +59,9 @@ unique_ptr<Camera> StandardCameraRadial::clone() const
 
 Vector2d StandardCameraRadial::project(const Vector3d& pt) const
 {
-  Vector2d ptCam = (rot_ * (pt - C_)).hnormalized();
-  double r2 = ptCam.squaredNorm();
-  double distortion = 1. + r2 * (radParams_[0] + r2 * radParams_[1]);
-  return f_ * distortion * ptCam + x0_;
+  Vector2d proj;
+  projectWithExternalParams(&params_[0],&pt(0),&proj(0));
+  return proj;
 }
 
 ceres::CostFunction* StandardCameraRadial::costFunction(int keyIdx) const
@@ -76,14 +75,6 @@ ceres::CostFunction* StandardCameraRadial::constraintsCostFunction() const
 {
   return generateConstraintsCostFunction<nParams_>(&paramsConstraints_[0],
     &paramsConstraintsWeights_[0]);
-}
-
-void StandardCameraRadial::params(vector<double> *pparams) const
-{
-  auto& params = *pparams;
-  StandardCamera::params(pparams);
-  params.push_back(radParams_[0]);
-  params.push_back(radParams_[1]);
 }
 
 Vector2d StandardCameraRadial::keyNormalized(int i) const
@@ -100,11 +91,11 @@ Vector2d StandardCameraRadial::keyNormalized(int i) const
 void StandardCameraRadial::setParams(const vector<double>& params)
 {
   StandardCamera::setParams(params);
-  radParams_[0] = params[radIdx_ + 0];
-  radParams_[1] = params[radIdx_ + 1];
+  params_[radIdx_ + 0] = params[radIdx_ + 0];
+  params_[radIdx_ + 1] = params[radIdx_ + 1];
 
   // update inverse parameters
-  array<double,4> radParamsFull = {0.,radParams_[0],0.,radParams_[1]};
+  array<double,4> radParamsFull = {0.,params_[radIdx_ + 0],0.,params_[radIdx_ + 1]};
   double xMax = imgWidth() - x0_(0);
   double yMax = imgHeight() - x0_(1);
   double maxRadius = sqrt(xMax*xMax + yMax*yMax);
@@ -117,8 +108,8 @@ void StandardCameraRadial::setParams(const vector<double>& params)
 void StandardCameraRadial::setParams(const Matrix34d& P)
 {
   StandardCamera::setParams(P);
-  radParams_[0] = 0.;
-  radParams_[1] = 0.;
+  params_[radIdx_ + 0] = 0.;
+  params_[radIdx_ + 1] = 0.;
   invRadParams_.fill(0.);
 }
 
@@ -130,13 +121,12 @@ void StandardCameraRadial::constrainRadial(double *constraints,double *weights)
   paramsConstraintsWeights_[radIdx_ + 1] = weights[1];
 }
 
-const double* StandardCameraRadial::radParams() const { return &radParams_[0]; }
+const double* StandardCameraRadial::radParams() const { return &params_[radIdx_]; }
 
 void StandardCameraRadial::writeASCII(ostream& file) const
 {
   StandardCamera::writeASCII(file);
-  file << "2 " << radParams_[0] << " " << radParams_[1] << "\n";
-  file << "4 " << invRadParams_[0] << " "
+  file << invRadParams_[0] << " "
     << invRadParams_[1] << " "
     << invRadParams_[2] << " "
     << invRadParams_[3] << "\n";

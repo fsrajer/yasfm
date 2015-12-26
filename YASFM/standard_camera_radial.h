@@ -143,12 +143,6 @@ public:
   */
   YASFM_API virtual ceres::CostFunction* constraintsCostFunction() const;
 
-  /// Export parameters (base class params, radial params).
-  /**
-  \param[out] params Current camera parameters.
-  */
-  YASFM_API virtual void params(vector<double> *params) const;
-
   /// \param[in] i Key index.
   /// \return Key with undone calibration.
   YASFM_API virtual Vector2d keyNormalized(int i) const;
@@ -187,7 +181,6 @@ protected:
   */
   virtual void writeASCII(ostream& file) const;
 
-  array<double,2> radParams_;    ///< Radial distortion parameters.
   array<double,4> invRadParams_; ///< Inverse radial distortion parameters.
   
   /// Index of the first radial parameter in the params export ordering.

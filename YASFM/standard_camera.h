@@ -166,9 +166,6 @@ public:
   /// \return Camera center.
   YASFM_API virtual Vector3d C() const;
 
-  /// \return Const reference to the rotation.
-  YASFM_API virtual const AngleAxisd& rot() const;
-
   /// \return Focal length.
   YASFM_API virtual double f() const;
 
@@ -228,10 +225,8 @@ protected:
   */
   virtual void writeASCII(ostream& file) const;
 
-  AngleAxisd rot_; ///< Rotation.
-  Vector3d C_;     ///< Camera center.
-  double f_;       ///< Focal length.
   Vector2d x0_;    ///< Principal point.
+  vector<double> params_; ///< All parameters.
   vector<double> paramsConstraints_;        ///< Parameters' constraints.
   vector<double> paramsConstraintsWeights_; ///< Weights of parameters' constraints.
 

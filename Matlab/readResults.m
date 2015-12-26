@@ -47,9 +47,9 @@ for iCam = 1:nCams
     if strcmp(name,'Camera')
         nLines = 2;
     elseif strcmp(name,'StandardCamera')
-        nLines = 7;
+        nLines = 11;
     elseif strcmp(name,'StandardCameraRadial')
-        nLines = 9;
+        nLines = 14;
     else
        error(['ERROR: readCams: unknown camera class: ' name]); 
     end
