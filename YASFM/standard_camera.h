@@ -244,6 +244,8 @@ protected:
 
 private:
 
+  static const int nParams_ = 7; ///< Total number of parameters.
+
   /// Projection function with externally specified camera parameters.
   /**
   \param[in] camera Camera parameters as given by params().
@@ -281,8 +283,6 @@ private:
     double keyX_; ///< Key/observation x coordinate.
     double keyY_; ///< Key/observation y coordinate.
   };
-
-  static const int nParams_ = 7; ///< Total number of parameters.
 
   /// Register entry of this class in the factory.
   /*

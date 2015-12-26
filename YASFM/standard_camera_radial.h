@@ -190,11 +190,12 @@ protected:
   array<double,2> radParams_;    ///< Radial distortion parameters.
   array<double,4> invRadParams_; ///< Inverse radial distortion parameters.
   
-  static const int nParams_ = 9; //< Total number of parameters.
   /// Index of the first radial parameter in the params export ordering.
   static const int radIdx_ = 7;
 
 private:
+
+  static const int nParams_ = 9; //< Total number of parameters.
 
   /// Projection function with externally specified camera parameters.
   /**
