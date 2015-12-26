@@ -328,9 +328,9 @@ void runSFM(const Options& opt,const string& outDir,
       &data.points().matchesToReconstruct(),&matchesToReconstructNow);
 
     cout << "Reconstructing " << matchesToReconstructNow.size() << " points\n";
-    reconstructPoints(data.cams(),matchesToReconstructNow,&data.points());
+    reconstructPoints(matchesToReconstructNow,&data.cams(),&data.points());
     int prevPts = data.points().numPtsAlive();
-    removeHighReprojErrorPoints(opt.pointsReprojErrorThresh,data.cams(),&data.points());
+    removeHighReprojErrorPoints(opt.pointsReprojErrorThresh,&data.cams(),&data.points());
     cout << "Removing " << prevPts-data.points().numPtsAlive()
       << " points with high reprojection error\n";
 
@@ -342,12 +342,12 @@ void runSFM(const Options& opt,const string& outDir,
         << "  " << prevPts << " points\n"
         << "  " << data.countReconstructedObservations() << " observations\n";
       bundleAdjust(opt.bundleAdjust,&data.cams(),&data.points());
-      removeHighReprojErrorPoints(opt.pointsReprojErrorThresh,data.cams(),&data.points());
+      removeHighReprojErrorPoints(opt.pointsReprojErrorThresh,&data.cams(),&data.points());
       cout << "Removing " << prevPts-data.points().numPtsAlive()
         << " points with high reprojection error\n";
     } while(prevPts > data.points().numPtsAlive());
 
-    removeIllConditionedPoints(0.5*opt.rayAngleThresh,data.cams(),&data.points());
+    removeIllConditionedPoints(0.5*opt.rayAngleThresh,&data.cams(),&data.points());
     cout << "Removing " << prevPts-data.points().numPtsAlive() 
       << " ill conditioned points\n";
 
