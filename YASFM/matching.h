@@ -46,6 +46,14 @@ using namespace yasfm;
 namespace yasfm
 {
 
+/// Callback function for progress notifying
+/**
+\param[in] void pointer to the callee object
+\param[out] indices of the cameras
+\param[out] progress indicator 0-1
+*/
+typedef void (*CallbackFunctionPtr)(void *, IntPair, int nMatches , double);
+
 /// Removes pairs which have low number of matches.
 /**
 \param[in] minNumMatches Minimal number of matches.
@@ -104,7 +112,8 @@ See options.
 \param[out] pairs Resulting matched camera pairs.
 */
 YASFM_API void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
-  const vector<set<int>>& queries,pair_umap<CameraPair> *pairs);
+	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, 
+	CallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Match features.
 /** 
@@ -116,7 +125,7 @@ gets matched.
 \param[out] pairs Resulting matched camera pairs.
 */
 YASFM_API void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
-  pair_umap<CameraPair> *pairs);
+	pair_umap<CameraPair> *pairs, CallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Match features.
 /**
@@ -130,7 +139,8 @@ See options.
 \param[out] pairs Resulting matched camera pairs.
 */
 void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& descr,
-  const vector<set<int>>& queries,pair_umap<CameraPair> *pairs);
+	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, 
+	CallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Match features.
 /**

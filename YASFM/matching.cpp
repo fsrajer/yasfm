@@ -45,7 +45,7 @@ void OptionsFLANN::write(ostream& file) const
 }
 
 void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
-  pair_umap<CameraPair> *pairs)
+	pair_umap<CameraPair> *pairs, CallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
   vector<set<int>> queries;
   int nImages = static_cast<int>(cams.size());
@@ -57,11 +57,11 @@ void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
       queries[j].insert(i);
     }
   }
-  matchFeatFLANN(opt,cams,queries,pairs);
+  matchFeatFLANN(opt, cams, queries, pairs, callbackFunction,callbackObjectPtr);
 }
 
 void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
-  const vector<set<int>>& queries,pair_umap<CameraPair> *pairs)
+	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, CallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
   vector<flann::Matrix<float>> descr;
   descr.reserve(cams.size());
@@ -73,12 +73,13 @@ void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
     descr.emplace_back(const_cast<float*>(curr.data()),curr.cols(),curr.rows());
   }
 
-  matchFeatFLANN(opt,descr,queries,pairs);
+  matchFeatFLANN(opt, descr, queries, pairs, callbackFunction, callbackObjectPtr);
 }
 
 void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& descr,
-  const vector<set<int>>& queries,pair_umap<CameraPair> *ppairs)
+	const vector<set<int>>& queries, pair_umap<CameraPair> *ppairs, CallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
+  int pairsDone = 0;
   auto& pairs = *ppairs;
   size_t sz = 0;
   for(const auto& entry : queries)
@@ -104,6 +105,10 @@ void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& 
       }
       IntPair pairIdx(i,j);
       matchFeatFLANN(opt,index,descr[i],&pairs[pairIdx]);
+	  pairsDone++;
+	  if (callbackFunction != NULL&&callbackObjectPtr != NULL){
+		  callbackFunction(callbackObjectPtr, pairIdx, pairs[pairIdx].matches.size(), double(pairsDone) /sz);
+	  }
       if(opt.verbose)
       {
         end = clock();

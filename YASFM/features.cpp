@@ -202,8 +202,8 @@ SiftGPUAutoMemRelease::~SiftGPUAutoMemRelease()
 {
   if(sift)
     delete sift;
-  if(siftgpuHandle)
-    YASFM_FREE_LIB(siftgpuHandle);
+  /*if(siftgpuHandle)
+    YASFM_FREE_LIB(siftgpuHandle);*/
 }
 
 } // namespace
