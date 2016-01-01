@@ -105,14 +105,17 @@ void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& 
       }
       IntPair pairIdx(i,j);
       matchFeatFLANN(opt,index,descr[i],&pairs[pairIdx]);
-	  pairsDone++;
-	  if (callbackFunction != NULL&&callbackObjectPtr != NULL){
-		  callbackFunction(callbackObjectPtr, pairIdx, pairs[pairIdx].matches.size(), double(pairsDone) /sz);
-	  }
+      pairsDone++;
+      int nMatches = static_cast<int>(pairs[pairIdx].matches.size());
+      if(callbackFunction != NULL&&callbackObjectPtr != NULL)
+      {
+        double progress = static_cast<double>(pairsDone) / sz;
+        callbackFunction(callbackObjectPtr,pairIdx,nMatches,progress);
+      }
       if(opt.verbose)
       {
         end = clock();
-        cout << "found " << pairs[pairIdx].matches.size() << " matches" << "\t";
+        cout << "found " << nMatches << " matches" << "\t";
         cout << "took: " << (double)(end - start) / (double)CLOCKS_PER_SEC << "s\n";
       }
     }
