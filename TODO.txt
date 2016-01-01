@@ -1,3 +1,4 @@
+:Fix SiftGPU dll loading to standard dll loading.
 :Similarity - no exhaustive matching
 :Memoptim - run big dataset and fix issues (maybe that binary IO will be neccessary)
 :Run experiments with geometric verification instead of epipolar verification or try both

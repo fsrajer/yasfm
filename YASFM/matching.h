@@ -48,11 +48,13 @@ namespace yasfm
 
 /// Callback function for progress notifying
 /**
-\param[in] void pointer to the callee object
-\param[out] indices of the cameras
-\param[out] progress indicator 0-1
+\param[in,out] object void pointer to the callee object
+\param[in] camIdxs indices of the cameras
+\param[in] nMatches Number of found matches for the pair.
+\param[in] progress indicator 0-1
 */
-typedef void (*CallbackFunctionPtr)(void *, IntPair, int nMatches , double);
+typedef void (*CallbackFunctionPtr)(void *object,IntPair camIdxs,int nMatches,
+  double progress);
 
 /// Removes pairs which have low number of matches.
 /**
@@ -110,6 +112,9 @@ See options.
 \param[in] cams Cameras. Have to have descriptors.
 \param[in] queries See function description.
 \param[out] pairs Resulting matched camera pairs.
+\param[out] callbackFunction Optional. Function to be called after finishing 
+matching of one pair.
+\param[out] callbackObjectPtr Optional. Object to be passed to callbackFunction.
 */
 YASFM_API void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
 	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, 
@@ -123,6 +128,9 @@ gets matched.
 \param[in] opt Options.
 \param[in] cams Cameras. Have to have descriptors.
 \param[out] pairs Resulting matched camera pairs.
+\param[out] callbackFunction Optional. Function to be called after finishing 
+matching of one pair.
+\param[out] callbackObjectPtr Optional. Object to be passed to callbackFunction.
 */
 YASFM_API void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
 	pair_umap<CameraPair> *pairs, CallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
@@ -137,6 +145,9 @@ See options.
 \param[in] descr Descriptors for all cameras.
 \param[in] queries See function description.
 \param[out] pairs Resulting matched camera pairs.
+\param[out] callbackFunction Optional. Function to be called after finishing 
+matching of one pair.
+\param[out] callbackObjectPtr Optional. Object to be passed to callbackFunction.
 */
 void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& descr,
 	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, 
