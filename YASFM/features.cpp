@@ -3,12 +3,14 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <memory>
 
 using std::cerr;
 using std::cout;
 using std::string;
 using std::to_string;
 using std::vector;
+using std::unique_ptr;
 using namespace yasfm;
 
 namespace yasfm
@@ -42,35 +44,29 @@ void detectSiftGPU(const OptionsSIFTGPU& opt,ptr_vector<Camera> *cams)
     maxHeight = std::max(maxHeight,pcam->imgHeight());
   }
 
-  SiftGPUAutoMemRelease siftHandle;
-  if(!siftHandle.isLoadedDLL())
-  { return; }
+  unique_ptr<SiftGPU> sift(CreateNewSiftGPU(1));
 
-  bool success = siftHandle.initialize(opt,maxWidth,maxHeight);
+  bool success = initializeSiftGPU(opt,maxWidth,maxHeight,sift.get());
   if(!success)
   { return; }
 
   for(auto& pcam : (*cams))
   {
-    detectSiftGPU(siftHandle,&(*pcam));
+    ::detectSiftGPU(sift.get(),pcam.get());
   }
 }
 
 void detectSiftGPU(const OptionsSIFTGPU& opt,Camera *cam)
 {
-  SiftGPUAutoMemRelease siftHandle;
-  if(!siftHandle.isLoadedDLL())
-  {
-    return;
-  }
+  unique_ptr<SiftGPU> sift(CreateNewSiftGPU(1));
 
-  bool success = siftHandle.initialize(opt,cam->imgWidth(),cam->imgHeight());
+  bool success = initializeSiftGPU(opt,cam->imgWidth(),cam->imgHeight(),sift.get());
   if(!success)
   {
     return;
   }
   
-  detectSiftGPU(siftHandle,cam);
+  ::detectSiftGPU(sift.get(),cam);
 }
 
 } // namespace yasfm
@@ -79,14 +75,14 @@ void detectSiftGPU(const OptionsSIFTGPU& opt,Camera *cam)
 namespace
 {
 
-void detectSiftGPU(const SiftGPUAutoMemRelease& siftHandle,Camera *cam)
+void detectSiftGPU(SiftGPU *sift,Camera *cam)
 {
-  if(siftHandle.sift->RunSIFT(cam->imgFilename().c_str()))
+  if(sift->RunSIFT(cam->imgFilename().c_str()))
   {
-    int num = siftHandle.sift->GetFeatureNum();
+    int num = sift->GetFeatureNum();
     auto *keys = new SiftGPU::SiftKeypoint[num];
     auto *descr = new float[128 * num];
-    siftHandle.sift->GetFeatureVector(keys,descr);
+    sift->GetFeatureVector(keys,descr);
 
     cam->resizeFeatures(num,128);
     for(int i = 0; i < num; i++)
@@ -98,35 +94,7 @@ void detectSiftGPU(const SiftGPUAutoMemRelease& siftHandle,Camera *cam)
   }
 }
 
-SiftGPUAutoMemRelease::SiftGPUAutoMemRelease() : sift(nullptr),siftgpuHandle(nullptr)
-{
-#ifdef _WIN32
-#ifdef _DEBUG
-  siftgpuHandle = LoadLibrary("SiftGPU64_d.dll");
-#else
-  siftgpuHandle = LoadLibrary("SiftGPU64.dll");
-#endif
-#else
-  siftgpuHandle = dlopen("libsiftgpu.so",RTLD_LAZY);
-#endif
-
-  if(siftgpuHandle == nullptr)
-  {
-    cerr << "detectSiftGPU: could not load SiftGPU library\n";
-    return;
-  }
-
-  SiftGPU* (*pCreateNewSiftGPU)(int) = nullptr;
-  pCreateNewSiftGPU = (SiftGPU* (*) (int)) YASFM_GET_PROC(siftgpuHandle,"CreateNewSiftGPU");
-  sift = pCreateNewSiftGPU(1);
-}
-
-bool SiftGPUAutoMemRelease::isLoadedDLL() const
-{
-  return (siftgpuHandle != nullptr && sift != nullptr);
-}
-
-void SiftGPUAutoMemRelease::setParams(const OptionsSIFTGPU& opt)
+void setParamsSiftGPU(const OptionsSIFTGPU& opt,SiftGPU *sift)
 {
   vector<string> opts;
   opts.push_back("-fo");
@@ -184,9 +152,10 @@ void SiftGPUAutoMemRelease::setParams(const OptionsSIFTGPU& opt)
   delete[] argv;
 }
 
-bool SiftGPUAutoMemRelease::initialize(const OptionsSIFTGPU& opt,int maxWidth,int maxHeight)
+bool initializeSiftGPU(const OptionsSIFTGPU& opt,int maxWidth,int maxHeight,
+  SiftGPU *sift)
 {
-  setParams(opt);
+  setParamsSiftGPU(opt,sift);
 
   if(sift->CreateContextGL() != SiftGPU::SIFTGPU_FULL_SUPPORTED)
   {
@@ -196,14 +165,6 @@ bool SiftGPUAutoMemRelease::initialize(const OptionsSIFTGPU& opt,int maxWidth,in
 
   sift->AllocatePyramid(maxWidth,maxHeight);
   return true;
-}
-
-SiftGPUAutoMemRelease::~SiftGPUAutoMemRelease()
-{
-  if(sift)
-    delete sift;
-  /*if(siftgpuHandle)
-    YASFM_FREE_LIB(siftgpuHandle);*/
 }
 
 } // namespace
