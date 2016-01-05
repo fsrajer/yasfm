@@ -53,7 +53,7 @@ namespace yasfm
 \param[in] nMatches Number of found matches for the pair.
 \param[in] progress indicator 0-1
 */
-typedef void (*CallbackFunctionPtr)(void *object,IntPair camIdxs,int nMatches,
+	typedef void(*MatchingCallbackFunctionPtr)(void *object, IntPair camIdxs, int nMatches,
   double progress);
 
 /// Removes pairs which have low number of matches.
@@ -118,7 +118,7 @@ matching of one pair.
 */
 YASFM_API void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
 	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, 
-	CallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
+	MatchingCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Match features.
 /** 
@@ -133,7 +133,7 @@ matching of one pair.
 \param[out] callbackObjectPtr Optional. Object to be passed to callbackFunction.
 */
 YASFM_API void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
-	pair_umap<CameraPair> *pairs, CallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
+	pair_umap<CameraPair> *pairs, MatchingCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Match features.
 /**
@@ -151,7 +151,7 @@ matching of one pair.
 */
 void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& descr,
 	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, 
-	CallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
+	MatchingCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Match features.
 /**
