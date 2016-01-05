@@ -35,6 +35,24 @@ using namespace yasfm;
 namespace yasfm
 {
 
+/// Callback function for EG verification progress notifying
+/**
+\param[in] void pointer to the callee object.
+\param[out] indices of the cameras.
+\param[out] number of original matches.
+\param[out] number of inliers after verification.
+\param[out] progress indicator 0-1.
+
+*/
+typedef void(*GeomVerifyCallbackFunctionPtr)(void *, IntPair imgPair, int nMatches, int nInliers, double progress);
+
+/// Callback function for Homography verification progress notifying
+/**
+\param[in] void pointer to the callee object
+\param[out] progress indicator 0-1
+*/
+typedef void(*HomographyInliersCallbackFunctionPtr)(void *, double progress);
+
 /// Choose good camera pair for initialization (with the most matches).
 /**
 \param[in] minMatches Minimum matches needed for a camera pair to be enough.
@@ -206,18 +224,22 @@ kept (as well as corresponding dists). The empty pairs get removed.
 \param[in] verbose Should this print status?
 \param[in] cams Cameras needed for the keys.
 \param[in,out] pairs Camera pairs which will get verified.
+\param[in] callback function for progress notification, called after each verified pair.
+\param[in] pointer to an object whose callback function should be called.
 */
 YASFM_API void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
-  bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs);
+	bool verbose, const ptr_vector<Camera>& cams, pair_umap<CameraPair> *pairs, GeomVerifyCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Sets verbosity to true and calls overloaded function.
 /**
 \param[in] solverOpt Options for estimating transformations.
 \param[in] cams Cameras needed for the keys.
 \param[in,out] pairs Camera pairs which will get verified.
+\param[in] callback function for progress notification, called after each verified pair.
+\param[in] pointer to an object whose callback function should be called.
 */
 YASFM_API void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
-  const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs);
+	const ptr_vector<Camera>& cams, pair_umap<CameraPair> *pairs, GeomVerifyCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Estimate fundamental matrix using PROSAC.
 /**
@@ -316,7 +338,7 @@ into proportion. By convention unmatched camera pairs have the proportion 1.
 */
 YASFM_API void computeHomographyInliersProportion(const OptionsRANSAC& opt,
   const ptr_vector<Camera>& cams,const pair_umap<CameraPair>& pairs,
-  ArrayXXd *proportion);
+  ArrayXXd *proportion, HomographyInliersCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Estimate homography using PROSAC.
 /**

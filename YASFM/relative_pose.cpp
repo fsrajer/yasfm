@@ -319,15 +319,19 @@ void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
 }
 
 void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
-  const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
+	const ptr_vector<Camera>& cams, pair_umap<CameraPair> *pairs, 
+	GeomVerifyCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
-  verifyMatchesEpipolar(solverOpt,true,cams,pairs);
+	verifyMatchesEpipolar(solverOpt, true, cams, pairs, callbackFunction, callbackObjectPtr);
 }
 
 void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
-  bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
+  bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs,
+  GeomVerifyCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
   clock_t start,end;
+  int pairsDone = 0;
+  int nPrevMatches;
   for(auto it = pairs->begin(); it != pairs->end();)
   {
     IntPair camsIdx = it->first;
@@ -346,13 +350,19 @@ void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
       cams[camsIdx.first]->keys(),cams[camsIdx.second]->keys(),pair,&F,&inliers);
     if(success)
     {
+	  nPrevMatches = pair.matches.size();
       filterVector(inliers,&pair.matches);
       filterVector(inliers,&pair.dists);
       ++it;
+	  pairsDone++;
     } else
     {
       it = pairs->erase(it);
     }
+
+	if (callbackFunction != NULL&&callbackObjectPtr != NULL){
+		callbackFunction(callbackObjectPtr, camsIdx, nPrevMatches, inliers.size(), double(pairsDone) / pairs->size());
+	}
 
     if(verbose)
     {
@@ -515,11 +525,12 @@ void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
 
 void computeHomographyInliersProportion(const OptionsRANSAC& opt,
   const ptr_vector<Camera>& cams,const pair_umap<CameraPair>& pairs,
-  ArrayXXd *pproportion)
+  ArrayXXd *pproportion, HomographyInliersCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
   auto& proportion = *pproportion;
   proportion.resize(cams.size(),cams.size());
   proportion.fill(1.);
+  int pairsDone = 0;
   for(const auto& entry : pairs)
   {
     int i = entry.first.first;
@@ -535,6 +546,10 @@ void computeHomographyInliersProportion(const OptionsRANSAC& opt,
       proportion(i,j) = static_cast<double>(inliers.size()) / pair.matches.size();
       proportion(j,i) = proportion(i,j);
     }
+	pairsDone++;
+	if (callbackFunction != NULL&&callbackObjectPtr != NULL){
+		callbackFunction(callbackObjectPtr, pairsDone / double(pairs.size()));
+	}
   }
 }
 

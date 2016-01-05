@@ -20,7 +20,8 @@ namespace yasfm
 
 void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
   const pair_umap<CameraPair>& pairs,
-  vector<NViewMatch> *nViewMatches)
+  vector<NViewMatch> *nViewMatches, 
+  FindNVMCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
   pair_umap<vector<int>> matches;
   vector<uset<int>> matchedCams;
@@ -42,6 +43,9 @@ void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
       if(!visitedFeats[camIdx][featIdx])
       {
         findNViewMatch(matchedCams,matches,camIdx,featIdx,&visitedFeats,nViewMatches);
+		if (callbackFunction != NULL&&callbackObjectPtr != NULL){
+			callbackFunction(callbackObjectPtr, camIdx / double(nCams));
+		}
       }
     }
   }

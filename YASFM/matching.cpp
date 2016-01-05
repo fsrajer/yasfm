@@ -45,7 +45,7 @@ void OptionsFLANN::write(ostream& file) const
 }
 
 void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
-	pair_umap<CameraPair> *pairs, CallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
+	pair_umap<CameraPair> *pairs, MatchingCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
   vector<set<int>> queries;
   int nImages = static_cast<int>(cams.size());
@@ -61,7 +61,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
 }
 
 void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
-	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, CallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
+	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, MatchingCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
   vector<flann::Matrix<float>> descr;
   descr.reserve(cams.size());
@@ -77,7 +77,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
 }
 
 void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& descr,
-	const vector<set<int>>& queries, pair_umap<CameraPair> *ppairs, CallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
+	const vector<set<int>>& queries, pair_umap<CameraPair> *ppairs, MatchingCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
   int pairsDone = 0;
   auto& pairs = *ppairs;

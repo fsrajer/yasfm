@@ -25,6 +25,13 @@ using namespace yasfm;
 namespace yasfm
 {
 
+/// Callback function for creating NVMatches progress notifying
+/**
+\param[in] void pointer to the callee object
+\param[out] progress indicator 0-1
+*/
+typedef void(*FindNVMCallbackFunctionPtr)(void *, double);
+
 /// Find n-view matches from two-view matches.
 /**
 This tries to connect all the key matches into n-view matches. If a n-view match is
@@ -42,7 +49,7 @@ from img1 should match to feature0.
 */
 YASFM_API void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
   const pair_umap<CameraPair>& pairs,
-  vector<NViewMatch> *nViewMatches);
+  vector<NViewMatch> *nViewMatches, FindNVMCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Creates matches for one camera pair from n-view matches.
 /**

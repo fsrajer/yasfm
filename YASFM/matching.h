@@ -46,13 +46,13 @@ using namespace yasfm;
 namespace yasfm
 {
 
-/// Callback function for progress notifying
+/// Callback function for matching progress notifying
 /**
 \param[in] void pointer to the callee object
 \param[out] indices of the cameras
 \param[out] progress indicator 0-1
 */
-typedef void (*CallbackFunctionPtr)(void *, IntPair, int nMatches , double);
+typedef void (*MatchingCallbackFunctionPtr)(void *, IntPair, int nMatches , double);
 
 /// Removes pairs which have low number of matches.
 /**
@@ -110,10 +110,12 @@ See options.
 \param[in] cams Cameras. Have to have descriptors.
 \param[in] queries See function description.
 \param[out] pairs Resulting matched camera pairs.
+\param[in] callback function for progress notification, called after each matched pair.
+\param[in] pointer to an object whose callback function should be called.
 */
 YASFM_API void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
 	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, 
-	CallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
+	MatchingCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Match features.
 /** 
@@ -123,9 +125,11 @@ gets matched.
 \param[in] opt Options.
 \param[in] cams Cameras. Have to have descriptors.
 \param[out] pairs Resulting matched camera pairs.
+\param[in] callback function for progress notification, called after each matched pair.
+\param[in] pointer to an object whose callback function should be called.
 */
 YASFM_API void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
-	pair_umap<CameraPair> *pairs, CallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
+	pair_umap<CameraPair> *pairs, MatchingCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Match features.
 /**
@@ -137,10 +141,12 @@ See options.
 \param[in] descr Descriptors for all cameras.
 \param[in] queries See function description.
 \param[out] pairs Resulting matched camera pairs.
+\param[in] callback function for progress notification, called after each matched pair.
+\param[in] pointer to an object whose callback function should be called.
 */
 void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& descr,
 	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, 
-	CallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
+	MatchingCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Match features.
 /**
