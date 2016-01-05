@@ -17,19 +17,6 @@
 #include "defines.h"
 #include "sfm_data.h"
 
-// loading dll at runtime, see SiftGPU SimpleSIFT example for 
-// changing to dynamic linking
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#define YASFM_FREE_LIB FreeLibrary
-#define YASFM_GET_PROC GetProcAddress
-#else
-#include <dlfcn.h>
-#define YASFM_FREE_LIB dlclose
-#define YASFM_GET_PROC dlsym
-#endif
-
 namespace yasfm
 {
 
@@ -127,53 +114,29 @@ YASFM_API void detectSiftGPU(const OptionsSIFTGPU& opt,Camera *cam);
 namespace
 {
 
-/// Helper class for automatically releasing SIFTGPU resources.
-/**
-After construction, one should check that isLoadedDLL(), run initialize() and 
-verifie that true was returned by initialize().
-*/
-class SiftGPUAutoMemRelease
-{
-public:
-  /// Constructor. Automatically loads SIFTGPU dll.
-  SiftGPUAutoMemRelease();
-
-  /// Destructor.
-  ~SiftGPUAutoMemRelease();
-
-  /// \return True if the dll was successfully loaded.
-  bool isLoadedDLL() const;
-
-  /// Initialize sift object.
-  /**
-  Initialize context and allocate pyramid.
-
-  \param[in] opt Options.
-  \param[in] maxWidth Maximum width of all images that will be used.
-  \param[in] maxHeight Maximum height of all images that will be used.
-  \return True if successfully initialized.
-  */
-  bool initialize(const OptionsSIFTGPU& opt,int maxWidth,int maxHeight);
-
-  SiftGPU* sift; ///< SIFTGPU object.
-
-private:
-  /// Convert from OptionsSIFTGPU to options in SIFTGPU object.
-  /// \param[in] opt Options.
-  void setParams(const OptionsSIFTGPU& opt);
-
-#ifdef _WIN32
-  HMODULE siftgpuHandle; ///< nullptr value means that loading was unsuccessful
-#else
-  void *siftgpuHandle ///< nullptr value means that loading was unsuccessful
-#endif
-};
-
 /// Detect SIFT on one image using loaded SiftGPU.
 /**
-\param[in] siftHandle Initialized object.
+\param[in] sift Initialized SIFTGPU object.
 \param[in,out] cam Camera, which has to have image filename set.
 */
-void detectSiftGPU(const SiftGPUAutoMemRelease& siftHandle,Camera *cam);
+void detectSiftGPU(SiftGPU *sift,Camera *cam);
+
+/// Convert from OptionsSIFTGPU to options in SIFTGPU object.
+/// \param[in] opt Options.
+/// \param[out] sift SIFT object.
+void setParamsSiftGPU(const OptionsSIFTGPU& opt,SiftGPU *sift);
+
+/// Initialize sift object.
+/**
+Initialize context and allocate pyramid.
+
+\param[in] opt Options.
+\param[in] maxWidth Maximum width of all images that will be used.
+\param[in] maxHeight Maximum height of all images that will be used.
+\param[out] sift SIFT object to initialize.
+\return True if successfully initialized.
+*/
+bool initializeSiftGPU(const OptionsSIFTGPU& opt,int maxWidth,int maxHeight,
+  SiftGPU *sift);
 
 } // namespace
