@@ -350,7 +350,7 @@ void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
       cams[camsIdx.first]->keys(),cams[camsIdx.second]->keys(),pair,&F,&inliers);
     if(success)
     {
-	  nPrevMatches = pair.matches.size();
+      nPrevMatches = static_cast<int>(pair.matches.size());
       filterVector(inliers,&pair.matches);
       filterVector(inliers,&pair.dists);
       ++it;
@@ -360,14 +360,16 @@ void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
       it = pairs->erase(it);
     }
 
-	if (callbackFunction != NULL&&callbackObjectPtr != NULL){
-		callbackFunction(callbackObjectPtr, camsIdx, nPrevMatches, inliers.size(), double(pairsDone) / pairs->size());
-	}
+    int nInliers = static_cast<int>(inliers.size());
+    if(callbackFunction != NULL&&callbackObjectPtr != NULL)
+    {
+      callbackFunction(callbackObjectPtr,camsIdx,nPrevMatches,nInliers,double(pairsDone) / pairs->size());
+    }
 
     if(verbose)
     {
       end = clock();
-      cout << "->" << inliers.size() << " matches" << "\t";
+      cout << "->" << nInliers << " matches" << "\t";
       cout << "took: " << (double)(end - start) / (double)CLOCKS_PER_SEC << "s\n";
     }
   }
