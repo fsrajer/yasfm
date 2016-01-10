@@ -156,6 +156,11 @@ int main(int argc,const char* argv[])
   data.readKeysColors();
   data.writeASCII("init.txt",Camera::WriteAll | Camera::WriteConvertNormalizedSIFTToUint);
   
+  MatrixXf camsSimilarity;
+  VisualVocabulary vocabulary;
+  computeImagesSimilarity(data.cams(),opt.vocabularySampleSizeFraction,
+    &camsSimilarity,&vocabulary);
+  cout << "Image similarity: \n" << camsSimilarity << "\n";
 
   matchFeatFLANN(opt.matchingFLANN,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumPairwiseMatches,&data.pairs());
