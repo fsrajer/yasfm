@@ -9,7 +9,7 @@ namespace yasfm
 {
 
 void createVisualVocabulary(const ptr_vector<Camera>& cams,
-  double sampleSizeFraction,ArrayXXf *pvocabulary)
+  double sampleSizeFraction,MatrixXf *pvocabulary)
 {
   auto& vocabulary = *pvocabulary;
   int nCams = static_cast<int>(cams.size());

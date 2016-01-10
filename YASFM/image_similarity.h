@@ -15,7 +15,7 @@
 #include "defines.h"
 #include "camera.h"
 
-using Eigen::ArrayXXf;
+using Eigen::MatrixXf;
 
 namespace yasfm
 {
@@ -29,6 +29,6 @@ Randomly samples descriptors from every camera to create visual vocabulary.
 \param[out] vocabulary Visual words in columns (words are normalized).
 */
 YASFM_API void createVisualVocabulary(const ptr_vector<Camera>& cams,
-  double sampleSizeFraction,ArrayXXf *vocabulary);
+  double sampleSizeFraction,MatrixXf *vocabulary);
 
 } // namespace yasfm

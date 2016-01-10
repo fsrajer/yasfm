@@ -156,7 +156,7 @@ int main(int argc,const char* argv[])
   data.readKeysColors();
   data.writeASCII("init.txt",Camera::WriteAll | Camera::WriteConvertNormalizedSIFTToUint);
   
-  ArrayXXf vocabulary;
+  MatrixXf vocabulary;
   createVisualVocabulary(data.cams(),opt.vocabularySampleSizeFraction,&vocabulary);
 
   matchFeatFLANN(opt.matchingFLANN,data.cams(),&data.pairs());

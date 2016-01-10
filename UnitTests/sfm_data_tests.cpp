@@ -8,7 +8,7 @@
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace yasfm;
-using Eigen::ArrayXf;
+using Eigen::VectorXf;
 
 namespace yasfm_tests
 {
@@ -165,7 +165,7 @@ public:
     cam.resizeFeatures(nFeats,descrDim);
 
     double x = 3,y = 5;
-    ArrayXf descr(ArrayXf::Random(descrDim));
+    VectorXf descr(VectorXf::Random(descrDim));
     for(int i = 0; i < nFeats; i++)
       cam.setFeature(i,x,y,0,0,&descr(0));
 
