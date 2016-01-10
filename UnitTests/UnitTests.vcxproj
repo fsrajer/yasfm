@@ -244,6 +244,7 @@
   <ItemGroup>
     <ClCompile Include="absolute_pose_tests.cpp" />
     <ClCompile Include="bundle_adjust_tests.cpp" />
+    <ClCompile Include="image_similarity_tests.cpp" />
     <ClCompile Include="matching_tests.cpp" />
     <ClCompile Include="points_tests.cpp" />
     <ClCompile Include="ransac_tests.cpp" />

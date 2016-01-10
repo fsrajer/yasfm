@@ -29,6 +29,7 @@
 #include "YASFM/relative_pose.h"
 #include "YASFM/utils.h"
 #include "YASFM/utils_io.h"
+#include "YASFM/image_similarity.h"
 #include "Eigen/Dense"
 
 using namespace yasfm;
@@ -47,6 +48,8 @@ struct Options
     :
     ccdDBFilename("../resources/camera_ccd_widths.txt"),
     sift(),
+    vocabularySampleSizeFraction(0.1),
+    nSimilarCamerasToMatch(20),
     matchingFLANN(),
     minNumPairwiseMatches(16),
     geometricVerification(),
@@ -69,6 +72,8 @@ struct Options
 
   string ccdDBFilename;
   OptionsSIFTGPU sift;
+  double vocabularySampleSizeFraction;
+  int nSimilarCamerasToMatch;
   OptionsFLANN matchingFLANN;
   // Min number of matches defining a poorly matched pair. Default: 16.
   int minNumPairwiseMatches;
@@ -153,7 +158,13 @@ int main(int argc,const char* argv[])
   data.readKeysColors();
   data.writeASCII("init.txt",Camera::WriteAll | Camera::WriteConvertNormalizedSIFTToUint);
   
-  matchFeatFLANN(opt.matchingFLANN,data.cams(),&data.pairs());
+  cout << "Looking for similar camera pairs.\n";
+  vector<set<int>> queries;
+  findSimilarCameraPairs(data.cams(),opt.vocabularySampleSizeFraction,
+    opt.nSimilarCamerasToMatch,&queries);
+
+  matchFeatFLANN(opt.matchingFLANN,data.cams(),queries,&data.pairs());
+  //matchFeatFLANN(opt.matchingFLANN,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumPairwiseMatches,&data.pairs());
 
   data.writeASCII("tentatively_matched.txt",Camera::WriteNoFeatures);
@@ -364,6 +375,8 @@ void Options::write(const string& filename) const
   file << "ccdDBFilename:\n " << ccdDBFilename << "\n";
   file << "sift:\n";
   sift.write(file);
+  file << "vocabularySampleSizeFraction:\n " << vocabularySampleSizeFraction << "\n";
+  file << "nSimilarCamerasToMatch:\n " << nSimilarCamerasToMatch << "\n";
   file << "matchingFLANN:\n";
   matchingFLANN.write(file);
   file << "minNumPairwiseMatches:\n " << minNumPairwiseMatches << "\n";
