@@ -74,6 +74,9 @@ Camera::Camera(istream& file,int mode,const string& featuresDir)
   }
   featuresFile.close();
 
+  if(mode & ReadAll)
+    descr_.matrix().colwise().normalize();
+
   readKeysColors();
 }
 

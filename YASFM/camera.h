@@ -238,7 +238,8 @@ public:
   {
     /// Read only keys (coordinates, scales and orientations) and no descriptors
     ReadNoDescriptors = 0,
-    ReadAll = 1            ///< Read keys and descriptors.
+    /// Read keys, descriptors and normalize descriptors to unit length.
+    ReadAll = 1  
   };
 
   /// Allocate storage for keys and descriptors.
