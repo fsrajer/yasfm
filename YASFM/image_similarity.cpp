@@ -8,10 +8,10 @@ using std::uniform_int_distribution;
 namespace yasfm
 {
 
-void createVisualVocabulary(const ptr_vector<Camera>& cams,
-  double sampleSizeFraction,MatrixXf *pvocabulary)
+void randomlySampleVisualWords(const ptr_vector<Camera>& cams,
+  double sampleSizeFraction,MatrixXf *pvisualWords)
 {
-  auto& vocabulary = *pvocabulary;
+  auto& visualWords = *pvisualWords;
   int nCams = static_cast<int>(cams.size());
   if(nCams == 0)
     return;
@@ -24,7 +24,7 @@ void createVisualVocabulary(const ptr_vector<Camera>& cams,
 
   std::default_random_engine generator;
 
-  vocabulary.resize(dim,vocSize);
+  visualWords.resize(dim,vocSize);
   int idx = 0;
   for(int iCam = 0; iCam < nCams; iCam++)
   {
@@ -34,7 +34,7 @@ void createVisualVocabulary(const ptr_vector<Camera>& cams,
       indices.insert(distribution(generator));
     for(size_t iKey : indices)
     {
-      vocabulary.col(idx) = cams[iCam]->descr().col(iKey);
+      visualWords.col(idx) = cams[iCam]->descr().col(iKey);
       idx++;
     }
   }
