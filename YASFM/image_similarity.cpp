@@ -95,14 +95,15 @@ void findClosestVisualWords(const ptr_vector<Camera>& cams,const MatrixXf& visua
 {
   auto& closestVisualWord = *pclosestVisualWord;
   closestVisualWord.resize(cams.size());
+  VectorXf cosineSimilarity(visualWords.cols());
   for(size_t iCam = 0; iCam < cams.size(); iCam++)
   {
     size_t nKeys = cams[iCam]->keys().size();
     closestVisualWord[iCam].resize(nKeys);
-    MatrixXf cosineSimilarity = visualWords.transpose() * cams[iCam]->descr();
     for(size_t iKey = 0; iKey < nKeys; iKey++)
     {
-      cosineSimilarity.col(iKey).maxCoeff(&closestVisualWord[iCam][iKey]);
+      cosineSimilarity.noalias() = visualWords.transpose() * cams[iCam]->descr().col(iKey);
+      cosineSimilarity.maxCoeff(&closestVisualWord[iCam][iKey]);
     }
   }
 }
