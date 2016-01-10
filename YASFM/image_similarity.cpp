@@ -2,11 +2,42 @@
 
 #include <random>
 
+#include "utils.h"
+
 using Eigen::ArrayXi;
 using std::uniform_int_distribution;
 
 namespace yasfm
 {
+
+void findSimilarCameraPairs(const ptr_vector<Camera>& cams,
+  double vocabularySampleSizeFraction,int nSimilar,
+  vector<set<int>> *pqueries)
+{
+  auto& queries = *pqueries;
+  MatrixXf similarity;
+  VisualVocabulary voc;
+  computeImagesSimilarity(cams,vocabularySampleSizeFraction,&similarity,&voc);
+
+  int nCams = static_cast<int>(cams.size());
+  queries.resize(nCams);
+  for(int iCurr = 0; iCurr < nCams; iCurr++)
+  {
+    vector<int> idxs(nCams);
+    quicksort(nCams,similarity.col(iCurr).data(),&idxs[0]);
+
+    for(int i = nCams-1; i >= std::max(0,nCams-nSimilar); i--)
+    {
+      if(iCurr < idxs[i])
+      {
+        queries[idxs[i]].insert(iCurr);
+      } else if(iCurr > idxs[i])
+      {
+        queries[iCurr].insert(idxs[i]);
+      }
+    }
+  }
+}
 
 void computeImagesSimilarity(const ptr_vector<Camera>& cams,
   double vocabularySampleSizeFraction,MatrixXf *psimilarity,VisualVocabulary *voc)

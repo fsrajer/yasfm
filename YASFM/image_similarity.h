@@ -11,6 +11,7 @@
 #pragma once
 
 #include <vector>
+#include <set>
 
 #include "Eigen/Dense"
 
@@ -18,6 +19,7 @@
 #include "camera.h"
 
 using std::vector;
+using std::set;
 using Eigen::MatrixXf;
 using Eigen::VectorXf;
 
@@ -30,6 +32,19 @@ struct VisualVocabulary
   MatrixXf words;  ///< Individual words in columns.
   VectorXf idf;    ///< Inverse document frequency.
 };
+
+/// Find similar cameras for every camera.
+/**
+\param[in] cams Cameras with descriptors.
+\param[in] vocabularySampleSizeFraction In interval [0,1]. Defines the 
+sample size per image. The given sample of features is used to create the vocabulary.
+\param[in] nSimilar Number of similar cameras for every camera.
+\param[out] queries For direct pluggin to matching functions. queries[i] are all similar 
+to i-th camera and are all smaller than i (their index is smaller).
+*/
+YASFM_API void findSimilarCameraPairs(const ptr_vector<Camera>& cams,
+  double vocabularySampleSizeFraction,int nSimilar,
+  vector<set<int>> *queries);
 
 /// Compute image level similarity (assumes normalized features).
 /**
