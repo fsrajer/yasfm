@@ -29,6 +29,7 @@
 #include "YASFM/relative_pose.h"
 #include "YASFM/utils.h"
 #include "YASFM/utils_io.h"
+#include "YASFM/image_similarity.h"
 #include "Eigen/Dense"
 
 using namespace yasfm;
@@ -47,6 +48,7 @@ struct Options
     :
     ccdDBFilename("../resources/camera_ccd_widths.txt"),
     sift(),
+    vocabularySampleSizeFraction(0.1),
     matchingFLANN(),
     minNumPairwiseMatches(16),
     geometricVerification(),
@@ -69,6 +71,7 @@ struct Options
 
   string ccdDBFilename;
   OptionsSIFTGPU sift;
+  double vocabularySampleSizeFraction;
   OptionsFLANN matchingFLANN;
   // Min number of matches defining a poorly matched pair. Default: 16.
   int minNumPairwiseMatches;
@@ -153,6 +156,9 @@ int main(int argc,const char* argv[])
   data.readKeysColors();
   data.writeASCII("init.txt",Camera::WriteAll | Camera::WriteConvertNormalizedSIFTToUint);
   
+  ArrayXXf vocabulary;
+  createVisualVocabulary(data.cams(),opt.vocabularySampleSizeFraction,&vocabulary);
+
   matchFeatFLANN(opt.matchingFLANN,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumPairwiseMatches,&data.pairs());
 
@@ -364,6 +370,7 @@ void Options::write(const string& filename) const
   file << "ccdDBFilename:\n " << ccdDBFilename << "\n";
   file << "sift:\n";
   sift.write(file);
+  file << "vocabularySampleSizeFraction:\n " << vocabularySampleSizeFraction << "\n";
   file << "matchingFLANN:\n";
   matchingFLANN.write(file);
   file << "minNumPairwiseMatches:\n " << minNumPairwiseMatches << "\n";
