@@ -93,7 +93,7 @@ struct OptionsSIFTGPU
   int verbosityLevel;
 };
 
-/// Detect SIFT for all cameras using SIFTGPU.
+/// Detect SIFT for all cameras using SIFTGPU (descriptors normalized to unit length).
 /**
 \param[in] opt Options.
 \param[in,out] cams Cameras. Image dimensions and image filename have to be set
@@ -101,7 +101,7 @@ in order to detect SIFT.
 */
 YASFM_API void detectSiftGPU(const OptionsSIFTGPU& opt,ptr_vector<Camera> *cams);
 
-/// Detect SIFT using SIFTGPU.
+/// Detect SIFT using SIFTGPU (descriptors normalized to unit length).
 /**
 \param[in] opt Options.
 \param[in,out] cam Camera. Image dimensions and image filename have to be set
