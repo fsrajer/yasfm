@@ -34,7 +34,8 @@ void OptionsSIFTGPU::write(ostream& file) const
   file << " verbosityLevel: " << verbosityLevel << "\n";
 }
 
-void detectSiftGPU(const OptionsSIFTGPU& opt,ptr_vector<Camera> *cams)
+void detectSiftGPU(const OptionsSIFTGPU& opt, ptr_vector<Camera> *cams, 
+	DetectSiftCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
   int maxWidth = -1;
   int maxHeight = -1;
@@ -49,10 +50,15 @@ void detectSiftGPU(const OptionsSIFTGPU& opt,ptr_vector<Camera> *cams)
   bool success = initializeSiftGPU(opt,maxWidth,maxHeight,sift.get());
   if(!success)
   { return; }
-
+  int done = 0;
   for(auto& pcam : (*cams))
   {
     ::detectSiftGPU(sift.get(),pcam.get());
+	if (callbackFunction != NULL&&callbackObjectPtr != NULL)
+	{
+		callbackFunction(callbackObjectPtr, done);
+	}
+	done++;
   }
 }
 
