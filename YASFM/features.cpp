@@ -34,15 +34,28 @@ void OptionsSIFTGPU::write(ostream& file) const
   file << " verbosityLevel: " << verbosityLevel << "\n";
 }
 
-void detectSiftGPU(const OptionsSIFTGPU& opt, ptr_vector<Camera> *cams, 
+void detectSiftGPU(const OptionsSIFTGPU& opt,ptr_vector<Camera> *cams,
+  DetectSiftCallbackFunctionPtr callbackFunction,void * callbackObjectPtr)
+{
+  int nCams = static_cast<int>(cams->size());
+  vector<int> camsToUse(nCams);
+  for(int i = 0; i < nCams; i++)
+    camsToUse[i] = i;
+  detectSiftGPU(opt,camsToUse,cams,callbackFunction,callbackObjectPtr);
+}
+
+void detectSiftGPU(const OptionsSIFTGPU& opt,const vector<int>& camsToUse,
+  ptr_vector<Camera> *pcams,
 	DetectSiftCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
+  auto& cams = *pcams;
   int maxWidth = -1;
   int maxHeight = -1;
-  for(const auto& pcam : (*cams))
+  for(size_t i = 0; i < camsToUse.size(); i++)
   {
-    maxWidth = std::max(maxWidth,pcam->imgWidth());
-    maxHeight = std::max(maxHeight,pcam->imgHeight());
+    const auto& cam = *cams[camsToUse[i]];
+    maxWidth = std::max(maxWidth,cam.imgWidth());
+    maxHeight = std::max(maxHeight,cam.imgHeight());
   }
 
   unique_ptr<SiftGPU> sift(CreateNewSiftGPU(1));
@@ -50,29 +63,16 @@ void detectSiftGPU(const OptionsSIFTGPU& opt, ptr_vector<Camera> *cams,
   bool success = initializeSiftGPU(opt,maxWidth,maxHeight,sift.get());
   if(!success)
   { return; }
-  int done = 0;
-  for(auto& pcam : (*cams))
-  {
-    ::detectSiftGPU(sift.get(),pcam.get());
-	if (callbackFunction != NULL&&callbackObjectPtr != NULL)
-	{
-		callbackFunction(callbackObjectPtr, done);
-	}
-	done++;
-  }
-}
-
-void detectSiftGPU(const OptionsSIFTGPU& opt,Camera *cam)
-{
-  unique_ptr<SiftGPU> sift(CreateNewSiftGPU(1));
-
-  bool success = initializeSiftGPU(opt,cam->imgWidth(),cam->imgHeight(),sift.get());
-  if(!success)
-  {
-    return;
-  }
   
-  ::detectSiftGPU(sift.get(),cam);
+  for(size_t i = 0; i < camsToUse.size(); i++)
+  {
+    int camIdx = camsToUse[i];
+    ::detectSiftGPU(sift.get(),cams[i].get());
+    if(callbackFunction != NULL&&callbackObjectPtr != NULL)
+    {
+      callbackFunction(callbackObjectPtr,camIdx);
+    }
+  }
 }
 
 } // namespace yasfm
