@@ -127,6 +127,7 @@ int main(int argc,const char* argv[])
 
   string dir(argv[1]);
   string imgsSubdir(argv[2]);
+  _mkdir(dir.c_str());
   string outDir = joinPaths(dir,"models");
   _mkdir(outDir.c_str());
 
