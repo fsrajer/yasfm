@@ -40,7 +40,7 @@ namespace yasfm_tests
 
       MatrixXf similarity;
       VisualVocabulary voc;
-      computeImagesSimilarity(cams,vocabularySampleSizeFraction,&similarity,&voc);
+      computeImagesSimilarity(cams,vocabularySampleSizeFraction,false,&similarity,&voc);
       Assert::IsTrue(similarity(0,1) > 0.99f);
       Assert::IsTrue(similarity(0,2) < 0.99f);
     }
@@ -105,7 +105,7 @@ namespace yasfm_tests
       vw.col(0) << 10,0,0,0;
       cams[0]->setFeature(0,0,0,0,0,vw.data());
 
-      findClosestVisualWords(cams,vw,&closestVisualWord);
+      findClosestVisualWords(cams,vw,false,&closestVisualWord);
       Assert::IsTrue(closestVisualWord.size() == 1);
       Assert::IsTrue(closestVisualWord[0].size() == nFeatures);
       Assert::IsTrue(closestVisualWord[0][0] == 0);

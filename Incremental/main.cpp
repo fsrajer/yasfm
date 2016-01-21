@@ -160,8 +160,9 @@ int main(int argc,const char* argv[])
   
   cout << "Looking for similar camera pairs.\n";
   vector<set<int>> queries;
+  bool verbose = true;
   findSimilarCameraPairs(data.cams(),opt.vocabularySampleSizeFraction,
-    opt.nSimilarCamerasToMatch,&queries);
+    opt.nSimilarCamerasToMatch,verbose,&queries);
 
   matchFeatFLANN(opt.matchingFLANN,data.cams(),queries,&data.pairs());
   //matchFeatFLANN(opt.matchingFLANN,data.cams(),&data.pairs());

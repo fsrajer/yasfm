@@ -39,11 +39,12 @@ struct VisualVocabulary
 \param[in] vocabularySampleSizeFraction In interval [0,1]. Defines the 
 sample size per image. The given sample of features is used to create the vocabulary.
 \param[in] nSimilar Number of similar cameras for every camera.
+\param[in] verbose Print status?
 \param[out] queries For direct pluggin to matching functions. queries[i] are all similar 
 to i-th camera and are all smaller than i (their index is smaller).
 */
 YASFM_API void findSimilarCameraPairs(const ptr_vector<Camera>& cams,
-  double vocabularySampleSizeFraction,int nSimilar,
+  double vocabularySampleSizeFraction,int nSimilar,bool verbose,
   vector<set<int>> *queries);
 
 /// Compute image level similarity (assumes normalized features).
@@ -55,11 +56,13 @@ do scalar product).
 \param[in] cams Cameras with normalized features.
 \param[in] vocabularySampleSizeFraction In interval [0,1]. Defines the 
 sample size per image. The given sample of features is used to create the vocabulary.
+\param[in] verbose Print status?
 \param[out] similarity Symmetric matrix of image level similarity.
 \param[out] voc Used vocabulary.
 */
 YASFM_API void computeImagesSimilarity(const ptr_vector<Camera>& cams,
-  double vocabularySampleSizeFraction,MatrixXf *similarity,VisualVocabulary *voc);
+  double vocabularySampleSizeFraction,bool verbose,MatrixXf *similarity,
+  VisualVocabulary *voc);
 
 /// Samples visual words.
 /**
@@ -76,11 +79,12 @@ YASFM_API void randomlySampleVisualWords(const ptr_vector<Camera>& cams,
 /**
 \param[in] cams Cameras with features.
 \param[in] visualWords Vocabulary.
+\param[in] verbose Print status?
 \param[out] closestVisualWord Closest visual word for every camera and every
 feature in that camera.
 */
 YASFM_API void findClosestVisualWords(const ptr_vector<Camera>& cams,
-  const MatrixXf& visualWords,vector<vector<int>> *closestVisualWord);
+  const MatrixXf& visualWords,bool verbose,vector<vector<int>> *closestVisualWord);
 
 /// Compute tf-idf (term frequency - inverse document frequency) vectors for every camera.
 /**

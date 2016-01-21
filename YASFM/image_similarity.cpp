@@ -1,23 +1,27 @@
 #include "image_similarity.h"
 
 #include <random>
+#include <iostream>
 
 #include "utils.h"
 
 using Eigen::ArrayXi;
 using std::uniform_int_distribution;
+using std::cout;
+using std::cerr;
 
 namespace yasfm
 {
 
 void findSimilarCameraPairs(const ptr_vector<Camera>& cams,
-  double vocabularySampleSizeFraction,int nSimilar,
+  double vocabularySampleSizeFraction,int nSimilar,bool verbose,
   vector<set<int>> *pqueries)
 {
   auto& queries = *pqueries;
   MatrixXf similarity;
   VisualVocabulary voc;
-  computeImagesSimilarity(cams,vocabularySampleSizeFraction,&similarity,&voc);
+  computeImagesSimilarity(cams,vocabularySampleSizeFraction,verbose,
+    &similarity,&voc);
 
   int nCams = static_cast<int>(cams.size());
   queries.resize(nCams);
@@ -40,16 +44,21 @@ void findSimilarCameraPairs(const ptr_vector<Camera>& cams,
 }
 
 void computeImagesSimilarity(const ptr_vector<Camera>& cams,
-  double vocabularySampleSizeFraction,MatrixXf *psimilarity,VisualVocabulary *voc)
+  double vocabularySampleSizeFraction,bool verbose,MatrixXf *psimilarity,
+  VisualVocabulary *voc)
 {
   auto& similarity = *psimilarity;
   auto& visualWords = voc->words;
   auto& idf = voc->idf;
 
+  if(verbose)
+    cout << "Sampling words to create vocabulary.\n";
   randomlySampleVisualWords(cams,vocabularySampleSizeFraction,&visualWords);
 
+  if(verbose)
+    cout << "Looking for closest visual words for image:\n";
   vector<vector<int>> closestVisualWord;
-  findClosestVisualWords(cams,visualWords,&closestVisualWord);
+  findClosestVisualWords(cams,visualWords,verbose,&closestVisualWord);
 
   MatrixXf tfidf;
   computeTFIDF(visualWords.cols(),closestVisualWord,&idf,&tfidf);
@@ -91,13 +100,15 @@ void randomlySampleVisualWords(const ptr_vector<Camera>& cams,
 }
 
 void findClosestVisualWords(const ptr_vector<Camera>& cams,const MatrixXf& visualWords,
-  vector<vector<int>> *pclosestVisualWord)
+  bool verbose,vector<vector<int>> *pclosestVisualWord)
 {
   auto& closestVisualWord = *pclosestVisualWord;
   closestVisualWord.resize(cams.size());
   VectorXf cosineSimilarity(visualWords.cols());
   for(size_t iCam = 0; iCam < cams.size(); iCam++)
   {
+    if(verbose)
+      cout << "  " << iCam << "/" << cams.size() << "\n";
     size_t nKeys = cams[iCam]->keys().size();
     closestVisualWord[iCam].resize(nKeys);
     for(size_t iKey = 0; iKey < nKeys; iKey++)
