@@ -67,7 +67,7 @@ void detectSiftGPU(const OptionsSIFTGPU& opt,const vector<int>& camsToUse,
   for(size_t i = 0; i < camsToUse.size(); i++)
   {
     int camIdx = camsToUse[i];
-    ::detectSiftGPU(sift.get(),cams[i].get());
+	::detectSiftGPU(sift.get(), cams[camIdx].get());
     if(callbackFunction != NULL&&callbackObjectPtr != NULL)
     {
       callbackFunction(callbackObjectPtr,camIdx);
