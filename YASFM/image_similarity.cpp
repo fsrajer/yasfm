@@ -1,5 +1,6 @@
 #include "image_similarity.h"
 
+#include <ctime>
 #include <random>
 #include <iostream>
 #include <xmmintrin.h>
@@ -105,13 +106,15 @@ void randomlySampleVisualWords(const ptr_vector<Camera>& cams,
 void findClosestVisualWords(const ptr_vector<Camera>& cams,const MatrixXf& visualWords,
   bool verbose,vector<vector<int>> *pclosestVisualWord)
 {
+  clock_t start,end;
   auto& closestVisualWord = *pclosestVisualWord;
   closestVisualWord.resize(cams.size());
   VectorXf cosineSimilarity(visualWords.cols());
   for(size_t iCam = 0; iCam < cams.size(); iCam++)
   {
+    start = clock();
     if(verbose)
-      cout << "  " << iCam << "/" << cams.size() << "\n";
+      cout << "  " << iCam << "/" << cams.size() << " ... ";
     size_t nKeys = cams[iCam]->keys().size();
     closestVisualWord[iCam].resize(nKeys);
     for(size_t iKey = 0; iKey < nKeys; iKey++)
@@ -128,6 +131,9 @@ void findClosestVisualWords(const ptr_vector<Camera>& cams,const MatrixXf& visua
         }
       }
     }
+    end = clock();
+    if(verbose)
+      cout << (double)(end - start) / (double)CLOCKS_PER_SEC << "s\n";
   }
 }
 
