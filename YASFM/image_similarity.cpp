@@ -2,6 +2,7 @@
 
 #include <random>
 #include <iostream>
+#include <xmmintrin.h>
 
 #include "utils.h"
 
@@ -115,8 +116,17 @@ void findClosestVisualWords(const ptr_vector<Camera>& cams,const MatrixXf& visua
     closestVisualWord[iCam].resize(nKeys);
     for(size_t iKey = 0; iKey < nKeys; iKey++)
     {
-      cosineSimilarity.noalias() = visualWords.transpose() * cams[iCam]->descr().col(iKey);
-      cosineSimilarity.maxCoeff(&closestVisualWord[iCam][iKey]);
+      float maxVal = FLT_MIN;
+      for(int iVW = 0; iVW < visualWords.cols(); iVW++)
+      {
+        float val = computeDotSIMD(visualWords.rows(),&visualWords(0,iVW),
+          &cams[iCam]->descr()(0,iKey));
+        if(val > maxVal)
+        {
+          maxVal = val;
+          closestVisualWord[iCam][iKey] = iVW;
+        }
+      }
     }
   }
 }
@@ -152,3 +162,29 @@ void computeTFIDF(size_t nVisualWords,const vector<vector<int>>& closestVisualWo
 }
 
 } // namespace yasfm
+
+namespace
+{
+
+float computeDotSIMD(size_t dim,const float* const x,
+  const float* const y)
+{
+  const __m128* const x4 = (const __m128* const) x;
+  const __m128* const y4 = (const __m128* const) y;
+  __m128 res4 = _mm_set_ps1(0.f);
+  size_t dimReduced = dim >> 2;
+  for(size_t i = 0; i < dimReduced; i++)
+  {
+    res4 = _mm_add_ps(res4,_mm_mul_ps(x4[i],y4[i]));
+  }
+
+  // Sum the 4 partial results
+  const __m128 tmp4 = _mm_add_ps(res4,_mm_movehl_ps(res4,res4));
+  res4 = _mm_add_ss(tmp4,_mm_shuffle_ps(tmp4,tmp4,1));
+  float res;
+  _mm_store_ss(&res,res4);
+
+  return res;
+}
+
+} // namespace

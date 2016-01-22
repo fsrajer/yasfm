@@ -98,3 +98,20 @@ YASFM_API void computeTFIDF(size_t nVisualWords,const vector<vector<int>>& close
   VectorXf *idf,MatrixXf *tfidf);
 
 } // namespace yasfm
+
+namespace
+{
+
+/// Compute dot product using SIMD instructions.
+/**
+WARNING: dim has to be divisible by 4 and x and y have to be 16-byte aligned
+which is the default for Eigen vectors and matrices.
+\param[in] dim Dimension.
+\param[in] x A vector.
+\param[in] y A vector.
+\return Dot product.
+*/
+float computeDotSIMD(size_t dim,const float* const x,
+  const float* const y);
+
+} // namespace
