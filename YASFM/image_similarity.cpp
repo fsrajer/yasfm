@@ -88,7 +88,7 @@ void randomlySampleVisualWords(const ptr_vector<Camera>& cams,
   double fraction = double(maxVocabularySize)/nTotal;
 
   for(int i = 0; i < nCams; i++)
-    sampleSizes(i) = static_cast<int>(sampleSizes(i) * fraction);
+    sampleSizes(i) = std::min(sampleSizes(i),static_cast<int>(sampleSizes(i) * fraction));
   int vocSize = sampleSizes.sum();
 
   std::default_random_engine generator;
