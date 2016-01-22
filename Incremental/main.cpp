@@ -48,7 +48,7 @@ struct Options
     :
     ccdDBFilename("../resources/camera_ccd_widths.txt"),
     sift(),
-    vocabularySampleSizeFraction(0.1),
+    maxVocabularySize(15000),
     nSimilarCamerasToMatch(20),
     matchingFLANN(),
     minNumPairwiseMatches(16),
@@ -72,7 +72,7 @@ struct Options
 
   string ccdDBFilename;
   OptionsSIFTGPU sift;
-  double vocabularySampleSizeFraction;
+  int maxVocabularySize;
   int nSimilarCamerasToMatch;
   OptionsFLANN matchingFLANN;
   // Min number of matches defining a poorly matched pair. Default: 16.
@@ -162,7 +162,7 @@ int main(int argc,const char* argv[])
   cout << "Looking for similar camera pairs.\n";
   vector<set<int>> queries;
   bool verbose = true;
-  findSimilarCameraPairs(data.cams(),opt.vocabularySampleSizeFraction,
+  findSimilarCameraPairs(data.cams(),opt.maxVocabularySize,
     opt.nSimilarCamerasToMatch,verbose,&queries);
 
   matchFeatFLANN(opt.matchingFLANN,data.cams(),queries,&data.pairs());
@@ -377,7 +377,7 @@ void Options::write(const string& filename) const
   file << "ccdDBFilename:\n " << ccdDBFilename << "\n";
   file << "sift:\n";
   sift.write(file);
-  file << "vocabularySampleSizeFraction:\n " << vocabularySampleSizeFraction << "\n";
+  file << "maxVocabularySize:\n " << maxVocabularySize << "\n";
   file << "nSimilarCamerasToMatch:\n " << nSimilarCamerasToMatch << "\n";
   file << "matchingFLANN:\n";
   matchingFLANN.write(file);

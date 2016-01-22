@@ -16,13 +16,13 @@ namespace yasfm
 {
 
 void findSimilarCameraPairs(const ptr_vector<Camera>& cams,
-  double vocabularySampleSizeFraction,int nSimilar,bool verbose,
+  int maxVocabularySize,int nSimilar,bool verbose,
   vector<set<int>> *pqueries)
 {
   auto& queries = *pqueries;
   MatrixXf similarity;
   VisualVocabulary voc;
-  computeImagesSimilarity(cams,vocabularySampleSizeFraction,verbose,
+  computeImagesSimilarity(cams,maxVocabularySize,verbose,
     &similarity,&voc);
 
   int nCams = static_cast<int>(cams.size());
@@ -46,7 +46,7 @@ void findSimilarCameraPairs(const ptr_vector<Camera>& cams,
 }
 
 void computeImagesSimilarity(const ptr_vector<Camera>& cams,
-  double vocabularySampleSizeFraction,bool verbose,MatrixXf *psimilarity,
+  int maxVocabularySize,bool verbose,MatrixXf *psimilarity,
   VisualVocabulary *voc)
 {
   auto& similarity = *psimilarity;
@@ -55,7 +55,7 @@ void computeImagesSimilarity(const ptr_vector<Camera>& cams,
 
   if(verbose)
     cout << "Sampling words to create vocabulary ... ";
-  randomlySampleVisualWords(cams,vocabularySampleSizeFraction,&visualWords);
+  randomlySampleVisualWords(cams,maxVocabularySize,&visualWords);
   if(verbose)
     cout << visualWords.cols() << " words used.\n";
 
@@ -72,7 +72,7 @@ void computeImagesSimilarity(const ptr_vector<Camera>& cams,
 }
 
 void randomlySampleVisualWords(const ptr_vector<Camera>& cams,
-  double sampleSizeFraction,MatrixXf *pvisualWords)
+  int maxVocabularySize,MatrixXf *pvisualWords)
 {
   auto& visualWords = *pvisualWords;
   int nCams = static_cast<int>(cams.size());
@@ -82,7 +82,13 @@ void randomlySampleVisualWords(const ptr_vector<Camera>& cams,
   size_t dim = cams[0]->descr().rows();
   ArrayXi sampleSizes(cams.size());
   for(int i = 0; i < nCams; i++)
-    sampleSizes(i) = static_cast<int>(cams[i]->keys().size() * sampleSizeFraction);
+    sampleSizes(i) = static_cast<int>(cams[i]->keys().size());
+
+  int nTotal = sampleSizes.sum();
+  double fraction = double(maxVocabularySize)/nTotal;
+
+  for(int i = 0; i < nCams; i++)
+    sampleSizes(i) = static_cast<int>(sampleSizes(i) * fraction);
   int vocSize = sampleSizes.sum();
 
   std::default_random_engine generator;
