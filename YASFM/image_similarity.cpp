@@ -52,8 +52,10 @@ void computeImagesSimilarity(const ptr_vector<Camera>& cams,
   auto& idf = voc->idf;
 
   if(verbose)
-    cout << "Sampling words to create vocabulary.\n";
+    cout << "Sampling words to create vocabulary ... ";
   randomlySampleVisualWords(cams,vocabularySampleSizeFraction,&visualWords);
+  if(verbose)
+    cout << visualWords.cols() << " words used.\n";
 
   if(verbose)
     cout << "Looking for closest visual words for image:\n";
