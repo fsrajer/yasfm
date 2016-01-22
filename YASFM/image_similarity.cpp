@@ -1,7 +1,9 @@
 #include "image_similarity.h"
 
+#include <ctime>
 #include <random>
 #include <iostream>
+#include <xmmintrin.h>
 
 #include "utils.h"
 
@@ -14,13 +16,13 @@ namespace yasfm
 {
 
 void findSimilarCameraPairs(const ptr_vector<Camera>& cams,
-  double vocabularySampleSizeFraction,int nSimilar,bool verbose,
+  int maxVocabularySize,int nSimilar,bool verbose,
   vector<set<int>> *pqueries)
 {
   auto& queries = *pqueries;
   MatrixXf similarity;
   VisualVocabulary voc;
-  computeImagesSimilarity(cams,vocabularySampleSizeFraction,verbose,
+  computeImagesSimilarity(cams,maxVocabularySize,verbose,
     &similarity,&voc);
 
   int nCams = static_cast<int>(cams.size());
@@ -44,7 +46,7 @@ void findSimilarCameraPairs(const ptr_vector<Camera>& cams,
 }
 
 void computeImagesSimilarity(const ptr_vector<Camera>& cams,
-  double vocabularySampleSizeFraction,bool verbose,MatrixXf *psimilarity,
+  int maxVocabularySize,bool verbose,MatrixXf *psimilarity,
   VisualVocabulary *voc)
 {
   auto& similarity = *psimilarity;
@@ -53,7 +55,7 @@ void computeImagesSimilarity(const ptr_vector<Camera>& cams,
 
   if(verbose)
     cout << "Sampling words to create vocabulary ... ";
-  randomlySampleVisualWords(cams,vocabularySampleSizeFraction,&visualWords);
+  randomlySampleVisualWords(cams,maxVocabularySize,&visualWords);
   if(verbose)
     cout << visualWords.cols() << " words used.\n";
 
@@ -70,7 +72,7 @@ void computeImagesSimilarity(const ptr_vector<Camera>& cams,
 }
 
 void randomlySampleVisualWords(const ptr_vector<Camera>& cams,
-  double sampleSizeFraction,MatrixXf *pvisualWords)
+  int maxVocabularySize,MatrixXf *pvisualWords)
 {
   auto& visualWords = *pvisualWords;
   int nCams = static_cast<int>(cams.size());
@@ -80,7 +82,13 @@ void randomlySampleVisualWords(const ptr_vector<Camera>& cams,
   size_t dim = cams[0]->descr().rows();
   ArrayXi sampleSizes(cams.size());
   for(int i = 0; i < nCams; i++)
-    sampleSizes(i) = static_cast<int>(cams[i]->keys().size() * sampleSizeFraction);
+    sampleSizes(i) = static_cast<int>(cams[i]->keys().size());
+
+  int nTotal = sampleSizes.sum();
+  double fraction = double(maxVocabularySize)/nTotal;
+
+  for(int i = 0; i < nCams; i++)
+    sampleSizes(i) = std::min(sampleSizes(i),static_cast<int>(sampleSizes(i) * fraction));
   int vocSize = sampleSizes.sum();
 
   std::default_random_engine generator;
@@ -104,20 +112,34 @@ void randomlySampleVisualWords(const ptr_vector<Camera>& cams,
 void findClosestVisualWords(const ptr_vector<Camera>& cams,const MatrixXf& visualWords,
   bool verbose,vector<vector<int>> *pclosestVisualWord)
 {
+  clock_t start,end;
   auto& closestVisualWord = *pclosestVisualWord;
   closestVisualWord.resize(cams.size());
   VectorXf cosineSimilarity(visualWords.cols());
   for(size_t iCam = 0; iCam < cams.size(); iCam++)
   {
+    start = clock();
     if(verbose)
-      cout << "  " << iCam << "/" << cams.size() << "\n";
+      cout << "  " << iCam << "/" << cams.size() << " ... ";
     size_t nKeys = cams[iCam]->keys().size();
     closestVisualWord[iCam].resize(nKeys);
     for(size_t iKey = 0; iKey < nKeys; iKey++)
     {
-      cosineSimilarity.noalias() = visualWords.transpose() * cams[iCam]->descr().col(iKey);
-      cosineSimilarity.maxCoeff(&closestVisualWord[iCam][iKey]);
+      float maxVal = FLT_MIN;
+      for(int iVW = 0; iVW < visualWords.cols(); iVW++)
+      {
+        float val = computeDotSIMD(visualWords.rows(),&visualWords(0,iVW),
+          &cams[iCam]->descr()(0,iKey));
+        if(val > maxVal)
+        {
+          maxVal = val;
+          closestVisualWord[iCam][iKey] = iVW;
+        }
+      }
     }
+    end = clock();
+    if(verbose)
+      cout << (double)(end - start) / (double)CLOCKS_PER_SEC << "s\n";
   }
 }
 
@@ -152,3 +174,29 @@ void computeTFIDF(size_t nVisualWords,const vector<vector<int>>& closestVisualWo
 }
 
 } // namespace yasfm
+
+namespace
+{
+
+float computeDotSIMD(size_t dim,const float* const x,
+  const float* const y)
+{
+  const __m128* const x4 = (const __m128* const) x;
+  const __m128* const y4 = (const __m128* const) y;
+  __m128 res4 = _mm_set_ps1(0.f);
+  size_t dimReduced = dim >> 2;
+  for(size_t i = 0; i < dimReduced; i++)
+  {
+    res4 = _mm_add_ps(res4,_mm_mul_ps(x4[i],y4[i]));
+  }
+
+  // Sum the 4 partial results
+  const __m128 tmp4 = _mm_add_ps(res4,_mm_movehl_ps(res4,res4));
+  res4 = _mm_add_ss(tmp4,_mm_shuffle_ps(tmp4,tmp4,1));
+  float res;
+  _mm_store_ss(&res,res4);
+
+  return res;
+}
+
+} // namespace
