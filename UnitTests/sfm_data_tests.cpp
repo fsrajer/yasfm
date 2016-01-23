@@ -154,7 +154,7 @@ public:
     string dir("../UnitTests/test_dataset");
     string fn = joinPaths(dir,"test0.JPG");
 
-    T cam(fn);
+    T cam(fn,"");
     Assert::IsTrue(cam.imgFilename().compare(fn) == 0);
     Assert::IsTrue(cam.imgHeight() == 850);
     Assert::IsTrue(cam.imgWidth() == 1100);

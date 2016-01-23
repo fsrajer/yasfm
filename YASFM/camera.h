@@ -52,13 +52,15 @@ class Camera
 public:
   /// Constructor. (empty)
   YASFM_API Camera();
+
   /// Constructor. (Reads image dimensions.)
   /**
   Opens the image file in order to get image dimensions.
 
   \param[in] imgFilename Path to the image file.
+  \param[in] featuresDir Directory containg files with features.
   */
-  YASFM_API Camera(const string& imgFilename);
+  YASFM_API Camera(const string& imgFilename,const string& featuresDir);
 
   /// Constructor. (Reads everything from the file.)
   /**
@@ -67,9 +69,8 @@ public:
   \param[in,out] file Opened file containg main camera information as written
   by writeASCII().
   \param[in] readMode Given by WriteMode.
-  \param[in] featuresDir Directory containg a file with features.
   */
-  YASFM_API Camera(istream& file,int readMode,const string& featuresDir);
+  YASFM_API Camera(istream& file,int readMode);
 
   /// Destructor.
   /** 
@@ -330,16 +331,6 @@ public:
 
   /// \return Indices of points visible in this camera in ascending order.
   YASFM_API vector<int>& visiblePoints();
-  
-  /// Call overloaded function.
-  /**
-  Calls overloaded function with featuresDir set to the "d/keys", where
-  d is the directory where the image is stored.
-
-  \param[in,out] file Opened output file.
-  \param[in] writeMode Defined by WriteMode.
-  */
-  YASFM_API void writeASCII(ostream& file,int writeMode) const;
 
   /// Write the class into files.
   /**
@@ -350,20 +341,13 @@ public:
   \param[in] writeMode Defined by WriteMode.
   \param[in] featuresDir Directory where to write a file with features.
   */
-  YASFM_API void writeASCII(ostream& file,int writeMode,
-    const string& featuresDir) const;
-
-protected:
-  /// Generate path to file with features.
-  /**
-  \param[in] featuresDir Directory where the file should reside.
-  */
-  virtual string featuresFilename(const string& featuresDir) const;
+  YASFM_API void writeASCII(ostream& file,int writeMode) const;
 
 private:
   string imgFilename_; ///< Path to image file.
   int imgWidth_;       ///< Image width.
   int imgHeight_;      ///< Image height.
+  string featsFilename_; ///< Path to features file.
 
   vector<Vector2d> keys_;           ///< Keys (features coordinates).
   vector<double> keysScales_;       ///< Keys scales

@@ -26,8 +26,9 @@ StandardCameraRadial::StandardCameraRadial()
 	invRadParams_.fill(0.);
 }
 
-StandardCameraRadial::StandardCameraRadial(const string& imgFilename)
-  : StandardCamera(imgFilename)
+StandardCameraRadial::StandardCameraRadial(const string& imgFilename,
+  const string& featuresDir)
+  : StandardCamera(imgFilename,featuresDir)
 {
   for(int i = 0; i < 2; i++)
   {
@@ -38,9 +39,8 @@ StandardCameraRadial::StandardCameraRadial(const string& imgFilename)
   invRadParams_.fill(0.);
 }
 
-StandardCameraRadial::StandardCameraRadial(istream& file,int readMode,
-  const string& featuresDir)
-  : StandardCamera(file,readMode,featuresDir)
+StandardCameraRadial::StandardCameraRadial(istream& file,int readMode)
+  : StandardCamera(file,readMode)
 {  
   file >> invRadParams_[0] 
     >> invRadParams_[1] 

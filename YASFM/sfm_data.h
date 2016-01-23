@@ -257,17 +257,6 @@ public:
   */
   YASFM_API void writeASCII(const string& filename,int camWriteMode) const;
 
-  /// Write the dataset to a file (features get written to separate files).
-  /**
-  \param[in] filename Path to output file relative to the working directory.
-  \param[in] camWriteMode Given by Camera::WriteMode and determines if and
-  how the features get written.
-  \param[in] featuresDir Absolute path to directory to which the features will
-  get written.
-  */
-  YASFM_API void writeASCII(const string& filename,int camWriteMode,
-    const string& featuresDir) const;
-
   /// For all cameras reads keys colors.
   YASFM_API void readKeysColors();
 
@@ -278,17 +267,6 @@ public:
   features get read.
   */
   YASFM_API void readASCII(const string& filename,int camReadMode);
-
-  /// Reads the dataset from a file (features get read from separate files).
-  /**
-  \param[in] filename Path to input file relative to the working directory.
-  \param[in] camReadMode Defined by Camera::ReadMode and determines how the
-  features get read.
-  \param[in] featuresDir Absolute path to directory in which the features  are 
-  written.
-  */
-  YASFM_API void readASCII(const string& filename,int camReadMode,
-    const string& featuresDir);
 
   /// \return Working directory.
   YASFM_API const string& dir() const;
@@ -330,6 +308,9 @@ public:
   /// \return Points and unreconstructed n-view matches.
   YASFM_API Points& points();
 
+  /// \return Features directory.
+  YASFM_API string featsDir() const;
+
 private:
   /// Copy dataset from another one.
   /**
@@ -361,7 +342,7 @@ void Dataset::addCamera(const string& filename,bool isSubdir)
   else
     fnAbs = filename;
 
-  cams_.push_back(make_unique<T>(fnAbs));
+  cams_.push_back(make_unique<T>(fnAbs,featsDir()));
 }
 template<class T>
 void Dataset::addCameras(const string& imgsDir,bool isSubdir)
@@ -379,7 +360,7 @@ void Dataset::addCameras(const string& imgsDir,bool isSubdir)
   cams_.reserve(cams_.capacity() + nImgs);
   for(size_t i = 0; i < nImgs; i++)
   {
-    cams_.push_back(make_unique<T>(joinPaths(imgsDirAbs,filenames[i])));
+    cams_.push_back(make_unique<T>(joinPaths(imgsDirAbs,filenames[i]),featsDir()));
   }
 }
 

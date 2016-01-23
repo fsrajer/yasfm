@@ -23,23 +23,27 @@ Camera::Camera()
 	imgHeight_ = -1;
 }
 
-Camera::Camera(const string& imgFilename)
-  : imgWidth_(-1),imgHeight_(-1),imgFilename_(imgFilename)
+Camera::Camera(const string& imgFilename,const string& featuresDir)
+  : imgFilename_(imgFilename),imgWidth_(-1),imgHeight_(-1)
 {
-  imgFilename_ = imgFilename;
+  string fn = extractFilename(imgFilename);
+  size_t dotPos = fn.find_last_of(".");
+  featsFilename_ = joinPaths(featuresDir,fn.substr(0,dotPos) + ".key");
+
   getImgDims(imgFilename,&imgWidth_,&imgHeight_);
 }
 
-Camera::Camera(istream& file,int mode,const string& featuresDir)
+Camera::Camera(istream& file,int mode)
 {
   file >> imgFilename_;
   file >> imgWidth_ >> imgHeight_;
+  file >> featsFilename_;
 
-  string fn = featuresFilename(featuresDir);
-  ifstream featuresFile(fn);
+  ifstream featuresFile(featsFilename_);
   if(!featuresFile.is_open())
   {
-    cerr << "ERROR: Camera::Camera: unable to open: " << fn << " for reading\n";
+    cerr << "ERROR: Camera::Camera: unable to open: " << featsFilename_ 
+      << " for reading\n";
     return;
   }
   int nKeys,descrDim;
@@ -134,30 +138,23 @@ const Vector3uc& Camera::keyColor(int i) const { return keysColors_[i]; }
 const vector<int>& Camera::visiblePoints() const { return visiblePoints_; }
 vector<int>& Camera::visiblePoints() { return visiblePoints_; }
 
-void Camera::writeASCII(ostream& file,int writeMode) const
-{
-  string featuresDir = joinPaths(extractPath(imgFilename()),"keys");
-  _mkdir(featuresDir.c_str());
-  writeASCII(file,writeMode,featuresDir);
-}
-
 void Camera::writeASCII(ostream& file) const
 {
   file << imgFilename_ << "\n";
   file << imgWidth_ << " " << imgHeight_ << "\n";
+  file << featsFilename_ << "\n";
 }
 
-void Camera::writeASCII(ostream& file,int mode,
-  const string& featuresDir) const
+void Camera::writeASCII(ostream& file,int mode) const
 {
   writeASCII(file);
   if(mode & WriteAll)
   {
-    string fn = featuresFilename(featuresDir);
-    ofstream featuresFile(fn);
+    ofstream featuresFile(featsFilename_);
     if(!featuresFile.is_open())
     {
-      cerr << "ERROR: Camera::writeASCII: unable to open: " << fn << " for writing\n";
+      cerr << "ERROR: Camera::writeASCII: unable to open: " << featsFilename_ 
+        << " for writing\n";
       return;
     }
     featuresFile.flags(std::ios::fixed);
@@ -189,18 +186,6 @@ void Camera::writeASCII(ostream& file,int mode,
     }
     featuresFile.close();
   }
-}
-
-string Camera::featuresFilename(const string& featuresDir) const
-{
-  string fn = joinPaths(featuresDir,extractFilename(imgFilename()));
-  if(fn.size() >= 3)
-  {
-    fn[fn.size() - 3] = 'k';
-    fn[fn.size() - 2] = 'e';
-    fn[fn.size() - 1] = 'y';
-  }
-  return fn;
 }
 
 } // namespace yasfm
