@@ -46,9 +46,9 @@ using namespace std;
 #ifndef SIFTGPU_NO_DEVIL
     #include "IL/il.h"
     #if  defined(_WIN64)
-	    #pragma comment(lib, "../../lib/DevIL64.lib")
-    #elif  defined(_WIN32) 
 	    #pragma comment(lib, "../../lib/DevIL.lib")
+    #elif  defined(_WIN32) 
+	    #pragma comment(lib, "../../lib/DevIL32.lib")
     #endif
 #else
 	#include <string.h>

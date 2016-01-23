@@ -201,7 +201,7 @@ int main()
         keys2.resize(num2);    descriptors2.resize(128*num2);
         sift->GetFeatureVector(&keys2[0], &descriptors2[0]);
     }
-    sift->SaveSIFT("../data/256.sift.1");
+
     //Testing code to check how it works when image size varies
     //sift->RunSIFT("../data/256.jpg");sift->SaveSIFT("../data/256.sift.1");
     //sift->RunSIFT("../data/1024.jpg"); //this will result in pyramid reallocation
