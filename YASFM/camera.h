@@ -184,7 +184,6 @@ public:
   YASFM_API virtual void setParamsConstraints(const vector<double>& constraints,
     const vector<double>& weights) = 0;
 
-protected:
   /// Write the camera parameters (not features).
   /**
   Write out camera parameters. This can be done by first calling
@@ -215,32 +214,13 @@ private:
   ///////////////////////////////////
 
 public:
-  /// Enum for indicating how should features be written.
-  /**
-  Bits information:
-  000 = 0: no features,
-  001 = 1: keys,
-  010 = 2: descriptors,
-  110 = 6: descriptors + conversion of descriptors.
-  */
-  enum WriteMode
-  {
-    WriteNoFeatures = 0,  ///< Don't write features at all.
-    WriteKeys = 1,        ///< Writes keypoints (coordinates, scales and orientations)
-    WriteDescriptors = 2, ///< Write descriptors.
-    WriteAll = 3,         ///< Write both, keys and descriptors.
-    /// Convert descriptors to unsigned int before writing.
-    /// (Does not change actual data. Just writes converted.)
-    WriteConvertNormalizedSIFTToUint = 4
-  };
-
   /// Enum for indicating what features information should be read.
   enum ReadMode
   {
-    /// Read only keys (coordinates, scales and orientations) and no descriptors
-    ReadNoDescriptors = 0,
-    /// Read keys, descriptors and normalize descriptors to unit length.
-    ReadAll = 1  
+    /// Read only keys (coordinates, scales and orientations).
+    ReadKeys = 1,
+    /// Read descriptors and normalize descriptors to unit length.
+    ReadDescriptors = 2
   };
 
   /// Allocate storage for keys and descriptors.
@@ -332,16 +312,13 @@ public:
   /// \return Indices of points visible in this camera in ascending order.
   YASFM_API vector<int>& visiblePoints();
 
-  /// Write the class into files.
-  /**
-  Most of the data will be stored in the file but keys and descriptors will
-  be stored separately in "featuresDir/imgFilename.key"
+  /// Write out features.
+  /// \param[in] convertNormalizedToUInt Should the descriptors be converted to use
+  /// less space?
+  YASFM_API void writeFeatures(bool convertNormalizedToUInt = true) const;
 
-  \param[in,out] file Opened output file.
-  \param[in] writeMode Defined by WriteMode.
-  \param[in] featuresDir Directory where to write a file with features.
-  */
-  YASFM_API void writeASCII(ostream& file,int writeMode) const;
+  /// Read in features.
+  YASFM_API void readFeatures(int readMode);
 
 private:
   string imgFilename_; ///< Path to image file.

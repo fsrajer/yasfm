@@ -157,7 +157,7 @@ int main(int argc,const char* argv[])
 
   detectSiftGPU(opt.sift,&data.cams());
   data.readKeysColors();
-  data.writeASCII("init.txt",Camera::WriteAll | Camera::WriteConvertNormalizedSIFTToUint);
+  data.writeASCII("init.txt");
   
   cout << "Looking for similar camera pairs.\n";
   vector<set<int>> queries;
@@ -169,13 +169,13 @@ int main(int argc,const char* argv[])
   //matchFeatFLANN(opt.matchingFLANN,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumPairwiseMatches,&data.pairs());
 
-  data.writeASCII("tentatively_matched.txt",Camera::WriteNoFeatures);
+  data.writeASCII("tentatively_matched.txt");
   //data.readASCII("tentatively_matched.txt",Camera::ReadNoDescriptors);
 
   //verifyMatchesGeometrically(opt.geometricVerification,data.cams(),&data.pairs());
   verifyMatchesEpipolar(opt.epipolarVerification,data.cams(),&data.pairs());
   
-  data.writeASCII("matched.txt",Camera::WriteNoFeatures);
+  data.writeASCII("matched.txt");
   data.clearDescriptors();
   //data.readASCII("matched.txt",Camera::ReadNoDescriptors);
 
@@ -233,7 +233,7 @@ int main(int argc,const char* argv[])
     {
       writeSFMBundlerFormat(joinPaths(currData.dir(),"bundle_final_"
         + appendix + ".out"),currData);
-      currData.writeASCII("final_" + appendix + ".txt",Camera::WriteNoFeatures);
+      currData.writeASCII("final_" + appendix + ".txt");
     }
   }
 

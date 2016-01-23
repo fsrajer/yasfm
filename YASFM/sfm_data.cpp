@@ -268,7 +268,7 @@ int Dataset::numCams() const
   return static_cast<int>(cams_.size());
 }
 
-void Dataset::writeASCII(const string& filename,int camWriteMode) const
+void Dataset::writeASCII(const string& filename) const
 {
   string fn = joinPaths(dir(),filename);
   ofstream file(fn);
@@ -301,7 +301,7 @@ void Dataset::writeASCII(const string& filename,int camWriteMode) const
   for(int i = 0; i < numCams(); i++)
   {
     file << cam(i).className() << " id: " << i << "\n";
-    cam(i).writeASCII(file,camWriteMode);
+    cam(i).writeASCII(file);
   }
 
   file << "points_\n";

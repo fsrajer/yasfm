@@ -98,6 +98,7 @@ void detectSiftGPU(SiftGPU *sift,Camera *cam)
     }
     delete[] keys;
     delete[] descr;
+    cam->writeFeatures();
   }
 }
 

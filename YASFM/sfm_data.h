@@ -249,13 +249,11 @@ public:
   /// \return Total number of observations/views.
   YASFM_API int countReconstructedObservations() const;
 
-  /// Write the dataset to a file (features get written to separate files).
+  /// Write the dataset to a file (except features).
   /**
   \param[in] filename Path to output file relative to the working directory.
-  \param[in] camWriteMode Given by Camera::Write mode and determines if and 
-  how the features get written.
   */
-  YASFM_API void writeASCII(const string& filename,int camWriteMode) const;
+  YASFM_API void writeASCII(const string& filename) const;
 
   /// For all cameras reads keys colors.
   YASFM_API void readKeysColors();

@@ -39,47 +39,7 @@ Camera::Camera(istream& file,int mode)
   file >> imgWidth_ >> imgHeight_;
   file >> featsFilename_;
 
-  ifstream featuresFile(featsFilename_);
-  if(!featuresFile.is_open())
-  {
-    cerr << "ERROR: Camera::Camera: unable to open: " << featsFilename_ 
-      << " for reading\n";
-    return;
-  }
-  int nKeys,descrDim;
-  featuresFile >> nKeys >> descrDim;
-
-  keys_.resize(nKeys);
-  keysScales_.resize(nKeys);
-  keysOrientations_.resize(nKeys);
-  if(mode & ReadAll)
-    descr_.resize(descrDim,nKeys);
-  else
-    descr_.resize(0,0);
-
-  for(int i = 0; i < nKeys; i++)
-  {
-    featuresFile >> keys_[i](1) >> keys_[i](0) >> keysScales_[i] >> keysOrientations_[i];
-    if(mode & ReadAll)
-    {
-      for(int d = 0; d < descrDim; d++)
-      {
-        featuresFile >> descr_(d,i);
-      }
-    } else
-    {
-      int nLines = static_cast<int>(ceil(descrDim / 20.)) + 1;
-      for(int j = 0; j < nLines; j++)
-      {
-        string s;
-        getline(featuresFile,s);
-      }
-    }
-  }
-  featuresFile.close();
-
-  if(mode & ReadAll)
-    descr_.colwise().normalize();
+  readFeatures(mode);
 
   readKeysColors();
 }
@@ -145,47 +105,90 @@ void Camera::writeASCII(ostream& file) const
   file << featsFilename_ << "\n";
 }
 
-void Camera::writeASCII(ostream& file,int mode) const
+void Camera::writeFeatures(bool convertNormalizedToUInt) const
 {
-  writeASCII(file);
-  if(mode & WriteAll)
+  ofstream featuresFile(featsFilename_);
+  if(!featuresFile.is_open())
   {
-    ofstream featuresFile(featsFilename_);
-    if(!featuresFile.is_open())
-    {
-      cerr << "ERROR: Camera::writeASCII: unable to open: " << featsFilename_ 
-        << " for writing\n";
-      return;
-    }
-    featuresFile.flags(std::ios::fixed);
-    featuresFile << keys_.size() << " ";
-    if(mode & WriteDescriptors)
-      featuresFile << descr_.rows() << "\n";
-    else
-      featuresFile << "0\n";
-    for(size_t i = 0; i < keys_.size(); i++)
-    {
-      // save in format y, x, 0, 0
-      featuresFile << setprecision(2) << keys_[i](1) << " " << keys_[i](0) << " " 
-        << keysScales_[i] << " " << keysOrientations_[i] << "\n";
-      if((mode & WriteDescriptors) && descr_.cols() != 0)
-      {
-        featuresFile << setprecision(8);
-        for(int r = 0; r < descr_.rows(); r++)
-        {
-          if(mode & WriteConvertNormalizedSIFTToUint)
-            featuresFile << " " << ((unsigned int)floor(0.5+512.0f*descr_(r,i)));
-          else
-            featuresFile << " " << descr_(r,i);
+    cerr << "ERROR: Camera::writeFeatures: unable to open: " << featsFilename_
+      << " for writing\n";
+    return;
+  }
+  featuresFile.flags(std::ios::fixed);
+  featuresFile << keys_.size() << " " << descr_.rows() << "\n";
+  for(size_t i = 0; i < keys_.size(); i++)
+  {
+    // save in format y, x, 0, 0
+    featuresFile << setprecision(2) << keys_[i](1) << " " << keys_[i](0) << " "
+      << keysScales_[i] << " " << keysOrientations_[i] << "\n";
 
-          if((r+1) % 20 == 0)
-            featuresFile << "\n";
-        }
+    featuresFile << setprecision(8);
+    for(int r = 0; r < descr_.rows(); r++)
+    {
+      if(convertNormalizedToUInt)
+        featuresFile << " " << ((unsigned int)floor(0.5+512.0f*descr_(r,i)));
+      else
+        featuresFile << " " << descr_(r,i);
+
+      if((r+1) % 20 == 0)
         featuresFile << "\n";
+    }
+    featuresFile << "\n";
+  }
+  featuresFile.close();
+}
+
+void Camera::readFeatures(int mode)
+{
+  ifstream featuresFile(featsFilename_);
+  if(!featuresFile.is_open())
+  {
+    cerr << "ERROR: Camera::readFeatures: unable to open: " << featsFilename_
+      << " for reading\n";
+    return;
+  }
+  int nKeys,descrDim;
+  featuresFile >> nKeys >> descrDim;
+
+  if(mode & ReadKeys)
+  {
+    keys_.resize(nKeys);
+    keysScales_.resize(nKeys);
+    keysOrientations_.resize(nKeys);
+  }
+  if(mode & ReadDescriptors)
+    descr_.resize(descrDim,nKeys);
+
+  for(int i = 0; i < nKeys; i++)
+  {
+    if(mode & ReadKeys)
+    {
+      featuresFile >> keys_[i](1) >> keys_[i](0) >> keysScales_[i] >> keysOrientations_[i];
+    } else
+    {
+      double dummy;
+      featuresFile >> dummy >> dummy >> dummy >> dummy;
+    }
+    if(mode & ReadDescriptors)
+    {
+      for(int d = 0; d < descrDim; d++)
+      {
+        featuresFile >> descr_(d,i);
+      }
+    } else
+    {
+      int nLines = static_cast<int>(ceil(descrDim / 20.)) + 1;
+      for(int j = 0; j < nLines; j++)
+      {
+        string s;
+        getline(featuresFile,s);
       }
     }
-    featuresFile.close();
   }
+  featuresFile.close();
+
+  if(mode & ReadDescriptors)
+    descr_.colwise().normalize();
 }
 
 } // namespace yasfm
