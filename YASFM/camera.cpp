@@ -23,7 +23,7 @@ namespace yasfm
 recursive_mutex mtx; ///< For locking the static variables.
 size_t Camera::nDescrInMemoryTotal_ = 0;
 list<Camera *> Camera::camsWithLoadedDescr_;
-size_t Camera::maxDescrInMemoryTotal_ = 5000000;
+size_t Camera::maxDescrInMemoryTotal_ = 4000000;
 
 Camera::Camera()
 {

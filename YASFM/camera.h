@@ -55,7 +55,7 @@ public:
 
   /// Total number of descriptors that can be kept in memory (over all images).
   /// Adjust this based on your machine. 
-  /// Default 5M which eats 2.5GB memory (made for a laptop with 8GB of memory).
+  /// Default 4M which eats 2GB memory (made for a laptop with 8GB of memory).
   static size_t maxDescrInMemoryTotal_;
 
   /// Constructor. (empty)
