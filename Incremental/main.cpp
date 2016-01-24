@@ -117,6 +117,11 @@ void runSFM(const Options& opt,const string& outDir,
 
 int main(int argc,const char* argv[])
 {
+  // ======================================
+  // See the description of this variable.
+  // Camera::maxDescrInMemoryTotal_ = 5000000;
+  // ======================================
+
   Options opt;
   opt.bundleAdjust.solverOptions.num_threads = 8;
   if(argc >= 4)
