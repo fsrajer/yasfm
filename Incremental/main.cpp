@@ -168,6 +168,7 @@ int main(int argc,const char* argv[])
   matchFeatFLANN(opt.matchingFLANN,data.cams(),queries,&data.pairs());
   //matchFeatFLANN(opt.matchingFLANN,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumPairwiseMatches,&data.pairs());
+  data.clearDescriptors();
 
   data.writeASCII("tentatively_matched.txt");
   //data.readASCII("tentatively_matched.txt",Camera::ReadNoDescriptors);
@@ -176,7 +177,6 @@ int main(int argc,const char* argv[])
   verifyMatchesEpipolar(opt.epipolarVerification,data.cams(),&data.pairs());
   
   data.writeASCII("matched.txt");
-  data.clearDescriptors();
   //data.readASCII("matched.txt",Camera::ReadNoDescriptors);
 
   cout << "Computing homographies of verified pairs.\n";

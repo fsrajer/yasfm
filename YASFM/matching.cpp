@@ -1,10 +1,13 @@
 #include "matching.h"
 
+#include "Eigen/Dense"
+
 #include <ctime>
 #include <iostream>
 
 using std::cerr;
 using std::cout;
+using Eigen::MatrixXf;
 
 namespace yasfm
 {
@@ -61,23 +64,8 @@ void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
 }
 
 void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
-	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, MatchingCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
-{
-  vector<flann::Matrix<float>> descr;
-  descr.reserve(cams.size());
-  for(const auto& pcam : cams)
-  {
-    const auto& curr = pcam->descr();
-    // cast away const-ness because of compability with flann and
-    // switch to row major and transpose (=exchange nrows and ncols)
-    descr.emplace_back(const_cast<float*>(curr.data()),curr.cols(),curr.rows());
-  }
-
-  matchFeatFLANN(opt, descr, queries, pairs, callbackFunction, callbackObjectPtr);
-}
-
-void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& descr,
-	const vector<set<int>>& queries, pair_umap<CameraPair> *ppairs, MatchingCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
+	const vector<set<int>>& queries, pair_umap<CameraPair> *ppairs, 
+  MatchingCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
   int pairsDone = 0;
   auto& pairs = *ppairs;
@@ -94,17 +82,28 @@ void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& 
   {
     if(queries[j].empty())
       continue; // no reason to build the trees
-    flann::Index<flann::L2<float>> index(descr[j],opt.indexParams);
+
+    // Make sure that we own these descriptors and they do not get deleted.
+    MatrixXf targetDescr = cams[j]->descr();
+    // Switch to row major and transpose (=exchange nrows and ncols)
+    flann::Matrix<float> targetDescrFlann(
+      const_cast<float*>(targetDescr.data()),targetDescr.cols(),targetDescr.rows());
+
+    flann::Index<flann::L2<float>> index(targetDescrFlann,opt.indexParams);
     index.buildIndex();
+
     for(int i : queries[j])
     {
+      const auto& queryDescr = cams[i]->descr();
+      flann::Matrix<float> queryDescrFlann(
+        const_cast<float*>(queryDescr.data()),queryDescr.cols(),queryDescr.rows());
       if(opt.verbose)
       {
         cout << "matching: " << i << " -> " << j << "\t";
         start = clock();
       }
       IntPair pairIdx(i,j);
-      matchFeatFLANN(opt,index,descr[i],&pairs[pairIdx]);
+      matchFeatFLANN(opt,index,queryDescrFlann,&pairs[pairIdx]);
       pairsDone++;
       int nMatches = static_cast<int>(pairs[pairIdx].matches.size());
       if(callbackFunction != NULL&&callbackObjectPtr != NULL)

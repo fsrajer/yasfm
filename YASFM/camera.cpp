@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
+#include <mutex>
 
 #include "utils_io.h"
 
@@ -13,9 +14,16 @@ using std::cerr;
 using std::cout;
 using std::setprecision;
 using std::ofstream;
+using std::recursive_mutex;
+using std::unique_lock;
 
 namespace yasfm
 {
+
+recursive_mutex mtx; ///< For locking the static variables.
+size_t Camera::nDescrInMemoryTotal_ = 0;
+list<Camera *> Camera::camsWithLoadedDescr_;
+size_t Camera::maxDescrInMemoryTotal_ = 5000000;
 
 Camera::Camera()
 {
@@ -44,8 +52,37 @@ Camera::Camera(istream& file,int mode)
   readKeysColors();
 }
 
+Camera::Camera(const Camera& o)
+{
+  copyIn(o);
+}
+
 Camera::~Camera()
 {
+  // This has to be called in order to mark the descriptors as released.
+  clearDescriptors();
+}
+
+Camera& Camera::operator=(const Camera& o)
+{
+  copyIn(o);
+  return *this;
+}
+
+void Camera::copyIn(const Camera& o)
+{
+  imgFilename_ = o.imgFilename_;
+  imgWidth_ = o.imgWidth_;
+  imgHeight_ = o.imgHeight_;
+  featsFilename_ = o.featsFilename_;
+  keys_ = o.keys_;
+  keysScales_ = o.keysScales_;
+  keysOrientations_ = o.keysOrientations_;
+  keysColors_ = o.keysColors_;
+  if(o.descr_.cols() > 0)
+    allocAndRegisterDescr(int(o.descr_.cols()),int(o.descr_.rows()));
+  descr_ = o.descr_;
+  visiblePoints_ = o.visiblePoints_;
 }
 
 void Camera::resizeFeatures(int num,int dim)
@@ -53,7 +90,7 @@ void Camera::resizeFeatures(int num,int dim)
   keys_.resize(num);
   keysScales_.resize(num);
   keysOrientations_.resize(num);
-  descr_.resize(dim,num);
+  allocAndRegisterDescr(num,dim);
 }
 
 void Camera::setFeature(int idx,double x,double y,double scale,double orientation,
@@ -74,6 +111,9 @@ void Camera::readKeysColors()
 
 void Camera::clearDescriptors()
 {
+  unique_lock<recursive_mutex> lck(mtx);
+  nDescrInMemoryTotal_ -= descr_.cols();
+  camsWithLoadedDescr_.remove(this);
   descr_.resize(0,0);
 }
 
@@ -92,12 +132,18 @@ const Vector2d& Camera::key(int i) const { return keys_[i]; }
 Vector2d& Camera::key(int i)  { return keys_[i]; }
 const vector<double>& Camera::keysScales() const { return keysScales_; }
 const vector<double>& Camera::keysOrientations() const { return keysOrientations_; }
-const MatrixXf& Camera::descr() const { return descr_; }
 const vector<Vector3uc>& Camera::keysColors() const { return keysColors_; }
 const Vector3uc& Camera::keyColor(int i) const { return keysColors_[i]; }
 const vector<int>& Camera::visiblePoints() const { return visiblePoints_; }
 vector<int>& Camera::visiblePoints() { return visiblePoints_; }
 
+const MatrixXf& Camera::descr() 
+{ 
+  if(descr_.cols() == 0)
+    readFeatures(ReadDescriptors);
+
+  return descr_; 
+}
 void Camera::writeASCII(ostream& file) const
 {
   file << imgFilename_ << "\n";
@@ -147,6 +193,7 @@ void Camera::readFeatures(int mode)
       << " for reading\n";
     return;
   }
+
   int nKeys,descrDim;
   featuresFile >> nKeys >> descrDim;
 
@@ -157,7 +204,7 @@ void Camera::readFeatures(int mode)
     keysOrientations_.resize(nKeys);
   }
   if(mode & ReadDescriptors)
-    descr_.resize(descrDim,nKeys);
+    allocAndRegisterDescr(nKeys,descrDim); 
 
   for(int i = 0; i < nKeys; i++)
   {
@@ -188,7 +235,21 @@ void Camera::readFeatures(int mode)
   featuresFile.close();
 
   if(mode & ReadDescriptors)
+  {
     descr_.colwise().normalize();
+  }
+}
+
+void Camera::allocAndRegisterDescr(int num,int dim)
+{
+  unique_lock<recursive_mutex> lck(mtx);
+  while(nDescrInMemoryTotal_ > maxDescrInMemoryTotal_)
+  {
+    camsWithLoadedDescr_.front()->clearDescriptors();
+  }
+  nDescrInMemoryTotal_ += num;
+  camsWithLoadedDescr_.push_back(this);
+  descr_.resize(dim,num);
 }
 
 } // namespace yasfm

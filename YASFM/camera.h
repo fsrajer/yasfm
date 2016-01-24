@@ -15,6 +15,7 @@
 #include <ostream>
 #include <string>
 #include <vector>
+#include <list>
 
 #include "ceres/ceres.h"
 #include "Eigen/Dense"
@@ -30,6 +31,7 @@ using std::istream;
 using std::string;
 using std::unique_ptr;
 using std::vector;
+using std::list;
 
 namespace yasfm
 {
@@ -50,6 +52,12 @@ be created.
 class Camera
 {
 public:
+
+  /// Total number of descriptors that can be kept in memory (over all images).
+  /// Adjust this based on your machine. 
+  /// Default 5M which eats 2.5GB memory (made for a laptop with 8GB of memory).
+  static size_t maxDescrInMemoryTotal_;
+
   /// Constructor. (empty)
   YASFM_API Camera();
 
@@ -72,6 +80,10 @@ public:
   */
   YASFM_API Camera(istream& file,int readMode);
 
+  /// Copy constructor.
+  /// \param[in] o Other camera.
+  YASFM_API Camera(const Camera& o);
+
   /// Destructor.
   /** 
   Seems like the destructor has to be virtual so that the destruction
@@ -80,6 +92,9 @@ public:
   */
   YASFM_API virtual ~Camera();
 
+  /// Assignment operator.
+  /// \param[in] o Other camera.
+  YASFM_API Camera& operator=(const Camera& o);
 
   //////////////////////////////////////////
   //////////////////////////////////////////
@@ -225,6 +240,8 @@ public:
 
   /// Allocate storage for keys and descriptors.
   /**
+  WARNING: Might trigger release of descriptors of some other camera if the
+  memory limit is reached.
   Does not allocate colors. Those should be read using readKeysColors()
   after you have all the keys.
 
@@ -302,9 +319,11 @@ public:
   \return Const reference to color of one key.
   */
   YASFM_API const Vector3uc& keyColor(int i) const;
-  
+
+  /// Get descriptors. WARNING! This might trigger reading from a file and
+  /// release of descriptors of some other camera if the memory limit is reached.
   /// \return Const reference to all descriptors (one column is one descriptor).
-  YASFM_API const MatrixXf& descr() const;
+  YASFM_API const MatrixXf& descr();
 
   /// \return Indices of points visible in this camera in ascending order.
   YASFM_API const vector<int>& visiblePoints() const;
@@ -318,9 +337,16 @@ public:
   YASFM_API void writeFeatures(bool convertNormalizedToUInt = true) const;
 
   /// Read in features.
+  /// WARNING: Might trigger release of descriptors of some other camera if the
+  /// memory limit is reached.
   YASFM_API void readFeatures(int readMode);
 
 private:
+  /// Copy in all data.
+  void copyIn(const Camera& o);
+
+  void allocAndRegisterDescr(int num,int dim);
+
   string imgFilename_; ///< Path to image file.
   int imgWidth_;       ///< Image width.
   int imgHeight_;      ///< Image height.
@@ -333,6 +359,11 @@ private:
   MatrixXf descr_;     ///< Descriptors (one column is one descriptor).
   /// Indices of points visible in this camera in ascending order.
   vector<int> visiblePoints_;       
+
+  /// Counter for number of descriptors in memory for all cameras.
+  static size_t nDescrInMemoryTotal_;
+  /// Cameras which have their descriptors loaded.
+  static list<Camera *> camsWithLoadedDescr_;
 };
 
 } // namespace yasfm
