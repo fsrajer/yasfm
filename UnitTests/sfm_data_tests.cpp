@@ -153,8 +153,9 @@ public:
     // Constructor
     string dir("../UnitTests/test_dataset");
     string fn = joinPaths(dir,"test0.JPG");
+    string keysDir = joinPaths(dir,"keys");
 
-    T cam(fn,"");
+    T cam(fn,keysDir);
     Assert::IsTrue(cam.imgFilename().compare(fn) == 0);
     Assert::IsTrue(cam.imgHeight() == 850);
     Assert::IsTrue(cam.imgWidth() == 1100);
@@ -166,6 +167,8 @@ public:
 
     double x = 3,y = 5;
     VectorXf descr(VectorXf::Random(descrDim));
+    descr = descr.cwiseAbs();
+    descr.normalize();
     for(int i = 0; i < nFeats; i++)
       cam.setFeature(i,x,y,0,0,&descr(0));
 
@@ -175,6 +178,12 @@ public:
     Assert::AreEqual(x,cam.key(1)(0));
     Assert::AreEqual(y,cam.key(1)(1));
     Assert::IsTrue(descr.isApprox(cam.descr().col(1)));
+
+    // descriptor writing and loading
+    cam.writeFeatures();
+    cam.clearDescriptors();
+    cam.readFeatures(Camera::ReadDescriptors);
+    Assert::IsTrue(cam.descr().col(1).isApprox(descr,1e-6f));
 
     // copy
     unique_ptr<Camera> pcam2(cam.clone());
