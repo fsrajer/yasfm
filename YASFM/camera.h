@@ -332,9 +332,8 @@ public:
   YASFM_API vector<int>& visiblePoints();
 
   /// Write out features.
-  /// \param[in] convertNormalizedToUInt Should the descriptors be converted to use
-  /// less space?
-  YASFM_API void writeFeatures(bool convertNormalizedToUInt = true) const;
+  /// \param[in] saveAsBinary Should the output file be binary?
+  YASFM_API void writeFeatures() const;
 
   /// Read in features.
   /// WARNING: Might trigger release of descriptors of some other camera if the

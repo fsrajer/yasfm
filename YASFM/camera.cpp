@@ -36,7 +36,7 @@ Camera::Camera(const string& imgFilename,const string& featuresDir)
 {
   string fn = extractFilename(imgFilename);
   size_t dotPos = fn.find_last_of(".");
-  featsFilename_ = joinPaths(featuresDir,fn.substr(0,dotPos) + ".key");
+  featsFilename_ = joinPaths(featuresDir,fn.substr(0,dotPos) + ".sft");
 
   getImgDims(imgFilename,&imgWidth_,&imgHeight_);
 }
@@ -151,42 +151,45 @@ void Camera::writeASCII(ostream& file) const
   file << featsFilename_ << "\n";
 }
 
-void Camera::writeFeatures(bool convertNormalizedToUInt) const
+void Camera::writeFeatures() const
 {
-  ofstream featuresFile(featsFilename_);
+  ofstream featuresFile(featsFilename_,std::ios::binary);
   if(!featuresFile.is_open())
   {
     cerr << "ERROR: Camera::writeFeatures: unable to open: " << featsFilename_
       << " for writing\n";
     return;
   }
-  featuresFile.flags(std::ios::fixed);
-  featuresFile << keys_.size() << " " << descr_.rows() << "\n";
+
+  int nKeys = static_cast<int>(keys_.size());
+  int dim = static_cast<int>(descr_.rows());
+  featuresFile.write((char*)(&nKeys),sizeof(int));
+  featuresFile.write((char*)(&dim),sizeof(int));
+
   for(size_t i = 0; i < keys_.size(); i++)
   {
-    // save in format y, x, 0, 0
-    featuresFile << setprecision(2) << keys_[i](1) << " " << keys_[i](0) << " "
-      << keysScales_[i] << " " << keysOrientations_[i] << "\n";
+    float x = float(keys_[i](0));
+    float y = float(keys_[i](1));
+    float scale = float(keysScales_[i]);
+    float ori = float(keysOrientations_[i]);
 
-    featuresFile << setprecision(8);
-    for(int r = 0; r < descr_.rows(); r++)
-    {
-      if(convertNormalizedToUInt)
-        featuresFile << " " << ((unsigned int)floor(0.5+512.0f*descr_(r,i)));
-      else
-        featuresFile << " " << descr_(r,i);
-
-      if((r+1) % 20 == 0)
-        featuresFile << "\n";
-    }
-    featuresFile << "\n";
+    featuresFile.write((char*)(&y),sizeof(float));
+    featuresFile.write((char*)(&x),sizeof(float));
+    featuresFile.write((char*)(&scale),sizeof(float));
+    featuresFile.write((char*)(&ori),sizeof(float));
   }
+
+  for(size_t i = 0; i < keys_.size(); i++)
+  {
+    featuresFile.write((char*)(&descr_(0,i)),dim*sizeof(float));
+  }
+
   featuresFile.close();
 }
 
 void Camera::readFeatures(int mode)
 {
-  ifstream featuresFile(featsFilename_);
+  ifstream featuresFile(featsFilename_,std::ios::binary);
   if(!featuresFile.is_open())
   {
     cerr << "ERROR: Camera::readFeatures: unable to open: " << featsFilename_
@@ -195,7 +198,8 @@ void Camera::readFeatures(int mode)
   }
 
   int nKeys,descrDim;
-  featuresFile >> nKeys >> descrDim;
+  featuresFile.read((char*)(&nKeys),sizeof(int));
+  featuresFile.read((char*)(&descrDim),sizeof(int));
 
   if(mode & ReadKeys)
   {
@@ -206,38 +210,30 @@ void Camera::readFeatures(int mode)
   if(mode & ReadDescriptors)
     allocAndRegisterDescr(nKeys,descrDim); 
 
-  for(int i = 0; i < nKeys; i++)
+  float tmp[4];
+  if(mode & ReadKeys)
   {
-    if(mode & ReadKeys)
+    for(int i = 0; i < nKeys; i++)
     {
-      featuresFile >> keys_[i](1) >> keys_[i](0) >> keysScales_[i] >> keysOrientations_[i];
-    } else
-    {
-      double dummy;
-      featuresFile >> dummy >> dummy >> dummy >> dummy;
+      featuresFile.read((char*)(&tmp[0]),4*sizeof(float));
+      keys_[i](0) = tmp[1];
+      keys_[i](1) = tmp[0];
+      keysScales_[i] = tmp[2];
+      keysOrientations_[i] = tmp[3];
     }
-    if(mode & ReadDescriptors)
-    {
-      for(int d = 0; d < descrDim; d++)
-      {
-        featuresFile >> descr_(d,i);
-      }
-    } else
-    {
-      int nLines = static_cast<int>(ceil(descrDim / 20.)) + 1;
-      for(int j = 0; j < nLines; j++)
-      {
-        string s;
-        getline(featuresFile,s);
-      }
-    }
+  } else
+  {
+    for(int i = 0; i < nKeys; i++)
+      featuresFile.read((char*)(&tmp[0]),4*sizeof(float));
   }
-  featuresFile.close();
 
   if(mode & ReadDescriptors)
   {
-    descr_.colwise().normalize();
+    for(int i = 0; i < nKeys; i++)
+      featuresFile.read((char*)(&descr_(0,i)),descrDim*sizeof(float));
   }
+
+  featuresFile.close();
 }
 
 void Camera::allocAndRegisterDescr(int num,int dim)
