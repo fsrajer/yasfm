@@ -308,7 +308,7 @@ namespace yasfm_tests
       }
       Assert::IsTrue(goodE);
 
-      StandardCamera cam1(""),cam2("");
+      StandardCamera cam1,cam2;
       OptionsRANSAC opt(512,1.,10);
       vector<IntPair> matches_empty;
       Matrix3d _E;

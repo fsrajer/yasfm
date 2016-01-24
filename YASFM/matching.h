@@ -103,24 +103,6 @@ struct OptionsFLANN
 };
 
 /// Match features.
-/**
-Finds for all queries matches from img i to img j, where i is from the set queries[j]. 
-Based on Options, different algorithms can be used as FLANN allows that. 
-See options.
-
-\param[in] opt Options.
-\param[in] cams Cameras. Have to have descriptors.
-\param[in] queries See function description.
-\param[out] pairs Resulting matched camera pairs.
-\param[out] callbackFunction Optional. Function to be called after finishing 
-matching of one pair.
-\param[out] callbackObjectPtr Optional. Object to be passed to callbackFunction.
-*/
-YASFM_API void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
-	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, 
-	MatchingCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
-
-/// Match features.
 /** 
 Calls overloaded function. Sets queries so that every pair i,j such that i<j 
 gets matched.
@@ -142,14 +124,14 @@ Based on Options, different algorithms can be used as FLANN allows that.
 See options.
 
 \param[in] opt Options.
-\param[in] descr Descriptors for all cameras.
+\param[in] cams Cameras. Have to have descriptors.
 \param[in] queries See function description.
 \param[out] pairs Resulting matched camera pairs.
 \param[out] callbackFunction Optional. Function to be called after finishing 
 matching of one pair.
 \param[out] callbackObjectPtr Optional. Object to be passed to callbackFunction.
 */
-void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& descr,
+YASFM_API void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
 	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, 
 	MatchingCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 

@@ -80,6 +80,7 @@ void randomlySampleVisualWords(const ptr_vector<Camera>& cams,
     return;
 
   size_t dim = cams[0]->descr().rows();
+
   ArrayXi sampleSizes(cams.size());
   for(int i = 0; i < nCams; i++)
     sampleSizes(i) = static_cast<int>(cams[i]->keys().size());
@@ -118,6 +119,9 @@ void findClosestVisualWords(const ptr_vector<Camera>& cams,const MatrixXf& visua
   VectorXf cosineSimilarity(visualWords.cols());
   for(size_t iCam = 0; iCam < cams.size(); iCam++)
   {
+    // Ready the descriptors before the time is measured.
+    cams[iCam]->descr(); 
+
     start = clock();
     if(verbose)
       cout << "  " << iCam << "/" << cams.size() << " ... ";

@@ -48,12 +48,11 @@ public:
   \return Camera pointer to the new derived camera.
   */
   YASFM_API static unique_ptr<Camera> createInstance(const string& className,
-    istream& file,int camReadMode,const string& featuresDir);
+    istream& file,int camReadMode);
 
 protected:
   /// Shortcut name.
-  typedef umap<string,unique_ptr<Camera>(*)(istream&,int,
-    const string&)> MapType;
+  typedef umap<string,unique_ptr<Camera>(*)(istream&,int)> MapType;
 
   /// \return Reference to the register with cameras. A class name is the key 
   /// and the value is a function creating a derived camera.
@@ -92,8 +91,7 @@ namespace
 \return Camera pointer to the new derived camera.
 */
 template<class T>
-unique_ptr<Camera> createCamera(istream& file,int camReadMode,
-  const string& featuresDir);
+unique_ptr<Camera> createCamera(istream& file,int camReadMode);
 
 } // namespace
 
@@ -117,10 +115,9 @@ namespace
 {
 
 template<class T>
-unique_ptr<Camera> createCamera(istream& file,int camReadMode,
-  const string& featuresDir)
+unique_ptr<Camera> createCamera(istream& file,int camReadMode)
 {
-  return make_unique<T>(file,camReadMode,featuresDir);
+  return make_unique<T>(file,camReadMode);
 }
 
 } // namespace

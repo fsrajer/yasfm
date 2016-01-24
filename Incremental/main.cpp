@@ -117,6 +117,11 @@ void runSFM(const Options& opt,const string& outDir,
 
 int main(int argc,const char* argv[])
 {
+  // ======================================
+  // See the description of this variable.
+  // Camera::maxDescrInMemoryTotal_ = 5000000;
+  // ======================================
+
   Options opt;
   opt.bundleAdjust.solverOptions.num_threads = 8;
   if(argc >= 4)
@@ -157,7 +162,7 @@ int main(int argc,const char* argv[])
 
   detectSiftGPU(opt.sift,&data.cams());
   data.readKeysColors();
-  data.writeASCII("init.txt",Camera::WriteAll | Camera::WriteConvertNormalizedSIFTToUint);
+  data.writeASCII("init.txt");
   
   cout << "Looking for similar camera pairs.\n";
   vector<set<int>> queries;
@@ -168,15 +173,15 @@ int main(int argc,const char* argv[])
   matchFeatFLANN(opt.matchingFLANN,data.cams(),queries,&data.pairs());
   //matchFeatFLANN(opt.matchingFLANN,data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.minNumPairwiseMatches,&data.pairs());
+  data.clearDescriptors();
 
-  data.writeASCII("tentatively_matched.txt",Camera::WriteNoFeatures);
+  data.writeASCII("tentatively_matched.txt");
   //data.readASCII("tentatively_matched.txt",Camera::ReadNoDescriptors);
 
   //verifyMatchesGeometrically(opt.geometricVerification,data.cams(),&data.pairs());
   verifyMatchesEpipolar(opt.epipolarVerification,data.cams(),&data.pairs());
   
-  data.writeASCII("matched.txt",Camera::WriteNoFeatures);
-  data.clearDescriptors();
+  data.writeASCII("matched.txt");
   //data.readASCII("matched.txt",Camera::ReadNoDescriptors);
 
   cout << "Computing homographies of verified pairs.\n";
@@ -233,7 +238,7 @@ int main(int argc,const char* argv[])
     {
       writeSFMBundlerFormat(joinPaths(currData.dir(),"bundle_final_"
         + appendix + ".out"),currData);
-      currData.writeASCII("final_" + appendix + ".txt",Camera::WriteNoFeatures);
+      currData.writeASCII("final_" + appendix + ".txt");
     }
   }
 

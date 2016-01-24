@@ -30,6 +30,7 @@ struct OptionsSIFTGPU
     firstOctave = -1;
     detectUprightSIFT = false;
     verbosityLevel = 1;
+    softmaxFeatures = 20000;
 
     // let SIFTGPU autoselect these
     maxWorkingDimension = -1;
@@ -82,6 +83,10 @@ struct OptionsSIFTGPU
 
   /// Only one fixed orientation per keypoint location.
   bool detectUprightSIFT;
+
+  /// Soft max features per image (see SiftGPU documentation for tc3 option).
+  /// It will typically detect somewhat more features than this limit.
+  int softmaxFeatures;
 
   /// Verbosity:
   /**

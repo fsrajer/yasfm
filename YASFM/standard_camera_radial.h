@@ -65,8 +65,9 @@ public:
   Calls base class constructor.
 
   \param[in] imgFilename Path to the image file.
+  \param[in] featuresDir Directory containg files with features.
   */
-  YASFM_API StandardCameraRadial(const string& imgFilename);
+  YASFM_API StandardCameraRadial(const string& imgFilename,const string& featuresDir);
 
   /// Constructor. (Reads everything from the file.)
   /**
@@ -75,9 +76,8 @@ public:
   \param[in,out] file Opened file containg main camera information as written
   by writeASCII().
   \param[in] readMode Given by WriteMode.
-  \param[in] featuresDir Directory containg a file with features.
   */
-  YASFM_API StandardCameraRadial(istream& file,int readMode,const string& featuresDir);
+  YASFM_API StandardCameraRadial(istream& file,int readMode);
 
   /// Destructor.
   /**

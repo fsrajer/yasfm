@@ -32,6 +32,7 @@ void OptionsSIFTGPU::write(ostream& file) const
   file << " edgeThresh: " << edgeThresh << "\n";
   file << " detectUprightSIFT: " << detectUprightSIFT << "\n";
   file << " verbosityLevel: " << verbosityLevel << "\n";
+  file << " softmaxFeatures: " << softmaxFeatures << "\n";
 }
 
 void detectSiftGPU(const OptionsSIFTGPU& opt,ptr_vector<Camera> *cams,
@@ -97,6 +98,7 @@ void detectSiftGPU(SiftGPU *sift,Camera *cam)
     }
     delete[] keys;
     delete[] descr;
+    cam->writeFeatures();
   }
 }
 
@@ -141,6 +143,9 @@ void setParamsSiftGPU(const OptionsSIFTGPU& opt,SiftGPU *sift)
   }
   opts.push_back("-v");
   opts.push_back(to_string(opt.verbosityLevel));
+
+  opts.push_back("-tc3");
+  opts.push_back(to_string(opt.softmaxFeatures));
 
   char **argv = new char*[opts.size()];
   for(size_t i = 0; i < opts.size(); i++)

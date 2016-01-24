@@ -21,10 +21,10 @@ namespace yasfm_tests
       twoViewMatchesToNViewMatches(cams,pairs,&matches);
       Assert::IsTrue(matches.empty());
 
-      cams.push_back(make_unique<StandardCamera>(""));
-      cams.push_back(make_unique<StandardCamera>(""));
-      cams.push_back(make_unique<StandardCamera>(""));
-      cams.push_back(make_unique<StandardCamera>(""));
+      cams.push_back(make_unique<StandardCamera>());
+      cams.push_back(make_unique<StandardCamera>());
+      cams.push_back(make_unique<StandardCamera>());
+      cams.push_back(make_unique<StandardCamera>());
       for(size_t camIdx = 0; camIdx < cams.size(); camIdx++)
       {
         cams[camIdx]->resizeFeatures(5,0);
@@ -122,7 +122,7 @@ namespace yasfm_tests
     {
       // Test empty
       IntPair camsIdxs(0,1);
-      StandardCamera cam0(""),cam1("");
+      StandardCamera cam0,cam1;
       vector<int> nViewMatchIdxs;
       Points pts;
       reconstructPoints(nViewMatchIdxs,camsIdxs,&cam0,&cam1,&pts);
@@ -200,7 +200,7 @@ namespace yasfm_tests
       int nValidCams = 4;
       for(int i = 0; i < nValidCams; i++)
       {
-        cams.push_back(make_unique<StandardCamera>(""));
+        cams.push_back(make_unique<StandardCamera>());
         cams[i]->setParams(generateRandomProjection());
         Vector3d axis(Vector3d::Random());
         axis.normalize();
@@ -216,7 +216,7 @@ namespace yasfm_tests
           matches[0].observedPart.emplace(i,0);
         }
       }
-      cams.push_back(make_unique<StandardCamera>(""));
+      cams.push_back(make_unique<StandardCamera>());
       matches[0].unobservedPart.emplace(4,0);
       reconstructPoints(matches,&cams,&pts);
       nRec++;
@@ -295,7 +295,7 @@ namespace yasfm_tests
       ptr_vector<Camera> cams;
       for(int i = 0; i < 5; i++)
       {
-        cams.push_back(make_unique<StandardCamera>(""));
+        cams.push_back(make_unique<StandardCamera>());
         cams[i]->setParams(generateRandomProjection()); 
         cams[i]->resizeFeatures(2,0);
         for(int j = 0; j < 2; j++)
@@ -395,7 +395,7 @@ namespace yasfm_tests
 
       for(int i = 0; i < 3; i++)
       {
-        cams.push_back(make_unique<StandardCamera>(""));
+        cams.push_back(make_unique<StandardCamera>());
         cams[i]->setParams(generateRandomProjection());
         cams[i]->resizeFeatures(2,0);
       }
@@ -443,7 +443,7 @@ namespace yasfm_tests
       Vector3d pt(Vector3d::Random());
       for(int i = 0; i < 2; i++)
       {
-        cams.push_back(make_unique<StandardCamera>(""));
+        cams.push_back(make_unique<StandardCamera>());
         cams[i]->setParams(generateRandomProjection());
         cams[i]->resizeFeatures(1,0);
         Vector2d p = cams[i]->project(pt);
