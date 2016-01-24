@@ -320,9 +320,14 @@ public:
   */
   YASFM_API const Vector3uc& keyColor(int i) const;
 
-  /// Get descriptors. WARNING! This might trigger reading from a file and
-  /// release of descriptors of some other camera if the memory limit is reached.
-  /// \return Const reference to all descriptors (one column is one descriptor).
+  /// Get descriptors (handles reading in descriptors and releasing those of other cameras). 
+  /**
+  WARNING! This might trigger reading from a file and release of descriptors 
+  of some other camera if the memory limit is reached.
+  WARNING!! The descriptor is not guaranteed to stay in memory for long
+  (depends on the memory limit).
+  \return Const reference to all descriptors (one column is one descriptor).
+  */
   YASFM_API const MatrixXf& descr();
 
   /// \return Indices of points visible in this camera in ascending order.
