@@ -27,26 +27,6 @@ void removePoorlyMatchedPairs(int minNumMatches,pair_umap<CameraPair> *pairs)
   }
 }
 
-bool OptionsFLANN::filterByRatio() const { return ratioThresh >= 0.f; }
-
-void OptionsFLANN::write(ostream& file) const
-{
-  file << " indexParams:\n";
-  for(const auto& entry : indexParams)
-  {
-    file << "  " << entry.first << ": " << entry.second << "\n";
-  }
-  file << " searchParams:\n";
-  file << "  checks: " << searchParams.checks << "\n";
-  file << "  eps: " << searchParams.eps << "\n";
-  file << "  sorted: " << searchParams.sorted << "\n";
-  file << "  max_neighbors: " << searchParams.max_neighbors << "\n";
-  file << "  cores: " << searchParams.cores << "\n";
-  file << " ratioThresh: " << ratioThresh << "\n";
-  file << " onlyUniques: " << onlyUniques << "\n";
-  file << " verbose: " << verbose << "\n";
-}
-
 void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
 	pair_umap<CameraPair> *pairs, MatchingCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
@@ -69,6 +49,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
 {
   int pairsDone = 0;
   auto& pairs = *ppairs;
+  bool verbose = opt.get<bool>("verbose");
   size_t sz = 0;
   for(const auto& entry : queries)
   {
@@ -89,7 +70,8 @@ void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
     flann::Matrix<float> targetDescrFlann(
       const_cast<float*>(targetDescr.data()),targetDescr.cols(),targetDescr.rows());
 
-    flann::Index<flann::L2<float>> index(targetDescrFlann,opt.indexParams);
+    flann::Index<flann::L2<float>> index(targetDescrFlann,
+      opt.get<flann::IndexParams>("indexParams"));
     index.buildIndex();
 
     for(int i : queries[j])
@@ -97,7 +79,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
       const auto& queryDescr = cams[i]->descr();
       flann::Matrix<float> queryDescrFlann(
         const_cast<float*>(queryDescr.data()),queryDescr.cols(),queryDescr.rows());
-      if(opt.verbose)
+      if(verbose)
       {
         cout << "matching: " << i << " -> " << j << "\t";
         start = clock();
@@ -111,7 +93,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
         double progress = static_cast<double>(pairsDone) / sz;
         callbackFunction(callbackObjectPtr,pairIdx,nMatches,progress);
       }
-      if(opt.verbose)
+      if(verbose)
       {
         end = clock();
         cout << "found " << nMatches << " matches" << "\t";
@@ -129,6 +111,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const flann::Index<flann::L2<float>>
   AutoMemReleaseFlannMatrix<float> dists(numQueries,2);
   auto& outMatches = pair->matches;
   auto& outDists = pair->dists;
+  const auto& searchParams = opt.get<flann::SearchParams>("searchParams");
   outMatches.clear();
   outDists.clear();
   outMatches.reserve(numQueries);
@@ -136,8 +119,9 @@ void matchFeatFLANN(const OptionsFLANN& opt,const flann::Index<flann::L2<float>>
 
   if(opt.filterByRatio())
   {
-    float sqThresh = opt.ratioThresh*opt.ratioThresh; // flann returns squared distances
-    index.knnSearch(queryDescr,nearestNeighbors.data,dists.data,2,opt.searchParams);
+    float thresh = opt.get<float>("ratioThresh");
+    float sqThresh = thresh*thresh; // flann returns squared distances
+    index.knnSearch(queryDescr,nearestNeighbors.data,dists.data,2,searchParams);
     for(int i = 0; i < numQueries; i++)
     {
       // Ratio of the distance to the nearest neighbor over the distance 
@@ -151,7 +135,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const flann::Index<flann::L2<float>>
     }
   } else
   {
-    index.knnSearch(queryDescr,nearestNeighbors.data,dists.data,1,opt.searchParams);
+    index.knnSearch(queryDescr,nearestNeighbors.data,dists.data,1,searchParams);
     for(int i = 0; i < numQueries; i++)
     {
       outMatches.emplace_back(i,static_cast<int>(nearestNeighbors.data[i][0]));
@@ -160,7 +144,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const flann::Index<flann::L2<float>>
   }
 
   vector<bool> unique; // empty means that the unique option is turned off
-  if(opt.onlyUniques)
+  if(opt.get<bool>("onlyUniques"))
   {
     findUniqueMatches(outMatches,index.size(),&unique);
   }

@@ -11,12 +11,14 @@
 #pragma once
 
 #include <vector>
+#include <memory>
 
 #include "Eigen\Dense"
 
 #include "defines.h"
 #include "ransac.h"
 #include "sfm_data.h"
+#include "options_types.h"
 
 using Eigen::ArrayXXd;
 using Eigen::ArrayXXi;
@@ -26,6 +28,7 @@ using Eigen::Vector3d;
 using Eigen::Vector4d;
 using Eigen::VectorXd;
 using std::vector;
+using std::make_unique;
 using namespace yasfm;
 
 ////////////////////////////////////////////////////
@@ -374,52 +377,51 @@ YASFM_API bool estimateHomographyRANSAC(const OptionsRANSAC& opt,
   const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
   const vector<IntPair>& matches,Matrix3d *H,vector<int> *inliers = nullptr);
 
-/// Options for geometric verification
-struct OptionsGeometricVerification
+/// Options for geometric verificatio
+/**
+Fields:
+/// Threshold defining inliers for estimated similarity.
+double similarityThresh;
+
+/// Threshold defining inliers for estimated affinity.
+double affinityThresh;
+
+/// Threshold defining inliers for estimated homography.
+double homographyThresh;
+
+/// Minimum number of inliers to one transformation.
+int minInliersPerTransform;
+
+/// Maximum number of transformations that should be estimated.
+int maxTransforms;
+
+/// Number of refine iterations that should be done to a transformation.
+/// 1st iteration is estimated using key coordinates, scale and orientation.
+/// 2-4th iterations are affinities
+/// 5+th iterations are homographies
+int nRefineIterations;
+
+/// Minimum number of inliers to continue in further refining.
+int minInliersToRefine;
+
+/// Value in [0,1]. If there is this fraction of inliers found the
+/// refine phase is terminated.
+double stopInlierFraction;
+**/
+class OptionsGeometricVerification : public OptionsWrapper
 {
+public:
   YASFM_API OptionsGeometricVerification()
   {
-    similarityThresh = 20;
-    affinityThresh = 10;
-    homographyThresh = 5;
-    minInliersPerTransform = 10;
-    maxTransforms = 7;
-    nRefineIterations = 8;
-    minInliersToRefine = 4;
-    stopInlierFraction = 0.7;
+    opt.emplace("similarityThresh",make_unique<OptTypeWithVal<double>>(20));
+    opt.emplace("affinityThresh",make_unique<OptTypeWithVal<double>>(10));
+    opt.emplace("homographyThresh",make_unique<OptTypeWithVal<double>>(5));
+    opt.emplace("minInliersPerTransform",make_unique<OptTypeWithVal<int>>(10));
+    opt.emplace("maxTransforms",make_unique<OptTypeWithVal<int>>(7));
+    opt.emplace("nRefineIterations",make_unique<OptTypeWithVal<int>>(8));
+    opt.emplace("minInliersToRefine",make_unique<OptTypeWithVal<int>>(4));
+    opt.emplace("stopInlierFraction",make_unique<OptTypeWithVal<double>>(0.7));
   }
-
-  /// Threshold defining inliers for estimated similarity.
-  double similarityThresh;
-
-  /// Threshold defining inliers for estimated affinity.
-  double affinityThresh;
-
-  /// Threshold defining inliers for estimated homography.
-  double homographyThresh;
-
-  /// Minimum number of inliers to one transformation.
-  int minInliersPerTransform;
-
-  /// Maximum number of transformations that should be estimated.
-  int maxTransforms;
-
-  /// Number of refine iterations that should be done to a transformation.
-  /// 1st iteration is estimated using key coordinates, scale and orientation.
-  /// 2-4th iterations are affinities
-  /// 5+th iterations are homographies
-  int nRefineIterations;
-
-  /// Minimum number of inliers to continue in further refining.
-  int minInliersToRefine;
-
-  /// Value in [0,1]. If there is this fraction of inliers found the 
-  /// refine phase is terminated.
-  double stopInlierFraction;
-
-  /// Write to a file to record which parameters were used.
-  /// \param[in,out] file Opened output file.
-  YASFM_API void write(ostream& file) const;
 };
 
 /// Verify matches geometrically.

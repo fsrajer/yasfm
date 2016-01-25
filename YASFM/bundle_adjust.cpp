@@ -2,26 +2,11 @@
 
 #include <iostream>
 
-#include "ceres/ceres.h"
-
 using std::cerr;
 using std::cout;
 
 namespace yasfm
 {
-
-void OptionsBundleAdjustment::write(ostream& file) const
-{
-  file << " solverOptions (only some of them):\n";
-  file << "  max_num_iterations: " << solverOptions.max_num_iterations << "\n";
-  file << "  num_threads: " << solverOptions.num_threads << "\n";
-  file << "  function_tolerance: " << solverOptions.function_tolerance << "\n";
-  file << "  parameter_tolerance: " << solverOptions.parameter_tolerance << "\n";
-  file << "  gradient_tolerance: " << solverOptions.gradient_tolerance << "\n";
-  file << "  minimizer_type: " << solverOptions.minimizer_type << "\n";
-  file << "  linear_solver_type: " << solverOptions.linear_solver_type << "\n";
-  file << " robustify: " << robustify << "\n";
-}
 
 void bundleAdjust(const OptionsBundleAdjustment& opt,ptr_vector<Camera> *pcams,Points *ppts)
 {
@@ -48,6 +33,7 @@ void bundleAdjust(const OptionsBundleAdjustment& opt,const vector<bool>& constan
 {
   auto& cams = *pcams;
   auto& pts = *ppts;
+  bool robustify = opt.get<bool>("robustify");
 
   vector<vector<double>> camParams(cams.size());
   vector<bool> camParamsUsed(cams.size(),false);
@@ -70,7 +56,7 @@ void bundleAdjust(const OptionsBundleAdjustment& opt,const vector<bool>& constan
       ceres::CostFunction *costFunction = cam.costFunction(keyIdx);
 
       // NULL specifies squared loss
-      ceres::LossFunction *lossFunction = opt.robustify ? new ceres::HuberLoss(1.0) : NULL;
+      ceres::LossFunction *lossFunction = robustify ? new ceres::HuberLoss(1.0) : NULL;
       
       problem.AddResidualBlock(costFunction,
         lossFunction,
@@ -97,7 +83,7 @@ void bundleAdjust(const OptionsBundleAdjustment& opt,const vector<bool>& constan
   }
 
   ceres::Solver::Summary summary;
-  ceres::Solve(opt.solverOptions,&problem,&summary);
+  ceres::Solve(opt.get<ceres::Solver::Options>("solverOptions"),&problem,&summary);
   //std::cout << summary.FullReport() << "\n";
 
   for(size_t camIdx = 0; camIdx < cams.size(); camIdx++)
@@ -121,6 +107,7 @@ void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,
 {
   auto& cam = *pcam;
   auto& pts = *ppts;
+  bool robustify = opt.get<bool>("robustify");
 
   vector<double> camParams;
   cam.params(&camParams);
@@ -135,7 +122,7 @@ void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,
       ceres::CostFunction *costFunction = cam.costFunction(keyIdx);
 
       // NULL specifies squared loss
-      ceres::LossFunction *lossFunction = opt.robustify ? new ceres::HuberLoss(1.0) : NULL;
+      ceres::LossFunction *lossFunction = robustify ? new ceres::HuberLoss(1.0) : NULL;
 
       problem.AddResidualBlock(costFunction,
         lossFunction,
@@ -161,7 +148,7 @@ void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,
   }
 
   ceres::Solver::Summary summary;
-  ceres::Solve(opt.solverOptions,&problem,&summary);
+  ceres::Solve(opt.get<ceres::Solver::Options>("solverOptions"),&problem,&summary);
   //std::cout << summary.FullReport() << "\n";
 
   cam.setParams(camParams);
