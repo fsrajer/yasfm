@@ -232,6 +232,7 @@
     <ClInclude Include="features.h" />
     <ClInclude Include="image_similarity.h" />
     <ClInclude Include="matching.h" />
+    <ClInclude Include="options_types.h" />
     <ClInclude Include="points.h" />
     <ClInclude Include="ransac.h" />
     <ClInclude Include="relative_pose.h" />
@@ -249,6 +250,7 @@
     <ClCompile Include="features.cpp" />
     <ClCompile Include="image_similarity.cpp" />
     <ClCompile Include="matching.cpp" />
+    <ClCompile Include="options_types.cpp" />
     <ClCompile Include="points.cpp" />
     <ClCompile Include="ransac.cpp" />
     <ClCompile Include="relative_pose.cpp" />
