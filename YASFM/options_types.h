@@ -12,13 +12,17 @@
 #pragma once
 
 #include <string>
+#include <ostream>
+#include <memory>
 
 #include "ceres/solver.h" // Ceres options
 #include "FLANN/util/params.h" // FLANN options
 
 #include "defines.h"
 
+using std::ostream;
 using std::string;
+using std::shared_ptr;
 
 namespace yasfm
 {
@@ -33,7 +37,8 @@ enum OptTypeE
   OptTypeStringE,
   OptTypeFLANNIndexE,
   OptTypeFLANNSearchE,
-  OptTypeCeresE
+  OptTypeCeresE,
+  OptTypeOptionsWrapperPtrE
 };
 
 /// Base class for options types.
@@ -50,64 +55,36 @@ typedef ptr_map<string,OptType> Options;
 class OptionsWrapper
 {
 public:
+  
+  template<typename T>
+  const T& get(const string& name) const
+  {
+    return static_cast<OptTypeWithVal<T> *>(&(*opt.at(name)))->val;
+  }
+
+  template<typename T>
+  T& get(const string& name)
+  {
+    return static_cast<OptTypeWithVal<T> *>(&(*opt.at(name)))->val;
+  }
+
+  /// Write to a file.
+  YASFM_API void write(ostream& file) const;
+
   Options opt;
 };
 
+typedef shared_ptr<OptionsWrapper> OptionsWrapperPtr;
 
-class YASFM_API OptTypeBool : public OptType
+template<typename T> 
+class OptTypeWithVal : public OptType
 {
 public:
-  virtual OptTypeE type() const;
-  bool val;
+  YASFM_API OptTypeWithVal() {}
+  YASFM_API OptTypeWithVal(T val) : val(val) {}
+  YASFM_API virtual OptTypeE type() const;
+  T val;
 };
 
-class YASFM_API OptTypeInt : public OptType
-{
-public:
-  virtual OptTypeE type() const;
-  int val;
-};
-
-class YASFM_API OptTypeFloat : public OptType
-{
-public:
-  virtual OptTypeE type() const;
-  float val;
-};
-
-class YASFM_API OptTypeDouble : public OptType
-{
-public:
-  virtual OptTypeE type() const;
-  double val;
-};
-
-class YASFM_API OptTypeString : public OptType
-{
-public:
-  virtual OptTypeE type() const;
-  string val;
-};
-
-class YASFM_API OptTypeFLANNIndex : public OptType
-{
-public:
-  virtual OptTypeE type() const;
-  flann::IndexParams val;
-};
-
-class YASFM_API OptTypeFLANNSearch : public OptType
-{
-public:
-  virtual OptTypeE type() const;
-  flann::SearchParams val;
-};
-
-class YASFM_API OptTypeCeres : public OptType
-{
-public:
-  virtual OptTypeE type() const;
-  ceres::Solver::Options val;
-};
 
 } // namespace yasfm
