@@ -177,7 +177,7 @@ namespace yasfm_tests
       OptionsRANSAC opt(512,1.,10);
       vector<int> inliers;
       estimateRelativePose7ptRANSAC(opt,keys1,keys2,matches,&_F,&inliers);
-      Assert::IsTrue(inliers.size() >= opt.minInliers || inliers.empty());
+      Assert::IsTrue(inliers.size() >= opt.get<int>("minInliers") || inliers.empty());
       for(size_t i = 0; i < inliers.size(); i++)
       {
         auto& pt1 = keys1[inliers[i]];
@@ -187,7 +187,7 @@ namespace yasfm_tests
         double pt2Fpt1 = pt2.homogeneous().dot(Fpt1);
         double e = (pt2Fpt1*pt2Fpt1) /
           (Fpt1.topRows(2).squaredNorm() + FTpt2.topRows(2).squaredNorm());
-        Assert::IsTrue(e <= opt.errorThresh);
+        Assert::IsTrue(e <= opt.get<double>("errorThresh"));
       }
 
       CameraPair pair;
@@ -195,7 +195,7 @@ namespace yasfm_tests
       pair.dists.resize(matches.size(),0);
       inliers.clear();
       estimateRelativePose7ptPROSAC(opt,keys1,keys2,pair,&_F,&inliers);
-      Assert::IsTrue(inliers.size() >= opt.minInliers || inliers.empty());
+      Assert::IsTrue(inliers.size() >= opt.get<int>("minInliers") || inliers.empty());
       for(size_t i = 0; i < inliers.size(); i++)
       {
         auto& pt1 = keys1[inliers[i]];
@@ -205,7 +205,7 @@ namespace yasfm_tests
         double pt2Fpt1 = pt2.homogeneous().dot(Fpt1);
         double e = (pt2Fpt1*pt2Fpt1) /
           (Fpt1.topRows(2).squaredNorm() + FTpt2.topRows(2).squaredNorm());
-        Assert::IsTrue(e <= opt.errorThresh);
+        Assert::IsTrue(e <= opt.get<double>("errorThresh"));
       }
 
       keys1.clear();
@@ -308,7 +308,7 @@ namespace yasfm_tests
       }
       Assert::IsTrue(goodE);
 
-      StandardCamera cam1(""),cam2("");
+      StandardCamera cam1,cam2;
       OptionsRANSAC opt(512,1.,10);
       vector<IntPair> matches_empty;
       Matrix3d _E;
@@ -329,7 +329,7 @@ namespace yasfm_tests
 
       inliers.clear();
       estimateRelativePose5ptRANSAC(opt,cam1,cam2,matches,&_E,&inliers);
-      Assert::IsTrue(inliers.size() >= opt.minInliers || inliers.empty());
+      Assert::IsTrue(inliers.size() >= opt.get<int>("minInliers") || inliers.empty());
       for(size_t i = 0; i < inliers.size(); i++)
       {
         auto& pt1 = keys1Norm[inliers[i]];
@@ -339,7 +339,7 @@ namespace yasfm_tests
         double pt2Ept1 = pt2.dot(Ept1);
         double e = (pt2Ept1*pt2Ept1) /
           (Ept1.topRows(2).squaredNorm() + ETpt2.topRows(2).squaredNorm());
-        Assert::IsTrue(e <= opt.errorThresh);
+        Assert::IsTrue(e <= opt.get<double>("errorThresh"));
       }
     }
 

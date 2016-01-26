@@ -23,6 +23,7 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <map>
 #include "Eigen\Dense"
 
 ////////////////////////////////////////////////////
@@ -37,7 +38,10 @@ typedef Eigen::Matrix<double,3,4> Matrix34d;
 typedef std::pair<int,int> IntPair;
 
 template<typename T>
-using ptr_vector = std::vector < std::unique_ptr< T > > ;
+using ptr_vector = std::vector < std::unique_ptr< T > >;
+
+template<typename K,typename T>
+using ptr_map = std::map < K,std::unique_ptr<T> >;
 
 /// N-View match are multiple pairs of a camera and key indices.
 /**

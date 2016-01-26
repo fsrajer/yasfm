@@ -23,8 +23,8 @@ StandardCamera::StandardCamera()
 	x0_(1) = -1;
 }
 
-StandardCamera::StandardCamera(const string& imgFilename)
-  : Camera(imgFilename),params_(nParams_,0.),
+StandardCamera::StandardCamera(const string& imgFilename,const string& featuresDir)
+  : Camera(imgFilename,featuresDir),params_(nParams_,0.),
   paramsConstraints_(nParams_,0.),paramsConstraintsWeights_(nParams_,0.)
 {
   // assume the image center to be the principal point
@@ -32,8 +32,8 @@ StandardCamera::StandardCamera(const string& imgFilename)
   x0_(1) = 0.5 * (imgHeight() - 1);
 }
 
-StandardCamera::StandardCamera(istream& file,int readMode,const string& featuresDir)
-  : Camera(file,readMode,featuresDir)
+StandardCamera::StandardCamera(istream& file,int readMode)
+  : Camera(file,readMode)
 {
   int n;
   file >> n;

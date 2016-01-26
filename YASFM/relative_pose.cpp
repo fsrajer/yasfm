@@ -575,18 +575,6 @@ bool estimateHomographyPROSAC(const OptionsRANSAC& opt,const vector<Vector2d>& p
   return (nInliers > 0);
 }
 
-void OptionsGeometricVerification::write(ostream& file) const
-{
-  file << " similarityThresh: " << similarityThresh << "\n";
-  file << " affinityThresh: " << affinityThresh << "\n";
-  file << " homographyThresh: " << homographyThresh << "\n";
-  file << " minInliersPerTransform: " << minInliersPerTransform << "\n";
-  file << " maxTransforms: " << maxTransforms << "\n";
-  file << " nRefineIterations: " << nRefineIterations << "\n";
-  file << " minInliersToRefine: " << minInliersToRefine << "\n";
-  file << " stopInlierFraction: " << stopInlierFraction << "\n";
-}
-
 void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
 {
@@ -612,7 +600,7 @@ void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
     vector<int> inliers;
     int nInliers = verifyMatchesGeometrically(opt,
       *cams[camsIdx.first],*cams[camsIdx.second],pair.matches,&inliers);
-    if(nInliers >= opt.minInliersPerTransform)
+    if(nInliers >= opt.get<int>("minInliersPerTransform"))
     {
       filterVector(inliers,&pair.matches);
       filterVector(inliers,&pair.dists);
@@ -647,7 +635,7 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
   bestInliers.reserve(nAllMatches);
   currInliers.reserve(nAllMatches);
 
-  for(int iTransform = 0; iTransform < opt.maxTransforms; iTransform++)
+  for(int iTransform = 0; iTransform < opt.get<int>("maxTransforms"); iTransform++)
   {
     bestInliers.clear();
 
@@ -657,7 +645,7 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
       int k2 = remainingMatches[iMatch].second;
       currInliers.clear();
 
-      for(int iRefine = 0; iRefine < opt.nRefineIterations; iRefine++)
+      for(int iRefine = 0; iRefine < opt.get<int>("nRefineIterations"); iRefine++)
       {
         Matrix3d H;
         double thresh;
@@ -666,27 +654,28 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
           computeSimilarityFromMatch(cam1.key(k1),cam1.keysScales()[k1],
             cam1.keysOrientations()[k1],cam2.key(k2),cam2.keysScales()[k2],
             cam2.keysOrientations()[k2],&H);
-          thresh = opt.similarityThresh;
+          thresh = opt.get<double>("similarityThresh");
         } else if(iRefine <= 4)
         {
           estimateAffinity(cam1.keys(),cam2.keys(),remainingMatches,
             currInliers,&H);
-          thresh = opt.affinityThresh;
+          thresh = opt.get<double>("affinityThresh");
         } else
         {
           estimateHomography(cam1.keys(),cam2.keys(),remainingMatches,
             currInliers,&H);
-          thresh = opt.homographyThresh;
+          thresh = opt.get<double>("homographyThresh");
         }
 
         currInliers.clear();
         findHomographyInliers(thresh,cam1.keys(),cam2.keys(),
           remainingMatches,H,&currInliers);
         
-        if(currInliers.size() < opt.minInliersToRefine)
+        if(currInliers.size() < opt.get<int>("minInliersToRefine"))
           break;
         
-        if(currInliers.size() > opt.stopInlierFraction * remainingMatches.size())
+        if(currInliers.size() > 
+          opt.get<double>("stopInlierFraction")*remainingMatches.size())
           break;
       }
 
@@ -694,7 +683,7 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
         bestInliers = currInliers;
     }
 
-    if(bestInliers.size() < opt.minInliersPerTransform)
+    if(bestInliers.size() < opt.get<int>("minInliersPerTransform"))
       break;
 
     for(int remainingMatchesInlier : bestInliers)
@@ -702,7 +691,7 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
     filterOutOutliers(bestInliers,&remainingMatches);
     filterOutOutliers(bestInliers,&remainingToAll);
 
-    if(remainingMatches.size() < opt.minInliersPerTransform)
+    if(remainingMatches.size() < opt.get<int>("minInliersPerTransform"))
       break;
   }
 

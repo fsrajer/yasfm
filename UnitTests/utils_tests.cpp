@@ -309,8 +309,8 @@ Matrix34d generateRandomProjection()
       ptViews[0].observedPart.emplace(1,0);
       points.addPoints(ptCoord,colors,ptViews);
 
-      cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test0.JPG"));
-      cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test1.JPG"));
+      cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test0.JPG",""));
+      cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test1.JPG",""));
       cams[0]->setParams(P);
       cams[1]->setParams(P);
       cams[0]->resizeFeatures(1,1);

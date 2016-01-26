@@ -147,7 +147,7 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ImportLibrary>$(SolutionDir)lib\Debug\$(TargetName).lib</ImportLibrary>
-      <AdditionalDependencies>DevIL.lib;Jheadd.lib;5pointd.lib;ceres-debug.lib;libglog.lib;cminpackd.lib;SiftGPU64_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>DevIL.lib;Jheadd.lib;5pointd.lib;ceres-debug.lib;libglog.lib;cminpackd.lib;SIFTGPU_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)lib\Debug\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -196,7 +196,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).lib</ImportLibrary>
-      <AdditionalDependencies>DevIL.lib;Jhead.lib;5point.lib;ceres.lib;libglog.lib;cminpack.lib;SiftGPU64.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>DevIL.lib;Jhead.lib;5point.lib;ceres.lib;libglog.lib;cminpack.lib;SIFTGPU.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -232,6 +232,7 @@
     <ClInclude Include="features.h" />
     <ClInclude Include="image_similarity.h" />
     <ClInclude Include="matching.h" />
+    <ClInclude Include="options_types.h" />
     <ClInclude Include="points.h" />
     <ClInclude Include="ransac.h" />
     <ClInclude Include="relative_pose.h" />
@@ -249,6 +250,7 @@
     <ClCompile Include="features.cpp" />
     <ClCompile Include="image_similarity.cpp" />
     <ClCompile Include="matching.cpp" />
+    <ClCompile Include="options_types.cpp" />
     <ClCompile Include="points.cpp" />
     <ClCompile Include="ransac.cpp" />
     <ClCompile Include="relative_pose.cpp" />

@@ -12,6 +12,7 @@
 /Documentation
 /Release
 /ipch
+/Scripts
 
 # /Incremental/
 /Incremental/Debug
@@ -19,6 +20,7 @@
 
 # /UnitTests/
 /UnitTests/x64
+/UnitTests/test_dataset/keys/test0.sft
 
 # /YASFM/
 /YASFM/x64
@@ -95,7 +97,11 @@
 /libs_build/glew-1.12.0/build/vc12/tmp
 
 # /libs_build/SiftGPU/bin/
-/libs_build/SiftGPU/bin/SiftGPU64*
+/libs_build/SiftGPU/bin/*.exe
+/libs_build/SiftGPU/bin/SiftGPU*
+/libs_build/SiftGPU/lib/SiftGPU*
 /libs_build/SiftGPU/msvc/*/*_x64
+/libs_build/SiftGPU/msvc/SiftGPU/vc120.pdb
+/libs_build/SiftGPU/msvc/src/SiftGPU/ProgramCU.cu.deps
 /libs_build/SiftGPU/msvc/TestWin/Debug
 /libs_build/SiftGPU/msvc/TestWin/Release

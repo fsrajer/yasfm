@@ -25,7 +25,7 @@ namespace yasfm_tests
       int nPts = 10;
       for(int camIdx = 0; camIdx < nCams; camIdx++)
       {
-        cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test0.JPG"));
+        cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test0.JPG",""));
         cams.back()->setParams(generateRandomProjection());
         cams.back()->resizeFeatures(nPts,0);
       }
@@ -94,7 +94,7 @@ namespace yasfm_tests
       int nPts = 10;
       for(int camIdx = 0; camIdx < nCams; camIdx++)
       {
-        cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test0.JPG"));
+        cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test0.JPG",""));
         cams.back()->setParams(generateRandomProjection());
         cams.back()->resizeFeatures(nPts,0);
       }

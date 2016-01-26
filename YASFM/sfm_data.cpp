@@ -217,6 +217,7 @@ const vector<Points::PointData>& Points::ptData() const { return ptData_; }
 Dataset::Dataset(const string& dir)
   : dir_(dir)
 {
+  _mkdir(featsDir().c_str());
 }
 
 Dataset::Dataset(const Dataset& o)
@@ -267,15 +268,7 @@ int Dataset::numCams() const
   return static_cast<int>(cams_.size());
 }
 
-void Dataset::writeASCII(const string& filename,int camWriteMode) const
-{
-  string featuresDir = joinPaths(dir_,"keys");
-  _mkdir(featuresDir.c_str());
-  writeASCII(filename,camWriteMode,featuresDir);
-}
-
-void Dataset::writeASCII(const string& filename,int camWriteMode,
-  const string& featuresDir) const
+void Dataset::writeASCII(const string& filename) const
 {
   string fn = joinPaths(dir(),filename);
   ofstream file(fn);
@@ -308,7 +301,7 @@ void Dataset::writeASCII(const string& filename,int camWriteMode,
   for(int i = 0; i < numCams(); i++)
   {
     file << cam(i).className() << " id: " << i << "\n";
-    cam(i).writeASCII(file,camWriteMode,featuresDir);
+    cam(i).writeASCII(file);
   }
 
   file << "points_\n";
@@ -334,13 +327,6 @@ void Dataset::writeASCII(const string& filename,int camWriteMode,
 }
 
 void Dataset::readASCII(const string& filename,int camReadMode)
-{
-  string featuresDir = joinPaths(dir_,"keys");
-  readASCII(filename,camReadMode,featuresDir);
-}
-
-void Dataset::readASCII(const string& filename,int camReadMode,
-  const string& featuresDir)
 {
   string fn = joinPaths(dir(),filename);
   ifstream file(fn);
@@ -391,8 +377,7 @@ void Dataset::readASCII(const string& filename,int camReadMode,
             string className;
             file >> className;
             getline(file,s);
-            cams_.push_back(CameraFactory::createInstance(className,file,camReadMode,
-              featuresDir));
+            cams_.push_back(CameraFactory::createInstance(className,file,camReadMode));
           }
         } else if(s == "points_")
         {
@@ -483,5 +468,9 @@ const uset<int>& Dataset::reconstructedCams() const { return reconstructedCams_;
 const Points& Dataset::points() const { return points_; }
 Points& Dataset::points() { return points_; }
 
+string Dataset::featsDir() const
+{
+  return joinPaths(dir_,"keys");
+}
 
 } // namespace yasfm

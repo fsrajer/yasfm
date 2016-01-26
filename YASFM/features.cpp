@@ -16,24 +16,6 @@ using namespace yasfm;
 namespace yasfm
 {
 
-bool OptionsSIFTGPU::isSetMaxWorkingDimension() const { return maxWorkingDimension >= 0; }
-bool OptionsSIFTGPU::isSetMaxOctaves() const { return maxOctaves >= 0; }
-bool OptionsSIFTGPU::isSetDogLevelsInAnOctave() const { return dogLevelsInAnOctave >= 0; }
-bool OptionsSIFTGPU::isSetDogThresh() const { return dogThresh >= 0; }
-bool OptionsSIFTGPU::isSetEdgeThresh() const { return edgeThresh >= 0; }
-
-void OptionsSIFTGPU::write(ostream& file) const
-{
-  file << " maxWorkingDimension: " << maxWorkingDimension << "\n";
-  file << " firstOctave: " << firstOctave << "\n";
-  file << " maxOctaves: " << maxOctaves << "\n";
-  file << " dogLevelsInAnOctave: " << dogLevelsInAnOctave << "\n";
-  file << " dogThresh: " << dogThresh << "\n";
-  file << " edgeThresh: " << edgeThresh << "\n";
-  file << " detectUprightSIFT: " << detectUprightSIFT << "\n";
-  file << " verbosityLevel: " << verbosityLevel << "\n";
-}
-
 void detectSiftGPU(const OptionsSIFTGPU& opt,ptr_vector<Camera> *cams,
   DetectSiftCallbackFunctionPtr callbackFunction,void * callbackObjectPtr)
 {
@@ -97,6 +79,7 @@ void detectSiftGPU(SiftGPU *sift,Camera *cam)
     }
     delete[] keys;
     delete[] descr;
+    cam->writeFeatures();
   }
 }
 
@@ -104,33 +87,33 @@ void setParamsSiftGPU(const OptionsSIFTGPU& opt,SiftGPU *sift)
 {
   vector<string> opts;
   opts.push_back("-fo");
-  opts.push_back(to_string(opt.firstOctave));
-  if(opt.isSetMaxWorkingDimension())
+  opts.push_back(to_string(opt.get<int>("firstOctave")));
+  if(!opt.useSIFTGPUDefaultForIntField("maxWorkingDimension"))
   {
     opts.push_back("-maxd");
-    opts.push_back(to_string(opt.maxWorkingDimension));
+    opts.push_back(to_string(opt.get<int>("maxWorkingDimension")));
   }
-  if(opt.isSetMaxOctaves())
+  if(!opt.useSIFTGPUDefaultForIntField("maxOctaves"))
   {
     opts.push_back("-no");
-    opts.push_back(to_string(opt.maxOctaves));
+    opts.push_back(to_string(opt.get<int>("maxOctaves")));
   }
-  if(opt.isSetDogLevelsInAnOctave())
+  if(!opt.useSIFTGPUDefaultForIntField("dogLevelsInAnOctave"))
   {
     opts.push_back("-d");
-    opts.push_back(to_string(opt.dogLevelsInAnOctave));
+    opts.push_back(to_string(opt.get<int>("dogLevelsInAnOctave")));
   }
-  if(opt.isSetDogThresh())
+  if(!opt.useSIFTGPUDefaultForIntField("dogThresh"))
   {
     opts.push_back("-t");
-    opts.push_back(to_string(opt.dogThresh));
+    opts.push_back(to_string(opt.get<int>("dogThresh")));
   }
-  if(opt.isSetEdgeThresh())
+  if(!opt.useSIFTGPUDefaultForIntField("edgeThresh"))
   {
     opts.push_back("-e");
-    opts.push_back(to_string(opt.edgeThresh));
+    opts.push_back(to_string(opt.get<int>("edgeThresh")));
   }
-  if(opt.detectUprightSIFT)
+  if(opt.get<bool>("detectUprightSIFT"))
   {
     // fix orientation
     opts.push_back("-ofix");
@@ -140,7 +123,10 @@ void setParamsSiftGPU(const OptionsSIFTGPU& opt,SiftGPU *sift)
     opts.push_back("1");
   }
   opts.push_back("-v");
-  opts.push_back(to_string(opt.verbosityLevel));
+  opts.push_back(to_string(opt.get<int>("verbosityLevel")));
+
+  opts.push_back("-tc3");
+  opts.push_back(to_string(opt.get<int>("softmaxFeatures")));
 
   char **argv = new char*[opts.size()];
   for(size_t i = 0; i < opts.size(); i++)
