@@ -69,7 +69,7 @@ public:
   }
 
   /// Write to a file.
-  YASFM_API void write(ostream& file) const;
+  YASFM_API void write(ostream& file,const string& prefix = "") const;
 
   Options opt;
 };

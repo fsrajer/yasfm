@@ -14,65 +14,66 @@ template class OptTypeWithVal<flann::SearchParams>;
 template class OptTypeWithVal<ceres::Solver::Options>;
 template class OptTypeWithVal<OptionsWrapperPtr>;
 
-void OptionsWrapper::write(ostream& file) const
+void OptionsWrapper::write(ostream& file,const string& prefix) const
 {
   for(const auto& entry : opt)
   {
     string field = entry.first;
-    file << " " << field << ": ";
+    file << prefix << field << ": ";
     switch(entry.second->type())
     {
     case OptTypeBoolE:
-      file << get<bool>(field);
+      file << get<bool>(field) << "\n";
       break;
     case OptTypeIntE:
-      file << get<int>(field);
+      file << get<int>(field) << "\n";
       break;
     case OptTypeFloatE:
-      file << get<float>(field);
+      file << get<float>(field) << "\n";
       break;
     case OptTypeDoubleE:
-      file << get<double>(field);
+      file << get<double>(field) << "\n";
       break;
     case OptTypeStringE:
-      file << get<string>(field);
+      file << get<string>(field) << "\n";
       break;
     case OptTypeFLANNIndexE:
     {
       const auto& indexOpt = get<flann::IndexParams>(field);
-      file << " indexParams:\n";
+      file << "\n";
       for(const auto& entry : indexOpt)
       {
-        file << "  " << entry.first << ": " << entry.second << "\n";
+        file << prefix << " " << entry.first << ": " << entry.second << "\n";
       }
       break;
     }
     case OptTypeFLANNSearchE:
     {
       const auto& searchOpt = get<flann::SearchParams>(field);
-      file << " searchParams:\n";
-      file << "  checks: " << searchOpt.checks << "\n";
-      file << "  eps: " << searchOpt.eps << "\n";
-      file << "  sorted: " << searchOpt.sorted << "\n";
-      file << "  max_neighbors: " << searchOpt.max_neighbors << "\n";
-      file << "  cores: " << searchOpt.cores << "\n";
+      file << "\n";
+      file << prefix << " checks: " << searchOpt.checks << "\n";
+      file << prefix << " eps: " << searchOpt.eps << "\n";
+      file << prefix << " sorted: " << searchOpt.sorted << "\n";
+      file << prefix << " max_neighbors: " << searchOpt.max_neighbors << "\n";
+      file << prefix << " cores: " << searchOpt.cores << "\n";
       break;
     }
     case OptTypeCeresE:
     {
       const auto& ceresOpt = get<ceres::Solver::Options>(field);
-      file << " solverOptions (only some of them):\n";
-      file << "  max_num_iterations: " << ceresOpt.max_num_iterations << "\n";
-      file << "  num_threads: " << ceresOpt.num_threads << "\n";
-      file << "  function_tolerance: " << ceresOpt.function_tolerance << "\n";
-      file << "  parameter_tolerance: " << ceresOpt.parameter_tolerance << "\n";
-      file << "  gradient_tolerance: " << ceresOpt.gradient_tolerance << "\n";
-      file << "  minimizer_type: " << ceresOpt.minimizer_type << "\n";
-      file << "  linear_solver_type: " << ceresOpt.linear_solver_type << "\n";
+      file << "\n";
+      file << prefix << " max_num_iterations: " << ceresOpt.max_num_iterations << "\n";
+      file << prefix << " num_threads: " << ceresOpt.num_threads << "\n";
+      file << prefix << " function_tolerance: " << ceresOpt.function_tolerance << "\n";
+      file << prefix << " parameter_tolerance: " << ceresOpt.parameter_tolerance << "\n";
+      file << prefix << " gradient_tolerance: " << ceresOpt.gradient_tolerance << "\n";
+      file << prefix << " minimizer_type: " << ceresOpt.minimizer_type << "\n";
+      file << prefix << " linear_solver_type: " << ceresOpt.linear_solver_type << "\n";
       break;
     }
     case OptTypeOptionsWrapperPtrE:
-      get<OptionsWrapperPtr>(field)->write(file);
+      file << "\n";
+      get<OptionsWrapperPtr>(field)->write(file," ");
       break;
     default:
       file << "unknown type";
