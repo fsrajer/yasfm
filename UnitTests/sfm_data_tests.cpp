@@ -2,12 +2,13 @@
 #include "CppUnitTest.h"
 
 #include "sfm_data.h"
+#include "utils_tests.h"
 #include "standard_camera.h"
 #include "standard_camera_radial.h"
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using namespace yasfm;
-using Eigen::ArrayXf;
+using Eigen::VectorXf;
 
 namespace yasfm_tests
 {
@@ -133,11 +134,17 @@ public:
   TEST_METHOD(StandardCameraTest)
   {
     testCameraFuctionality<StandardCamera>();
+    testCameraRotationSetterAndGetter<StandardCamera>();
+    testCameraCSetterAndGetter<StandardCamera>();
+    testCameraPoseGetter<StandardCamera>();
   }
 
   TEST_METHOD(StandardCameraRadialTest)
   {
     testCameraFuctionality<StandardCameraRadial>();
+    testCameraRotationSetterAndGetter<StandardCameraRadial>();
+    testCameraCSetterAndGetter<StandardCameraRadial>();
+    testCameraPoseGetter<StandardCameraRadial>();
   }
 
   template<class T>
@@ -158,7 +165,7 @@ public:
     cam.resizeFeatures(nFeats,descrDim);
 
     double x = 3,y = 5;
-    ArrayXf descr(ArrayXf::Random(descrDim));
+    VectorXf descr(VectorXf::Random(descrDim));
     for(int i = 0; i < nFeats; i++)
       cam.setFeature(i,x,y,0,0,&descr(0));
 
@@ -172,6 +179,52 @@ public:
     // copy
     unique_ptr<Camera> pcam2(cam.clone());
     Assert::IsTrue(instanceof<T,Camera>(&(*pcam2)));
+  }
+
+  template<class T>
+  void testCameraPSetterAndGetter()
+  {
+    Matrix34d P = generateRandomProjection();
+    cam.setParams(P);
+    Matrix34d _P = cam.P();
+    P /= P(2,3);
+    _P /= _P(2,3);
+    Assert::IsTrue(P.isApprox(_P,1e-8));
+  }
+
+  template<class T>
+  void testCameraRotationSetterAndGetter()
+  {
+    T cam;
+    Matrix3d R = generateRandomRotation();
+    cam.setRotation(R);
+    Matrix3d _R = cam.R();
+    Assert::IsTrue(R.isApprox(_R,1e-8));
+  }
+
+  template<class T>
+  void testCameraCSetterAndGetter()
+  {
+    T cam;
+    Vector3d C = Vector3d::Random();
+    cam.setC(C);
+    Assert::IsTrue(C.isApprox(cam.C(),1e-8));
+  }
+
+  template<class T>
+  void testCameraPoseGetter()
+  {
+    const double cPrecision = 1e-8;
+    T cam;
+    Matrix3d R = generateRandomRotation();
+    Vector3d C = Vector3d::Random();
+    cam.setRotation(R);
+    cam.setC(C);
+    Matrix34d Rt = cam.pose();
+    Matrix3d _R = Rt.leftCols(3);
+    Assert::IsTrue(R.isApprox(_R,cPrecision));
+    Vector3d _C = -R.transpose()*Rt.rightCols(1);
+    Assert::IsTrue(C.isApprox(_C,cPrecision));
   }
 
   template<typename B,typename T>

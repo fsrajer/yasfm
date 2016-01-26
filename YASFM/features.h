@@ -93,21 +93,40 @@ struct OptionsSIFTGPU
   int verbosityLevel;
 };
 
-/// Detect SIFT for all cameras using SIFTGPU.
+/// Callback function for progress notifying
 /**
+\param[in,out] object void pointer to the callee object
+\param[in] camId index of the last processed camera
+*/
+typedef void(*DetectSiftCallbackFunctionPtr)(void *object, int camId);
+
+/// Detect SIFT for all cameras using SIFTGPU (descriptors normalized to unit length).
+/**
+Calls overloaded function so that SIFT would be detected for all cameras.
+
 \param[in] opt Options.
 \param[in,out] cams Cameras. Image dimensions and image filename have to be set
 in order to detect SIFT.
+\param[out] callbackFunction Optional. Function to be called after finishing
+detection in one image
+\param[out] callbackObjectPtr Optional. Object to be passed to callbackFunction.
 */
-YASFM_API void detectSiftGPU(const OptionsSIFTGPU& opt,ptr_vector<Camera> *cams);
+YASFM_API void detectSiftGPU(const OptionsSIFTGPU& opt,ptr_vector<Camera> *cams,
+  DetectSiftCallbackFunctionPtr callbackFunction = NULL,void * callbackObjectPtr = NULL);
 
-/// Detect SIFT using SIFTGPU.
+/// Detect SIFT for all cameras using SIFTGPU (descriptors normalized to unit length).
 /**
 \param[in] opt Options.
-\param[in,out] cam Camera. Image dimensions and image filename have to be set
+\param[in] camsToUse On which cams should SIFT be detected?
+\param[in,out] cams Cameras. Image dimensions and image filename have to be set
 in order to detect SIFT.
+\param[out] callbackFunction Optional. Function to be called after finishing
+detection in one image
+\param[out] callbackObjectPtr Optional. Object to be passed to callbackFunction.
 */
-YASFM_API void detectSiftGPU(const OptionsSIFTGPU& opt,Camera *cam);
+YASFM_API void detectSiftGPU(const OptionsSIFTGPU& opt,const vector<int>& camsToUse,
+  ptr_vector<Camera> *cams,
+	DetectSiftCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 } // namespace yasfm
 

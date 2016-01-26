@@ -130,6 +130,10 @@ void matchFeatFLANN(const OptionsFLANN& opt,const flann::Index<flann::L2<float>>
   AutoMemReleaseFlannMatrix<float> dists(numQueries,2);
   auto& outMatches = pair->matches;
   auto& outDists = pair->dists;
+  outMatches.clear();
+  outDists.clear();
+  outMatches.reserve(numQueries);
+  outDists.reserve(numQueries);
 
   if(opt.filterByRatio())
   {
@@ -148,8 +152,6 @@ void matchFeatFLANN(const OptionsFLANN& opt,const flann::Index<flann::L2<float>>
     }
   } else
   {
-    outMatches.reserve(numQueries);
-    outDists.reserve(numQueries);
     index.knnSearch(queryDescr,nearestNeighbors.data,dists.data,1,opt.searchParams);
     for(int i = 0; i < numQueries; i++)
     {

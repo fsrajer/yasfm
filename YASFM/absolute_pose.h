@@ -142,6 +142,57 @@ YASFM_API void resectCameraLS(const vector<Vector2d>& keys,
   const vector<Vector3d>& points,const vector<IntPair>& camToSceneMatches,
   Matrix34d *P);
 
+/// Find camera parameters by plugging 3pt solver into RANSAC.
+/**
+\param[in] opt RANSAC options.
+\param[in] camToSceneMatches .first of the IntPair is key index and .second a point
+index.
+\param[in] points 3d points' coordinates.
+\param[in,out] cam Camera to be estimated. Uses keys() as input and sets parameters
+as output.
+\param[out] inliers Inliers of the matches to the estimated parameters.
+\return True if the camera was estimated succesfully.
+*/
+YASFM_API bool resectCamera3ptRANSAC(const OptionsRANSAC& opt,
+	const vector<IntPair>& camToSceneMatches, const vector<Vector3d>& points,
+	Camera *cam, vector<int> *inliers = nullptr);
+
+/// Find camera parameters by plugging 3pt solver into RANSAC.
+/**
+\param[in] opt RANSAC options.
+\param[in] camToSceneMatches .first of the IntPair is key index and .second a point
+index.
+\param[in] keys Keys.
+\param[in] points 3d points' coordinates.
+\param[in] Kinv Inverse of the camera calibration matrix.
+\param[out] P The best found projection matrix.
+\param[out] inliers Inliers of the matches to the estimated parameters.
+\return Success. (False if the best hypothesis was not supported by enough inliers.)
+*/
+YASFM_API bool resectCamera3ptRANSAC(const OptionsRANSAC& opt,
+	const vector<IntPair>& camToSceneMatches, const vector<Vector2d>& keys,
+	const vector<Vector3d>& points, const Matrix3d & Kinv,
+	Matrix34d *P, vector<int> *inliers = nullptr);
+
+/// 3pt absolute pose minimal solver.
+/**
+There are 6 dimensions of freedom - 3 for translation and 3 for rotation.
+Thus, 3 2D-3D correspondences are required.
+This method implements solution by [Grunert-1841], as reviewed in [Haralick-IJCV1994].
+
+\param[in] keys Keys.
+\param[in] points Points.
+\param[in] Kinv Inverse of the camera calibration matrix.
+\param[in] camToSceneMatches .first of the IntPair is key index and .second a point
+index.
+\param[out] Ps Estimated projection matrices (there are 2 matrices).
+*/
+YASFM_API void resectCamera3pt(const vector<Vector2d>& keys,
+	const vector<Vector3d>& points, const vector<IntPair>& camToSceneMatches,
+	vector<Matrix34d> *Ps);
+
+
+
 /// Implementation of common structures for resectioning mediators.
 class MediatorResectioningRANSAC : public MediatorRANSAC<Matrix34d>
 {
@@ -230,6 +281,30 @@ public:
   \param[out] Ps Resulting projection matrices.
   */
   virtual void computeTransformation(const vector<int>& idxs,vector<Matrix34d> *Ps) const;
+};
+
+/// Mediator for 3pt minimal solver.
+class MediatorResectioning3ptRANSAC : public MediatorResectioningRANSAC
+{
+public:
+	/// Constructor. 
+	/**
+	\param[in] keys Keys.
+	\param[in] points Points.
+	\param[in] camToSceneMatches .first of the IntPair is key index and .second a point
+	index.
+	*/
+	MediatorResectioning3ptRANSAC(const vector<Vector2d>& keys,
+		const vector<Vector3d>& points, const vector<IntPair>& camToSceneMatches);
+
+	/// Compute transformation from a minimal sample.
+	/**
+	\param[in] idxs Indices of matches from which to compute the transformation.
+	\param[out] Ps Resulting projection matrices.
+	*/
+	virtual void computeTransformation(const vector<int>& idxs, vector<Matrix34d> *Ps) const;
+private:
+
 };
 
 } // namespace yasfm

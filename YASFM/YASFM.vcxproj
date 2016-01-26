@@ -230,6 +230,7 @@
     <ClInclude Include="camera_factory.h" />
     <ClInclude Include="defines.h" />
     <ClInclude Include="features.h" />
+    <ClInclude Include="image_similarity.h" />
     <ClInclude Include="matching.h" />
     <ClInclude Include="points.h" />
     <ClInclude Include="ransac.h" />
@@ -246,6 +247,7 @@
     <ClCompile Include="camera.cpp" />
     <ClCompile Include="camera_factory.cpp" />
     <ClCompile Include="features.cpp" />
+    <ClCompile Include="image_similarity.cpp" />
     <ClCompile Include="matching.cpp" />
     <ClCompile Include="points.cpp" />
     <ClCompile Include="ransac.cpp" />

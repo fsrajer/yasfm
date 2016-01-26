@@ -258,7 +258,9 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
       out << f << " " << rad[0] << " " << rad[1] << "\n";
       // R
       Matrix3d R = cams[i]->R();
-      R.bottomRows(1) *= -1; // make the -z axis the viewing direction
+      Matrix3d T = -Matrix3d::Identity();
+      T(0,0) = 1.;
+      R = T*R; // Transform into Bundler format
       for(size_t j = 0; j < 3; j++)
         out << R(j,0) << " " << R(j,1) << " " << R(j,2) << "\n";
       // t

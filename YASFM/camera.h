@@ -21,7 +21,7 @@
 
 #include "defines.h"
 
-using Eigen::ArrayXXf;
+using Eigen::MatrixXf;
 using Eigen::Matrix3d;
 using Eigen::Vector2d;
 using Eigen::Vector3d;
@@ -238,7 +238,8 @@ public:
   {
     /// Read only keys (coordinates, scales and orientations) and no descriptors
     ReadNoDescriptors = 0,
-    ReadAll = 1            ///< Read keys and descriptors.
+    /// Read keys, descriptors and normalize descriptors to unit length.
+    ReadAll = 1  
   };
 
   /// Allocate storage for keys and descriptors.
@@ -322,7 +323,7 @@ public:
   YASFM_API const Vector3uc& keyColor(int i) const;
   
   /// \return Const reference to all descriptors (one column is one descriptor).
-  YASFM_API const ArrayXXf& descr() const;
+  YASFM_API const MatrixXf& descr() const;
 
   /// \return Indices of points visible in this camera in ascending order.
   YASFM_API const vector<int>& visiblePoints() const;
@@ -368,7 +369,7 @@ private:
   vector<double> keysScales_;       ///< Keys scales
   vector<double> keysOrientations_; ///< Orientation (angle in radians).
   vector<Vector3uc> keysColors_;    ///< Keys colors.
-  ArrayXXf descr_;     ///< Descriptors (one column is one descriptor).
+  MatrixXf descr_;     ///< Descriptors (one column is one descriptor).
   /// Indices of points visible in this camera in ascending order.
   vector<int> visiblePoints_;       
 };

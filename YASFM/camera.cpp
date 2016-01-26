@@ -7,7 +7,7 @@
 
 #include "utils_io.h"
 
-using Eigen::ArrayXf;
+using Eigen::VectorXf;
 using Eigen::Map;
 using std::cerr;
 using std::cout;
@@ -74,6 +74,9 @@ Camera::Camera(istream& file,int mode,const string& featuresDir)
   }
   featuresFile.close();
 
+  if(mode & ReadAll)
+    descr_.colwise().normalize();
+
   readKeysColors();
 }
 
@@ -96,7 +99,7 @@ void Camera::setFeature(int idx,double x,double y,double scale,double orientatio
   keys_[idx](1) = y;
   keysScales_[idx] = scale;
   keysOrientations_[idx] = orientation;
-  Map<const ArrayXf> descrMapped(descr,descr_.rows());
+  Map<const VectorXf> descrMapped(descr,descr_.rows());
   descr_.col(idx) = descrMapped;
 }
 
@@ -125,7 +128,7 @@ const Vector2d& Camera::key(int i) const { return keys_[i]; }
 Vector2d& Camera::key(int i)  { return keys_[i]; }
 const vector<double>& Camera::keysScales() const { return keysScales_; }
 const vector<double>& Camera::keysOrientations() const { return keysOrientations_; }
-const ArrayXXf& Camera::descr() const { return descr_; }
+const MatrixXf& Camera::descr() const { return descr_; }
 const vector<Vector3uc>& Camera::keysColors() const { return keysColors_; }
 const Vector3uc& Camera::keyColor(int i) const { return keysColors_[i]; }
 const vector<int>& Camera::visiblePoints() const { return visiblePoints_; }

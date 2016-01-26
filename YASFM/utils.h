@@ -77,6 +77,14 @@ inline double rad2Deg(double r);
 \param[out] order Mapping from the new ordered indices to the original ones. 
 */
 template<typename T>
+void quicksort(int n,const T* const arr,int *order);
+
+/// Finds ascending ordering.
+/**
+\param[in] arr Array of elements.
+\param[out] order Mapping from the new ordered indices to the original ones.
+*/
+template<typename T>
 void quicksort(const vector<T>& arr,vector<int> *order);
 
 /// Effectively remove multiple elements from a vector.
@@ -223,7 +231,7 @@ namespace
 
 /// Main function for the header in the yasfm namespace. Sorts in ascending order.
 template<typename T>
-void quicksort(int left,int right,const vector<T>& arr,vector<int> *order);
+void quicksort(int left,int right,const T* const arr,int* order);
 
 /// Functor for computing error using ceres cost function.
 template<unsigned int N>
@@ -268,15 +276,23 @@ inline double rad2Deg(double r)
 // order is the output. It is the mapping from the new ordered indices
 // to the original ones.
 template<typename T>
-void quicksort(const vector<T>& arr,vector<int> *order)
+void quicksort(int nElem,const T* const arr,int *order)
 {
-  int nElem = static_cast<int>(arr.size());
-  order->resize(arr.size());
   for(int i = 0; i < nElem; i++)
   {
-    (*order)[i] = i;
+    order[i] = i;
   }
   ::quicksort(0,nElem - 1,arr,order);
+}
+
+// order is the output. It is the mapping from the new ordered indices
+// to the original ones.
+template<typename T>
+void quicksort(const vector<T>& arr,vector<int> *order)
+{
+  int n = static_cast<int>(arr.size());
+  order->resize(n);
+  ::quicksort(n,&arr[0],&(*order)[0]);
 }
 
 template<typename T>
@@ -332,9 +348,8 @@ namespace
 {
 
 template<typename T>
-void quicksort(int left,int right,const vector<T>& arr,vector<int> *porder)
+void quicksort(int left,int right,const T* const arr,int* order)
 {
-  auto& order = *porder;
   if(left >= right)
     return;
   int mid = left;
@@ -344,8 +359,8 @@ void quicksort(int left,int right,const vector<T>& arr,vector<int> *porder)
       std::swap(order[++mid],order[i]);
   }
   std::swap(order[mid],order[left]);
-  quicksort(left,mid - 1,arr,&order);
-  quicksort(mid + 1,right,arr,&order);
+  quicksort(left,mid - 1,arr,order);
+  quicksort(mid + 1,right,arr,order);
 }
 
 template<unsigned int N>

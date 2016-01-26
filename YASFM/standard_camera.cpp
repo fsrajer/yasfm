@@ -135,6 +135,14 @@ Vector3d StandardCamera::C() const
 double StandardCamera::f() const { return params_[fIdx_]; }
 const Vector2d& StandardCamera::x0() const { return x0_; }
 
+void StandardCamera::setImage(const string& filename,int width,int height)
+{
+  Camera::setImage(filename,width,height);
+  // assume the image center to be the principal point
+  x0_(0) = 0.5 * (imgWidth() - 1);
+  x0_(1) = 0.5 * (imgHeight() - 1);
+}
+
 void StandardCamera::setParams(const vector<double>& params)
 {
   params_[rotIdx_ + 0] = params[rotIdx_ + 0];
