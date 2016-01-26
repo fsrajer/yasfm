@@ -189,7 +189,7 @@ index.
 */
 YASFM_API void resectCamera3pt(const vector<Vector2d>& keys,
 	const vector<Vector3d>& points, const vector<IntPair>& camToSceneMatches,
-	const Matrix3d & Kinv, vector<Matrix34d> *Ps);
+	vector<Matrix34d> *Ps);
 
 
 
@@ -295,7 +295,7 @@ public:
 	index.
 	*/
 	MediatorResectioning3ptRANSAC(const vector<Vector2d>& keys,
-		const vector<Vector3d>& points, const vector<IntPair>& camToSceneMatches, const Matrix3d & Kinv);
+		const vector<Vector3d>& points, const vector<IntPair>& camToSceneMatches);
 
 	/// Compute transformation from a minimal sample.
 	/**
@@ -304,7 +304,7 @@ public:
 	*/
 	virtual void computeTransformation(const vector<int>& idxs, vector<Matrix34d> *Ps) const;
 private:
-	const Matrix3d & Kinv_;
+
 };
 
 } // namespace yasfm

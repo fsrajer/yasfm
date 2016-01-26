@@ -187,10 +187,15 @@ bool resectCamera3ptRANSAC(const OptionsRANSAC& opt,
 {
 	Matrix34d P;
 	Matrix3d Kinv = cam->K().inverse();
-	bool success = resectCamera3ptRANSAC(opt, camToSceneMatches, cam->keys(),
+	vector<Vector2d> calibratedKeys;
+	for (int i = 0; i < cam->keys().size(); i++)
+	{
+		calibratedKeys.push_back((Kinv*cam->keys()[i].homogeneous()).head(2));
+	}
+	bool success = resectCamera3ptRANSAC(opt, camToSceneMatches, calibratedKeys,
 		points,Kinv, &P, inliers);
 	if (success)
-		cam->setParams(P);
+		cam->setParams(cam->K()*P);
 	return success;
 }
 
@@ -199,14 +204,15 @@ bool resectCamera3ptRANSAC(const OptionsRANSAC& opt,
 	const vector<Vector3d>& points, const Matrix3d & Kinv,
 	Matrix34d *P, vector<int> *inliers)
 {
-	MediatorResectioning3ptRANSAC m(keys, points, camToSceneMatches, Kinv);
+	
+	MediatorResectioning3ptRANSAC m(keys, points, camToSceneMatches);
 	int nInliers = estimateTransformRANSAC(m, opt, P, inliers);
 	return (nInliers > 0);
 }
 
 void resectCamera3pt(const vector<Vector2d>& keys,
 	const vector<Vector3d>& points, const vector<IntPair>& camToSceneMatches, 
-	const Matrix3d & Kinv,	vector<Matrix34d> *Ps){
+	vector<Matrix34d> *Ps){
 
 	const size_t minPts = 3;
 	if (camToSceneMatches.size() < minPts)
@@ -219,28 +225,28 @@ void resectCamera3pt(const vector<Vector2d>& keys,
 
 	double a, b, c;
 
-	a = (points[1] - points[2]).norm();
-	b = (points[0] - points[2]).norm();
-	c = (points[0] - points[1]).norm();
+	a = (points[camToSceneMatches[1].second] - points[camToSceneMatches[2].second]).norm();
+	b = (points[camToSceneMatches[0].second] - points[camToSceneMatches[2].second]).norm();
+	c = (points[camToSceneMatches[0].second] - points[camToSceneMatches[1].second]).norm();
+
+	if (a==0||b==0||c==0)
+	{
+		return;
+	}
 
 	Eigen::Matrix3d u;
 
-	for (size_t i = 0; i < camToSceneMatches.size(); i++)
+	for (size_t i = 0; i < 3; i++)
 	{
 		int keyIdx = camToSceneMatches[i].first;
 		const auto& key = keys[keyIdx];
-		// in image coordiantes
-		u(0, i) = -key.x();
-		u(1, i) = -key.y();
-		u(2, i) = 1;
+		// normalized unit rays
+		double norm = sqrt(1+ key.x()*key.x() + key.y()*key.y());
+		u(0, i) = key.x()/norm;
+		u(1, i) = key.y()/norm;
+		u(2, i) = 1/norm;
 	}
-	// calibrate
-	u *= Kinv;
-	//normalize
-	for (int i = 0; i < 3; i++)
-	{
-		u.col(i).normalize();
-	}
+	
 
 	double ca, cb, cg;
 	ca = u.col(1).transpose()*u.col(2);
@@ -325,12 +331,12 @@ void resectCamera3pt(const vector<Vector2d>& keys,
 	Eigen::Matrix3d X;
 	for (int j = 0; j < 3; j++)
 	{
-		mean1(j) = points[j].mean();
+		mean1(j) = (points[camToSceneMatches[0].second](j) + points[camToSceneMatches[1].second](j) + points[camToSceneMatches[2].second](j)) / 3;
 	}
 
 	for (int j = 0; j < 3; j++)
 	{
-		X.col(j) = points[j] - mean1;
+		X.col(j) = points[camToSceneMatches[j].second] - mean1;
 	}
 	//find rigid transform between X and XX for all solutions
 	for (int i = 0; i < nreal; i++)
@@ -385,10 +391,9 @@ void resectCamera3pt(const vector<Vector2d>& keys,
 			R = R2.transpose()*R1;
 		}
 		Eigen::Vector3d t = mean2 - R*mean1;
-		Eigen::MatrixXd Pi(3, 4);
+		Matrix34d Pi(3, 4);
 		Pi << R, t;
 		Ps->push_back(Pi);
-
 
 	}
 
@@ -464,8 +469,8 @@ void MediatorResectioning6ptLSRANSAC::computeTransformation(const vector<int>& i
 
 MediatorResectioning3ptRANSAC::MediatorResectioning3ptRANSAC(
 	const vector<Vector2d>& keys, const vector<Vector3d>& points,
-	const vector<IntPair>& camToSceneMatches, const Matrix3d & Kinv)
-	: MediatorResectioningRANSAC(3, keys, points, camToSceneMatches), Kinv_(Kinv)
+	const vector<IntPair>& camToSceneMatches)
+	: MediatorResectioningRANSAC(3, keys, points, camToSceneMatches)
 {
 }
 
@@ -476,7 +481,7 @@ void MediatorResectioning3ptRANSAC::computeTransformation(const vector<int>& idx
 	selectedMatches.reserve(minMatches_);
 	for (int idx : idxs)
 		selectedMatches.push_back(camToSceneMatches_[idx]);
-	resectCamera3pt(keys_, points_, selectedMatches, Kinv_, Ps);
+	resectCamera3pt(keys_, points_, selectedMatches, Ps);
 }
 
 } // namespace yasfm

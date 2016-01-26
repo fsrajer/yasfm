@@ -82,5 +82,52 @@ namespace yasfm_tests
       }
     }
 
-	};
+	TEST_METHOD(resectCamera3ptTest)
+	{
+		vector<Vector2d> keys;
+		vector<Vector3d> pts;
+		vector<IntPair> matches;
+		vector<Matrix34d> _Ps;
+		resectCamera3pt(keys, pts, matches, &_Ps);
+		Assert::IsTrue(_Ps.empty());
+
+		// 3d points must lie in front of the camera
+		Matrix34d P;
+		Vector3d shift;
+		shift << 0, 0, 3;
+		P << generateRandomRotation(), Vector3d().Random()+shift;
+
+		for (int i = 0; i < 15; i++)
+		{
+			pts.push_back(Vector3d::Random());
+			Vector3d proj = P * pts.back().homogeneous();
+			keys.push_back(proj.hnormalized());
+			matches.emplace_back(i, i);
+		}
+
+		resectCamera3pt(keys, pts, matches, &_Ps);
+		Assert::IsFalse(_Ps.empty());
+		P.normalize();
+		bool goodP = false;
+		for (auto& _P : _Ps)
+		{
+			_P.normalize();
+			goodP |= (P - _P).norm() < 1e-5;
+		}
+		Assert::IsTrue(goodP);
+
+		OptionsRANSAC opt(4096, 1., 8);
+		Matrix34d _P;
+		vector<int> inliers;
+		resectCamera3ptRANSAC(opt, matches, keys, pts, Matrix3d().Identity(), &_P, &inliers);
+		Assert::IsTrue(inliers.size() > opt.minInliers || inliers.empty());
+
+		for (int i : inliers)
+		{
+			Vector3d proj = _P * pts[i].homogeneous();
+			Assert::IsTrue((proj.hnormalized() - keys[i]).norm() < opt.errorThresh);
+		}
+	}
+
+};
 }
