@@ -162,17 +162,15 @@ YASFM_API bool resectCamera3ptRANSAC(const OptionsRANSAC& opt,
 \param[in] opt RANSAC options.
 \param[in] camToSceneMatches .first of the IntPair is key index and .second a point
 index.
-\param[in] keys Keys.
+\param[in] normKeys Normalized keys.
 \param[in] points 3d points' coordinates.
-\param[in] Kinv Inverse of the camera calibration matrix.
-\param[out] P The best found projection matrix.
+\param[out] Rt The best found pose (rotation and translation).
 \param[out] inliers Inliers of the matches to the estimated parameters.
 \return Success. (False if the best hypothesis was not supported by enough inliers.)
 */
 YASFM_API bool resectCamera3ptRANSAC(const OptionsRANSAC& opt,
-	const vector<IntPair>& camToSceneMatches, const vector<Vector2d>& keys,
-	const vector<Vector3d>& points, const Matrix3d & Kinv,
-	Matrix34d *P, vector<int> *inliers = nullptr);
+  const vector<IntPair>& camToSceneMatches,const vector<Vector2d>& normKeys,
+	const vector<Vector3d>& points,Matrix34d *Rt,vector<int> *inliers = nullptr);
 
 /// 3pt absolute pose minimal solver.
 /**
@@ -180,16 +178,16 @@ There are 6 dimensions of freedom - 3 for translation and 3 for rotation.
 Thus, 3 2D-3D correspondences are required.
 This method implements solution by [Grunert-1841], as reviewed in [Haralick-IJCV1994].
 
-\param[in] keys Keys.
+\param[in] normKeys Normalized keys.
 \param[in] points Points.
 \param[in] Kinv Inverse of the camera calibration matrix.
 \param[in] camToSceneMatches .first of the IntPair is key index and .second a point
 index.
-\param[out] Ps Estimated projection matrices (there are 2 matrices).
+\param[out] Rts Estimated pose matrices (rotation and translation). There are 2 matrices.
 */
-YASFM_API void resectCamera3pt(const vector<Vector2d>& keys,
+YASFM_API void resectCamera3pt(const vector<Vector2d>& normKeys,
 	const vector<Vector3d>& points, const vector<IntPair>& camToSceneMatches,
-	vector<Matrix34d> *Ps);
+	vector<Matrix34d> *Rts);
 
 
 
@@ -289,20 +287,20 @@ class MediatorResectioning3ptRANSAC : public MediatorResectioningRANSAC
 public:
 	/// Constructor. 
 	/**
-	\param[in] keys Keys.
+	\param[in] normKeys Normalized keys.
 	\param[in] points Points.
 	\param[in] camToSceneMatches .first of the IntPair is key index and .second a point
 	index.
 	*/
-	MediatorResectioning3ptRANSAC(const vector<Vector2d>& keys,
+	MediatorResectioning3ptRANSAC(const vector<Vector2d>& normKeys,
 		const vector<Vector3d>& points, const vector<IntPair>& camToSceneMatches);
 
 	/// Compute transformation from a minimal sample.
 	/**
 	\param[in] idxs Indices of matches from which to compute the transformation.
-	\param[out] Ps Resulting projection matrices.
+	\param[out] Rts Resulting pose matrices (rotation and translation).
 	*/
-	virtual void computeTransformation(const vector<int>& idxs, vector<Matrix34d> *Ps) const;
+  virtual void computeTransformation(const vector<int>& idxs,vector<Matrix34d> *Rts) const;
 private:
 
 };
