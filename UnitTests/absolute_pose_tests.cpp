@@ -60,11 +60,11 @@ namespace yasfm_tests
 
       resectCamera5AndHalfPt(keys,pts,matches,&_Ps);
       Assert::IsFalse(_Ps.empty());
-      P.normalize();
+      P /= P(2,3);
       bool goodP = false;
       for(auto& _P : _Ps)
       {
-        _P.normalize();
+        _P /= _P(2,3);
         goodP |= (P - _P).norm() < 1e-10;
       }
       Assert::IsTrue(goodP);
