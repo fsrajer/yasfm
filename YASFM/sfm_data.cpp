@@ -199,7 +199,14 @@ void Points::readASCII(istream& file)
         if(format & 2)
           file >> data.toReconstruct;
         if(format & 4)
-          file >> data.color(0) >> data.color(1) >> data.color(2);
+        {
+          for(int i = 0; i < 3; i++)
+          {
+            int tmp;
+            file >> tmp;
+            data.color(i) = tmp;
+          }
+        }
       }
     }
   }
