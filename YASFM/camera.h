@@ -15,6 +15,7 @@
 #include <ostream>
 #include <string>
 #include <vector>
+#include <list>
 
 #include "ceres/ceres.h"
 #include "Eigen/Dense"
@@ -30,6 +31,7 @@ using std::istream;
 using std::string;
 using std::unique_ptr;
 using std::vector;
+using std::list;
 
 namespace yasfm
 {
@@ -50,15 +52,23 @@ be created.
 class Camera
 {
 public:
+
+  /// Total number of descriptors that can be kept in memory (over all images).
+  /// Adjust this based on your machine. 
+  /// Default 4M which eats 2GB memory (made for a laptop with 8GB of memory).
+  static size_t maxDescrInMemoryTotal_;
+
   /// Constructor. (empty)
   YASFM_API Camera();
+
   /// Constructor. (Reads image dimensions.)
   /**
   Opens the image file in order to get image dimensions.
 
   \param[in] imgFilename Path to the image file.
+  \param[in] featuresDir Directory containg files with features.
   */
-  YASFM_API Camera(const string& imgFilename);
+  YASFM_API Camera(const string& imgFilename,const string& featuresDir);
 
   /// Constructor. (Reads everything from the file.)
   /**
@@ -67,9 +77,12 @@ public:
   \param[in,out] file Opened file containg main camera information as written
   by writeASCII().
   \param[in] readMode Given by WriteMode.
-  \param[in] featuresDir Directory containg a file with features.
   */
-  YASFM_API Camera(istream& file,int readMode,const string& featuresDir);
+  YASFM_API Camera(istream& file,int readMode);
+
+  /// Copy constructor.
+  /// \param[in] o Other camera.
+  YASFM_API Camera(const Camera& o);
 
   /// Destructor.
   /** 
@@ -79,6 +92,9 @@ public:
   */
   YASFM_API virtual ~Camera();
 
+  /// Assignment operator.
+  /// \param[in] o Other camera.
+  YASFM_API Camera& operator=(const Camera& o);
 
   //////////////////////////////////////////
   //////////////////////////////////////////
@@ -183,7 +199,6 @@ public:
   YASFM_API virtual void setParamsConstraints(const vector<double>& constraints,
     const vector<double>& weights) = 0;
 
-protected:
   /// Write the camera parameters (not features).
   /**
   Write out camera parameters. This can be done by first calling
@@ -214,36 +229,19 @@ private:
   ///////////////////////////////////
 
 public:
-  /// Enum for indicating how should features be written.
-  /**
-  Bits information:
-  000 = 0: no features,
-  001 = 1: keys,
-  010 = 2: descriptors,
-  110 = 6: descriptors + conversion of descriptors.
-  */
-  enum WriteMode
-  {
-    WriteNoFeatures = 0,  ///< Don't write features at all.
-    WriteKeys = 1,        ///< Writes keypoints (coordinates, scales and orientations)
-    WriteDescriptors = 2, ///< Write descriptors.
-    WriteAll = 3,         ///< Write both, keys and descriptors.
-    /// Convert descriptors to unsigned int before writing.
-    /// (Does not change actual data. Just writes converted.)
-    WriteConvertNormalizedSIFTToUint = 4
-  };
-
   /// Enum for indicating what features information should be read.
   enum ReadMode
   {
-    /// Read only keys (coordinates, scales and orientations) and no descriptors
-    ReadNoDescriptors = 0,
-    /// Read keys, descriptors and normalize descriptors to unit length.
-    ReadAll = 1  
+    /// Read only keys (coordinates, scales and orientations).
+    ReadKeys = 1,
+    /// Read descriptors and normalize descriptors to unit length.
+    ReadDescriptors = 2
   };
 
   /// Allocate storage for keys and descriptors.
   /**
+  WARNING: Might trigger release of descriptors of some other camera if the
+  memory limit is reached.
   Does not allocate colors. Those should be read using readKeysColors()
   after you have all the keys.
 
@@ -321,49 +319,42 @@ public:
   \return Const reference to color of one key.
   */
   YASFM_API const Vector3uc& keyColor(int i) const;
-  
-  /// \return Const reference to all descriptors (one column is one descriptor).
-  YASFM_API const MatrixXf& descr() const;
+
+  /// Get descriptors (handles reading in descriptors and releasing those of other cameras). 
+  /**
+  WARNING! This might trigger reading from a file and release of descriptors 
+  of some other camera if the memory limit is reached.
+  WARNING!! The descriptor is not guaranteed to stay in memory for long
+  (depends on the memory limit).
+  \return Const reference to all descriptors (one column is one descriptor).
+  */
+  YASFM_API const MatrixXf& descr();
 
   /// \return Indices of points visible in this camera in ascending order.
   YASFM_API const vector<int>& visiblePoints() const;
 
   /// \return Indices of points visible in this camera in ascending order.
   YASFM_API vector<int>& visiblePoints();
-  
-  /// Call overloaded function.
-  /**
-  Calls overloaded function with featuresDir set to the "d/keys", where
-  d is the directory where the image is stored.
 
-  \param[in,out] file Opened output file.
-  \param[in] writeMode Defined by WriteMode.
-  */
-  YASFM_API void writeASCII(ostream& file,int writeMode) const;
+  /// Write out features.
+  /// \param[in] saveAsBinary Should the output file be binary?
+  YASFM_API void writeFeatures() const;
 
-  /// Write the class into files.
-  /**
-  Most of the data will be stored in the file but keys and descriptors will
-  be stored separately in "featuresDir/imgFilename.key"
-
-  \param[in,out] file Opened output file.
-  \param[in] writeMode Defined by WriteMode.
-  \param[in] featuresDir Directory where to write a file with features.
-  */
-  YASFM_API void writeASCII(ostream& file,int writeMode,
-    const string& featuresDir) const;
-
-protected:
-  /// Generate path to file with features.
-  /**
-  \param[in] featuresDir Directory where the file should reside.
-  */
-  virtual string featuresFilename(const string& featuresDir) const;
+  /// Read in features.
+  /// WARNING: Might trigger release of descriptors of some other camera if the
+  /// memory limit is reached.
+  YASFM_API void readFeatures(int readMode);
 
 private:
+  /// Copy in all data.
+  void copyIn(const Camera& o);
+
+  void allocAndRegisterDescr(int num,int dim);
+
   string imgFilename_; ///< Path to image file.
   int imgWidth_;       ///< Image width.
   int imgHeight_;      ///< Image height.
+  string featsFilename_; ///< Path to features file.
 
   vector<Vector2d> keys_;           ///< Keys (features coordinates).
   vector<double> keysScales_;       ///< Keys scales
@@ -372,6 +363,11 @@ private:
   MatrixXf descr_;     ///< Descriptors (one column is one descriptor).
   /// Indices of points visible in this camera in ascending order.
   vector<int> visiblePoints_;       
+
+  /// Counter for number of descriptors in memory for all cameras.
+  static size_t nDescrInMemoryTotal_;
+  /// Cameras which have their descriptors loaded.
+  static list<Camera *> camsWithLoadedDescr_;
 };
 
 } // namespace yasfm

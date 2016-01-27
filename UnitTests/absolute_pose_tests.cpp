@@ -60,11 +60,11 @@ namespace yasfm_tests
 
       resectCamera5AndHalfPt(keys,pts,matches,&_Ps);
       Assert::IsFalse(_Ps.empty());
-      P.normalize();
+      P /= P(2,3);
       bool goodP = false;
       for(auto& _P : _Ps)
       {
-        _P.normalize();
+        _P /= _P(2,3);
         goodP |= (P - _P).norm() < 1e-10;
       }
       Assert::IsTrue(goodP);
@@ -73,12 +73,13 @@ namespace yasfm_tests
       Matrix34d _P;
       vector<int> inliers;
       resectCamera5AndHalfPtRANSAC(opt,matches,keys,pts,&_P,&inliers);
-      Assert::IsTrue(inliers.size() > opt.minInliers || inliers.empty());
+      Assert::IsTrue(inliers.size() > opt.minInliers() || inliers.empty());
 
       for(int i : inliers)
       {
         Vector3d proj = _P * pts[i].homogeneous();
-        Assert::IsTrue((proj.hnormalized() - keys[i]).norm() < opt.errorThresh);
+        Assert::IsTrue(
+          (proj.hnormalized() - keys[i]).norm() < opt.errorThresh());
       }
     }
 
@@ -120,12 +121,12 @@ namespace yasfm_tests
 		Matrix34d _P;
 		vector<int> inliers;
 		resectCamera3ptRANSAC(opt, matches, keys, pts, Matrix3d().Identity(), &_P, &inliers);
-		Assert::IsTrue(inliers.size() > opt.minInliers || inliers.empty());
+		Assert::IsTrue(inliers.size() > opt.minInliers() || inliers.empty());
 
 		for (int i : inliers)
 		{
 			Vector3d proj = _P * pts[i].homogeneous();
-			Assert::IsTrue((proj.hnormalized() - keys[i]).norm() < opt.errorThresh);
+			Assert::IsTrue((proj.hnormalized() - keys[i]).norm() < opt.errorThresh());
 		}
 	}
 

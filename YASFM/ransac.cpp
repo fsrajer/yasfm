@@ -9,15 +9,6 @@ namespace yasfm
 
 std::default_random_engine generator;
 
-void OptionsRANSAC::write(ostream& file) const
-{
-  file << " maxRounds: " << maxRounds << "\n";
-  file << " errorThresh: " << errorThresh << "\n";
-  file << " minInliers: " << minInliers << "\n";
-  file << " confidence: " << confidence << "\n";
-  file << " refineTolerance: " << refineTolerance << "\n";
-}
-
 void generateRandomIndices(int numToGenerate,int numOverall,vector<int> *pidxs)
 {
   auto& idxs = *pidxs;

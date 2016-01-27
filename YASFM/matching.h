@@ -38,6 +38,7 @@
 
 #include "defines.h"
 #include "sfm_data.h"
+#include "options_types.h"
 
 using std::set;
 using std::vector;
@@ -64,61 +65,47 @@ namespace yasfm
 YASFM_API void removePoorlyMatchedPairs(int minNumMatches,pair_umap<CameraPair> *pairs);
 
 /// Options for matching features using FLANN.
-struct OptionsFLANN
+/**
+Fields:
+/// What method to use for matching. See FLANN for more details.
+flann::IndexParams indexParams;
+
+/// Nearest neighbor search parameters, eg. num of checks. See FLANN for more details.
+flann::SearchParams searchParams;
+
+/// Threshold for the ratio d1/d2, where di is distance to the i-th nearest neighbor
+/// Negative values disable this filter and only the the nearest is searched.
+float ratioThresh;
+
+/// Discards non-unique matches, i.e., those for which two or more 
+/// different features in feats1 matched to the same feature in feats2
+bool onlyUniques;
+
+/// Verbosity.
+bool verbose;
+*/
+class OptionsFLANN : public OptionsWrapper
 {
+public:
   /// Constructor setting defaults.
   YASFM_API OptionsFLANN()
   {
-    indexParams = flann::KDTreeIndexParams();
-    searchParams = flann::SearchParams();
-    ratioThresh = 0.6f;
-    onlyUniques = true;
-    verbose = true;
+    opt.emplace("indexParams",
+      make_unique<OptTypeWithVal<flann::IndexParams>>(flann::KDTreeIndexParams()));
+    opt.emplace("searchParams",
+      make_unique<OptTypeWithVal<flann::SearchParams>>(flann::SearchParams()));
+    opt.emplace("ratioThresh",make_unique<OptTypeWithVal<float>>(0.6f));
+    opt.emplace("onlyUniques",make_unique<OptTypeWithVal<bool>>(true));
+    opt.emplace("verbose",make_unique<OptTypeWithVal<bool>>(true));
   }
 
   /// \return True if the matches should be filtered by ratio of distances of 
   /// the first over the second nearest neighbors.
-  bool filterByRatio() const;
-
-  /// Write to a file to record which parameters were used.
-  /// \param[in,out] file Opened output file.
-  YASFM_API void write(ostream& file) const;
-
-  /// What method to use for matching. See FLANN for more details.
-  flann::IndexParams indexParams;
-
-  /// Nearest neighbor search parameters, eg. num of checks. See FLANN for more details.
-  flann::SearchParams searchParams;
-
-  /// Threshold for the ratio d1/d2, where di is distance to the i-th nearest neighbor
-  /// Negative values disable this filter and only the the nearest is searched.
-  float ratioThresh;
-
-  /// Discards non-unique matches, i.e., those for which two or more 
-  /// different features in feats1 matched to the same feature in feats2
-  bool onlyUniques;
-
-  /// Verbosity.
-  bool verbose;
+  bool filterByRatio() const
+  {
+    return (get<float>("ratioThresh") >= 0.f);
+  }
 };
-
-/// Match features.
-/**
-Finds for all queries matches from img i to img j, where i is from the set queries[j]. 
-Based on Options, different algorithms can be used as FLANN allows that. 
-See options.
-
-\param[in] opt Options.
-\param[in] cams Cameras. Have to have descriptors.
-\param[in] queries See function description.
-\param[out] pairs Resulting matched camera pairs.
-\param[out] callbackFunction Optional. Function to be called after finishing 
-matching of one pair.
-\param[out] callbackObjectPtr Optional. Object to be passed to callbackFunction.
-*/
-YASFM_API void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
-	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, 
-	MatchingCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Match features.
 /** 
@@ -142,14 +129,14 @@ Based on Options, different algorithms can be used as FLANN allows that.
 See options.
 
 \param[in] opt Options.
-\param[in] descr Descriptors for all cameras.
+\param[in] cams Cameras. Have to have descriptors.
 \param[in] queries See function description.
 \param[out] pairs Resulting matched camera pairs.
 \param[out] callbackFunction Optional. Function to be called after finishing 
 matching of one pair.
 \param[out] callbackObjectPtr Optional. Object to be passed to callbackFunction.
 */
-void matchFeatFLANN(const OptionsFLANN& opt,const vector<flann::Matrix<float>>& descr,
+YASFM_API void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
 	const vector<set<int>>& queries, pair_umap<CameraPair> *pairs, 
 	MatchingCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 

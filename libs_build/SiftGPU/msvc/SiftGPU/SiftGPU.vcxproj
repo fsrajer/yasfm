@@ -49,6 +49,7 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 7.5.props" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -82,10 +83,7 @@
     <IntDir Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(Configuration)_$(Platform)\</IntDir>
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</LinkIncremental>
     <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(ProjectName)_d</TargetName>
-    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectName)64_d</TargetName>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <TargetName>$(ProjectName)64</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(ProjectName)_d</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Midl>
@@ -127,7 +125,7 @@
       <AdditionalLibraryDirectories>../../lib/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>SiftGPU.def</ModuleDefinitionFile>
       <ProgramDatabaseFile>$(IntDir)/SIFTGPU.pdb</ProgramDatabaseFile>
-      <ImportLibrary>../../lib/$(TargetName).lib</ImportLibrary>
+      <ImportLibrary>../../lib/SIFTGPU.lib</ImportLibrary>
       <TargetMachine>MachineX86</TargetMachine>
     </Link>
     <Bscmake>
@@ -174,7 +172,7 @@
       <ModuleDefinitionFile>SiftGPU.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(IntDir)/SIFTGPU.pdb</ProgramDatabaseFile>
-      <ImportLibrary>../../lib/$(TargetName).lib</ImportLibrary>
+      <ImportLibrary>../../lib/SIFTGPU_d.lib</ImportLibrary>
       <TargetMachine>MachineX86</TargetMachine>
     </Link>
     <Bscmake>
@@ -197,8 +195,8 @@
       <InlineFunctionExpansion>OnlyExplicitInline</InlineFunctionExpansion>
       <IntrinsicFunctions>false</IntrinsicFunctions>
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <AdditionalIncludeDirectories>../../Include/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>NDEBUG;SIFTGPU_EXPORTS;WIN32;_WINDOWS;_USRDLL;SIFTGPU_DLL;DLL_EXPORT;_CRT_SECURE_NO_DEPRECATE;SERVER_SIFTGPU_ENABLED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(CUDA_PATH)/include;../../Include/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>CUDA_SIFTGPU_ENABLED;NDEBUG;SIFTGPU_EXPORTS;WIN32;_WINDOWS;_USRDLL;SIFTGPU_DLL;DLL_EXPORT;_CRT_SECURE_NO_DEPRECATE;SERVER_SIFTGPU_ENABLED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
       <StringPooling>true</StringPooling>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -216,19 +214,22 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>opengl32.lib;glu32.lib;winmm.lib;glew64.lib;glew64s.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>cudart.lib;opengl32.lib;glu32.lib;winmm.lib;glew64.lib;glew64s.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <AdditionalLibraryDirectories>../../lib/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>../../lib/;$(CUDA_PATH)/lib/x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>SiftGPU.def</ModuleDefinitionFile>
       <ProgramDatabaseFile>$(IntDir)/SIFTGPU.pdb</ProgramDatabaseFile>
-      <ImportLibrary>../../lib/$(TargetName).lib</ImportLibrary>
+      <ImportLibrary>../../lib/SIFTGPU.lib</ImportLibrary>
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\Release/SiftGPU.bsc</OutputFile>
     </Bscmake>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Midl>
@@ -242,8 +243,8 @@
     </Midl>
     <ClCompile>
       <Optimization>Disabled</Optimization>
-      <AdditionalIncludeDirectories>../../Include/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>_DEBUG;DLL_EXPORT;WIN32;_WINDOWS;_USRDLL;SIFTGPU_DLL;_CRT_SECURE_NO_DEPRECATE;SERVER_SIFTGPU_ENABLED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(CUDA_PATH)/include;../../Include/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>CUDA_SIFTGPU_ENABLED;_DEBUG;DLL_EXPORT;WIN32;_WINDOWS;_USRDLL;SIFTGPU_DLL;_CRT_SECURE_NO_DEPRECATE;SERVER_SIFTGPU_ENABLED;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <IgnoreStandardIncludePath>false</IgnoreStandardIncludePath>
       <MinimalRebuild>true</MinimalRebuild>
       <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
@@ -262,23 +263,27 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <Link>
-      <AdditionalDependencies>opengl32.lib;glu32.lib;winmm.lib;glew64.lib;glew64s.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>cudart.lib;opengl32.lib;glu32.lib;winmm.lib;glew64.lib;glew64s.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <OutputFile>$(OutDir)$(TargetName)$(TargetExt)</OutputFile>
       <SuppressStartupBanner>true</SuppressStartupBanner>
-      <AdditionalLibraryDirectories>../../lib/;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>../../lib/;$(CUDA_PATH)/lib/x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <ModuleDefinitionFile>SiftGPU.def</ModuleDefinitionFile>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ProgramDatabaseFile>$(IntDir)/SIFTGPU.pdb</ProgramDatabaseFile>
-      <ImportLibrary>../../lib/$(TargetName).lib</ImportLibrary>
+      <ImportLibrary>../../lib/SIFTGPU_d.lib</ImportLibrary>
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
     <Bscmake>
       <SuppressStartupBanner>true</SuppressStartupBanner>
       <OutputFile>.\Debug/SiftGPU.bsc</OutputFile>
     </Bscmake>
+    <CudaCompile>
+      <TargetMachinePlatform>64</TargetMachinePlatform>
+    </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\SiftGPU\CLTexImage.cpp" />
+    <ClCompile Include="..\..\src\SiftGPU\CuTexImage.cpp" />
     <ClCompile Include="..\..\src\SiftGPU\FrameBufferObject.cpp">
       <AdditionalIncludeDirectories Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -331,6 +336,7 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ClCompile Include="..\..\src\SiftGPU\PyramidCL.cpp" />
+    <ClCompile Include="..\..\src\SiftGPU\PyramidCU.cpp" />
     <ClCompile Include="..\..\src\SiftGPU\PyramidGL.cpp" />
     <ClCompile Include="..\..\src\ServerSiftGPU\ServerSiftGPU.cpp" />
     <ClCompile Include="..\..\src\SiftGPU\ShaderMan.cpp">
@@ -354,29 +360,38 @@
       <PreprocessorDefinitions Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <ClCompile Include="..\..\src\SiftGPU\SiftMatch.cpp" />
+    <ClCompile Include="..\..\src\SiftGPU\SiftMatchCU.cpp" />
     <ClCompile Include="..\..\src\SiftGPU\SiftPyramid.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <CudaCompile Include="..\..\src\SiftGPU\ProgramCU.cu">
+      <FileType>Document</FileType>
+    </CudaCompile>
     <None Include="SiftGPU.def" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\SiftGPU\CLTexImage.h" />
+    <ClInclude Include="..\..\src\SiftGPU\CuTexImage.h" />
     <ClInclude Include="..\..\src\SiftGPU\FrameBufferObject.h" />
     <ClInclude Include="..\..\src\SiftGPU\GlobalUtil.h" />
     <ClInclude Include="..\..\src\SiftGPU\GLTexImage.h" />
     <ClInclude Include="..\..\src\SiftGPU\LiteWindow.h" />
     <ClInclude Include="..\..\src\SiftGPU\ProgramCL.h" />
+    <ClInclude Include="..\..\src\SiftGPU\ProgramCU.h" />
     <ClInclude Include="..\..\src\SiftGPU\ProgramGLSL.h" />
     <ClInclude Include="..\..\src\SiftGPU\ProgramGPU.h" />
     <ClInclude Include="..\..\src\SiftGPU\PyramidCL.h" />
+    <ClInclude Include="..\..\src\SiftGPU\PyramidCU.h" />
     <ClInclude Include="..\..\src\SiftGPU\PyramidGL.h" />
     <ClInclude Include="..\..\src\ServerSiftGPU\ServerSiftGPU.h" />
     <ClInclude Include="..\..\src\SiftGPU\ShaderMan.h" />
     <ClInclude Include="..\..\src\SiftGPU\SiftGPU.h" />
     <ClInclude Include="..\..\src\SiftGPU\SiftMatch.h" />
+    <ClInclude Include="..\..\src\SiftGPU\SiftMatchCU.h" />
     <ClInclude Include="..\..\src\SiftGPU\SiftPyramid.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
+    <Import Project="$(VCTargetsPath)\BuildCustomizations\CUDA 7.5.targets" />
   </ImportGroup>
 </Project>

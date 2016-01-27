@@ -6,9 +6,9 @@ namespace yasfm
 CameraFactory::MapType* CameraFactory::map_;
 
 unique_ptr<Camera> CameraFactory::createInstance(const string& className,
-  istream& file,int camReadMode,const string& featuresDir)
+  istream& file,int camReadMode)
 {
-  return (*map_)[className](file,camReadMode,featuresDir);
+  return (*map_)[className](file,camReadMode);
 }
 
 CameraFactory::MapType& CameraFactory::map()

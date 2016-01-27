@@ -17,10 +17,10 @@ namespace yasfm_tests
     TEST_METHOD(computeImagesSimilarityTest)
     {
       ptr_vector<Camera> cams;
-      double vocabularySampleSizeFraction = 0.5;
+      int maxVocabularySize = 50;
       int nCams = 3;
       int nFeatures = 50;
-      int dim = 50;
+      int dim = 128;
       double count = 0.f;
       for(int i = 0; i < nCams; i++)
       {
@@ -40,7 +40,7 @@ namespace yasfm_tests
 
       MatrixXf similarity;
       VisualVocabulary voc;
-      computeImagesSimilarity(cams,vocabularySampleSizeFraction,&similarity,&voc);
+      computeImagesSimilarity(cams,maxVocabularySize,false,&similarity,&voc);
       Assert::IsTrue(similarity(0,1) > 0.99f);
       Assert::IsTrue(similarity(0,2) < 0.99f);
     }
@@ -48,15 +48,14 @@ namespace yasfm_tests
     TEST_METHOD(randomlySampleVisualWordsTest)
 		{
       ptr_vector<Camera> cams;
-      double sampleSizeFraction = 0.;
+      int maxVocabularySize = 0;
       MatrixXf vw;
-      randomlySampleVisualWords(cams,sampleSizeFraction,&vw);
+      randomlySampleVisualWords(cams,maxVocabularySize,&vw);
       Assert::IsTrue(vw.cols() == 0);
 
       int nCams = 2;
       int nFeatures = 10;
       int dim = 10;
-      double count = 0.f;
       for(int i = 0; i < nCams; i++)
       {
         cams.emplace_back(new StandardCamera);
@@ -66,23 +65,16 @@ namespace yasfm_tests
         for(int iFeat = 0; iFeat < nFeatures; iFeat++)
         {
           cams[i]->setFeature(iFeat,0,0,0,0,descr.data());
-          count += i;
         }
       }
 
-      randomlySampleVisualWords(cams,sampleSizeFraction,&vw);
+      randomlySampleVisualWords(cams,maxVocabularySize,&vw);
       Assert::IsTrue(vw.cols() == 0);
 
-      sampleSizeFraction = 0.5;
-      randomlySampleVisualWords(cams,sampleSizeFraction,&vw);
-      Assert::IsTrue(vw.cols() == nFeatures*sampleSizeFraction*nCams);
+      maxVocabularySize = 50;
+      randomlySampleVisualWords(cams,maxVocabularySize,&vw);
+      Assert::IsTrue(vw.cols() < maxVocabularySize);
       Assert::IsTrue(vw.rows() == dim);
-      count *= sampleSizeFraction;
-      for(int i = 0; i < vw.cols(); i++)
-      {
-        count -= vw(0,i);
-      }
-      Assert::IsTrue(count == 0.);
 		}
 
     TEST_METHOD(findClosestVisualWordsTest)
@@ -105,7 +97,7 @@ namespace yasfm_tests
       vw.col(0) << 10,0,0,0;
       cams[0]->setFeature(0,0,0,0,0,vw.data());
 
-      findClosestVisualWords(cams,vw,&closestVisualWord);
+      findClosestVisualWords(cams,vw,false,&closestVisualWord);
       Assert::IsTrue(closestVisualWord.size() == 1);
       Assert::IsTrue(closestVisualWord[0].size() == nFeatures);
       Assert::IsTrue(closestVisualWord[0][0] == 0);

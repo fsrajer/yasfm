@@ -63,8 +63,9 @@ public:
   Calls base class constructor and sets principal point to be the middle of the image.
 
   \param[in] imgFilename Path to the image file.
+  \param[in] featuresDir Directory containg files with features.
   */
-  YASFM_API StandardCamera(const string& imgFilename);
+  YASFM_API StandardCamera(const string& imgFilename,const string& featuresDir);
 
   /// Constructor. (Reads everything from the file.)
   /**
@@ -73,9 +74,8 @@ public:
   \param[in,out] file Opened file containg main camera information as written
   by writeASCII().
   \param[in] readMode Given by WriteMode.
-  \param[in] featuresDir Directory containg a file with features.
   */
-  YASFM_API StandardCamera(istream& file,int readMode,const string& featuresDir);
+  YASFM_API StandardCamera(istream& file,int readMode);
 
   /// Destructor.
   /**
