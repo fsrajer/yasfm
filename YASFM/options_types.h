@@ -23,6 +23,8 @@
 using std::ostream;
 using std::string;
 using std::shared_ptr;
+using std::unique_ptr;
+using std::make_unique;
 
 namespace yasfm
 {
@@ -48,6 +50,7 @@ public:
   /// \return Identifier of the actual options type.
   virtual OptTypeE type() const = 0;
   virtual ~OptType() {}
+  virtual unique_ptr<OptType> clone() const = 0;
 };
 
 typedef ptr_map<string,OptType> Options;
@@ -55,6 +58,10 @@ typedef ptr_map<string,OptType> Options;
 class OptionsWrapper
 {
 public:
+
+  YASFM_API OptionsWrapper() {}
+  YASFM_API OptionsWrapper(const OptionsWrapper& o);
+  YASFM_API OptionsWrapper& operator=(const OptionsWrapper& o);
   
   template<typename T>
   const T& get(const string& name) const
@@ -83,6 +90,10 @@ public:
   YASFM_API OptTypeWithVal() {}
   YASFM_API OptTypeWithVal(T val) : val(val) {}
   YASFM_API virtual OptTypeE type() const;
+  YASFM_API virtual unique_ptr<OptType> clone() const
+  {
+    return make_unique<OptTypeWithVal<T>>(*this);
+  }
   T val;
 };
 
