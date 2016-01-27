@@ -294,6 +294,7 @@ int main(int argc,const char* argv[])
 
     if(currData.reconstructedCams().size() > 3)
     {
+      currData.points().matchesToReconstruct().clear(); // We don't need bad n-view matches
       writeSFMBundlerFormat(joinPaths(currData.dir(),"bundle_final_"
         + appendix + ".out"),currData);
       currData.writeASCII("final_" + appendix + ".txt");
