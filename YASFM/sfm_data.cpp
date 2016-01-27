@@ -463,6 +463,7 @@ int Dataset::countReconstructedObservations() const
 }
 
 const string& Dataset::dir() const { return dir_; }
+string& Dataset::dir() { return dir_; }
 const Camera& Dataset::cam(int idx) const { return *cams_[idx]; }
 const Camera& Dataset::cam(size_t idx) const { return *cams_[idx]; }
 Camera& Dataset::cam(int idx) { return *cams_[idx]; }

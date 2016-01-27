@@ -269,6 +269,9 @@ public:
   /// \return Working directory.
   YASFM_API const string& dir() const;
 
+  /// \return Working directory.
+  YASFM_API string& dir();
+
   /// \param[in] idx Camera index.
   /// \return The camera.
   YASFM_API const Camera& cam(int idx) const;
