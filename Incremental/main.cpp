@@ -65,7 +65,7 @@ OptionsRANSAC initialPairRelativePose;
 OptionsRANSAC homography;
 double minInitPairHomographyProportion;
 // The error is reprojection error. Units are pixels.
-OptionsRANSAC absolutePose;
+OptionsRANSAC absolutePoseUncalib;
 int minNumCamToSceneMatches;
 // chooseWellMatchedCameras finds the camera with most matches, say N
 // and then finds all cameras with N*wellMatchedCamsFactor matches. Default: 0.75
@@ -125,9 +125,9 @@ public:
       make_unique<OptTypeWithVal<OptionsWrapperPtr>>(homography));
     opt.emplace("minInitPairHomographyProportion",make_unique<OptTypeWithVal<double>>(0.5));
 
-    OptionsWrapperPtr absolutePose = make_shared<OptionsRANSAC>(4096,4.,16,0.999999);
-    opt.emplace("absolutePose",
-      make_unique<OptTypeWithVal<OptionsWrapperPtr>>(absolutePose));
+    OptionsWrapperPtr absolutePoseUncalib = make_shared<OptionsRANSAC>(4096,4.,16,0.999999);
+    opt.emplace("absolutePoseUncalib",
+      make_unique<OptTypeWithVal<OptionsWrapperPtr>>(absolutePoseUncalib));
 
     opt.emplace("minNumCamToSceneMatches",
       make_unique<OptTypeWithVal<int>>(minNumPairwiseMatches));
@@ -372,20 +372,33 @@ void runSFM(const IncrementalOptions& opt,const string& outDir,
 
     for(int camIdx : wellMatchedCams)
     {
+      const auto currCam = static_cast<StandardCamera *>(&data.cam(camIdx));
       exploredCams.insert(camIdx);
-      vector<int> inliers;
       cout << "Trying to resect camera " << camIdx << " using " <<
-        camToSceneMatches[camIdx].size() << " matches ... ";
-      //bool success = resectCamera5AndHalfPtRANSAC(opt.absolutePose_,camToSceneMatches[camIdx],
-      //  data.points().ptCoord(),&data.cam(camIdx),&inliers);
-      bool success = resectCamera6ptLSRANSAC(
-        opt.getOpt<OptionsRANSAC>("absolutePose"),camToSceneMatches[camIdx],
-        data.points().ptCoord(),&data.cam(camIdx),&inliers);
+        camToSceneMatches[camIdx].size() << " matches ";
 
+      bool success;
+      vector<int> inliers;
+      if(isCalibrated[camIdx])
+      {
+        cout << "using p3p ... ";
+        OptionsRANSAC currOpt = opt.getOpt<OptionsRANSAC>("absolutePoseUncalib");
+        currOpt.get<double>("errorThresh") /= currCam->f();
 
-      StandardCamera *cam = static_cast<StandardCamera *>(&data.cam(camIdx));
-      int maxDim = std::max(cam->imgWidth(),cam->imgHeight());
-      if(success && (cam->f() > 0.1*maxDim))
+        success = resectCamera3ptRANSAC(
+          currOpt,camToSceneMatches[camIdx],
+          data.points().ptCoord(),&data.cam(camIdx),&inliers);
+      } else
+      {
+        cout << "using 6pt ... ";
+        //success = resectCamera5AndHalfPtRANSAC(
+        success = resectCamera6ptLSRANSAC(
+          opt.getOpt<OptionsRANSAC>("absolutePoseUncalib"),camToSceneMatches[camIdx],
+          data.points().ptCoord(),&data.cam(camIdx),&inliers);
+      }
+
+      int maxDim = std::max(currCam->imgWidth(),currCam->imgHeight());
+      if(success && (currCam->f() > 0.1*maxDim))
       {
         cout << "camera successfully added.\n";
         vector<int> ptIdxs;
