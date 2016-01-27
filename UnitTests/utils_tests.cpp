@@ -360,7 +360,7 @@ Matrix34d generateRandomProjection()
       }
       Vector2d ptApprox = d*ptD;
 
-      Assert::IsTrue(pt.isApprox(ptApprox,1e-5));
+      Assert::IsTrue(pt.isApprox(ptApprox,1e-4));
     }
 
 	};
