@@ -120,7 +120,7 @@ namespace yasfm_tests
 		OptionsRANSAC opt(4096, 1., 8);
 		Matrix34d _P;
 		vector<int> inliers;
-		resectCamera3ptRANSAC(opt, matches, keys, pts, Matrix3d().Identity(), &_P, &inliers);
+		resectCamera3ptRANSAC(opt, matches, keys, pts, &_P, &inliers);
 		Assert::IsTrue(inliers.size() > opt.minInliers() || inliers.empty());
 
 		for (int i : inliers)

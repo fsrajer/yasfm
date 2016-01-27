@@ -185,32 +185,35 @@ bool resectCamera3ptRANSAC(const OptionsRANSAC& opt,
 	const vector<IntPair>& camToSceneMatches, const vector<Vector3d>& points,
 	Camera *cam, vector<int> *inliers)
 {
-	Matrix34d P;
-	Matrix3d Kinv = cam->K().inverse();
+	Matrix34d Rt;
 	vector<Vector2d> calibratedKeys;
 	for (int i = 0; i < cam->keys().size(); i++)
 	{
-		calibratedKeys.push_back((Kinv*cam->keys()[i].homogeneous()).head(2));
+		calibratedKeys.push_back(cam->keyNormalized(i));
 	}
 	bool success = resectCamera3ptRANSAC(opt, camToSceneMatches, calibratedKeys,
-		points,Kinv, &P, inliers);
-	if (success)
-		cam->setParams(cam->K()*P);
+    points,&Rt,inliers);
+  if(success)
+  {
+    Matrix3d R = Rt.leftCols(3);
+    Vector3d C = -R.transpose()*Rt.rightCols(1);
+    cam->setRotation(R);
+    cam->setC(C);
+  }
 	return success;
 }
 
 bool resectCamera3ptRANSAC(const OptionsRANSAC& opt,
-	const vector<IntPair>& camToSceneMatches, const vector<Vector2d>& keys,
-	const vector<Vector3d>& points, const Matrix3d & Kinv,
-	Matrix34d *P, vector<int> *inliers)
+  const vector<IntPair>& camToSceneMatches,const vector<Vector2d>& normKeys,
+	const vector<Vector3d>& points,Matrix34d *Rt,vector<int> *inliers)
 {
 	
-	MediatorResectioning3ptRANSAC m(keys, points, camToSceneMatches);
-	int nInliers = estimateTransformRANSAC(m, opt, P, inliers);
+  MediatorResectioning3ptRANSAC m(normKeys,points,camToSceneMatches);
+  int nInliers = estimateTransformRANSAC(m,opt,Rt,inliers);
 	return (nInliers > 0);
 }
 
-void resectCamera3pt(const vector<Vector2d>& keys,
+void resectCamera3pt(const vector<Vector2d>& normKeys,
 	const vector<Vector3d>& points, const vector<IntPair>& camToSceneMatches, 
 	vector<Matrix34d> *Ps){
 
@@ -239,7 +242,7 @@ void resectCamera3pt(const vector<Vector2d>& keys,
 	for (size_t i = 0; i < 3; i++)
 	{
 		int keyIdx = camToSceneMatches[i].first;
-		const auto& key = keys[keyIdx];
+    const auto& key = normKeys[keyIdx];
 		// normalized unit rays
 		double norm = sqrt(1+ key.x()*key.x() + key.y()*key.y());
 		u(0, i) = key.x()/norm;
@@ -468,20 +471,20 @@ void MediatorResectioning6ptLSRANSAC::computeTransformation(const vector<int>& i
 }
 
 MediatorResectioning3ptRANSAC::MediatorResectioning3ptRANSAC(
-	const vector<Vector2d>& keys, const vector<Vector3d>& points,
+  const vector<Vector2d>& normKeys,const vector<Vector3d>& points,
 	const vector<IntPair>& camToSceneMatches)
-	: MediatorResectioningRANSAC(3, keys, points, camToSceneMatches)
+  : MediatorResectioningRANSAC(3,normKeys,points,camToSceneMatches)
 {
 }
 
 void MediatorResectioning3ptRANSAC::computeTransformation(const vector<int>& idxs,
-	vector<Matrix34d> *Ps) const
+  vector<Matrix34d> *Rts) const
 {
 	vector<IntPair> selectedMatches;
 	selectedMatches.reserve(minMatches_);
 	for (int idx : idxs)
 		selectedMatches.push_back(camToSceneMatches_[idx]);
-	resectCamera3pt(keys_, points_, selectedMatches, Ps);
+  resectCamera3pt(keys_,points_,selectedMatches,Rts);
 }
 
 } // namespace yasfm

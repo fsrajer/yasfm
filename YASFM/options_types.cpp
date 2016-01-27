@@ -14,6 +14,21 @@ template class OptTypeWithVal<flann::SearchParams>;
 template class OptTypeWithVal<ceres::Solver::Options>;
 template class OptTypeWithVal<OptionsWrapperPtr>;
 
+OptionsWrapper::OptionsWrapper(const OptionsWrapper& o)
+{
+  opt.clear();
+  for(const auto& entry : o.opt)
+    opt.emplace(entry.first,entry.second->clone());
+}
+
+OptionsWrapper& OptionsWrapper::operator = (const OptionsWrapper& o)
+{
+  opt.clear();
+  for(const auto& entry : o.opt)
+    opt.emplace(entry.first,entry.second->clone());
+  return *this;
+}
+
 void OptionsWrapper::write(ostream& file,const string& prefix) const
 {
   for(const auto& entry : opt)
