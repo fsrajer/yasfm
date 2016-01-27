@@ -74,6 +74,13 @@ public:
     opt.emplace("confidence",make_unique<OptTypeWithVal<double>>(confidence));
     opt.emplace("refineTolerance",make_unique<OptTypeWithVal<double>>(1e-12));
   }
+
+  // Shortcuts
+  YASFM_API int maxRounds() const { return get<int>("maxRounds"); }
+  YASFM_API double errorThresh() const { return get<double>("errorThresh"); }
+  YASFM_API int minInliers() const { return get<int>("minInliers"); }
+  YASFM_API double confidence() const { return get<double>("confidence"); }
+  YASFM_API double refineTolerance() const { return get<double>("refineTolerance"); }
 };
 
 /// Base, interface like, class for access to data used in RANSAC like frameworks.
@@ -244,9 +251,9 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     return -1;
   }
 
-  int ransacRounds = opt.get<int>("maxRounds");
-  double sqThresh = opt.get<double>("errorThresh") * opt.get<double>("errorThresh");
-  double confidence = opt.get<double>("confidence");
+  int ransacRounds = opt.maxRounds();
+  double sqThresh = opt.errorThresh()*opt.errorThresh();
+  double confidence = opt.confidence();
   int maxInliers = -1;
   vector<int> idxs;
   idxs.resize(minMatches);
@@ -274,11 +281,11 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     }
   }
 
-  if(maxInliers >= opt.get<int>("minInliers"))
+  if(maxInliers >= opt.minInliers())
   {
     vector<int> tentativeInliers;
     findInliers(m,M,sqThresh,&tentativeInliers);
-    m.refine(opt.get<double>("refineTolerance"),tentativeInliers,&M);
+    m.refine(opt.refineTolerance(),tentativeInliers,&M);
 
     if(inliers)
       maxInliers = findInliers(m,M,sqThresh,inliers);
@@ -311,9 +318,9 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     return -1;
   }
 
-  int ransacRounds = opt.get<int>("maxRounds");
-  double sqThresh = opt.get<double>("errorThresh") * opt.get<double>("errorThresh");
-  double confidence = opt.get<double>("confidence");
+  int ransacRounds = opt.maxRounds();
+  double sqThresh = opt.errorThresh() * opt.errorThresh();
+  double confidence = opt.confidence();
   int maxInliers = -1;
   vector<int> idxs;
   idxs.resize(minMatches);
@@ -369,11 +376,11 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     }
   }
 
-  if(maxInliers >= opt.get<int>("minInliers"))
+  if(maxInliers >= opt.minInliers())
   {
     vector<int> tentativeInliers;
     findInliers(m,M,sqThresh,&tentativeInliers);
-    m.refine(opt.get<double>("refineTolerance"),tentativeInliers,&M);
+    m.refine(opt.refineTolerance(),tentativeInliers,&M);
 
     if(inliers)
       maxInliers = findInliers(m,M,sqThresh,inliers);
