@@ -41,13 +41,13 @@ Camera::Camera(const string& imgFilename,const string& featuresDir)
   getImgDims(imgFilename,&imgWidth_,&imgHeight_);
 }
 
-Camera::Camera(istream& file,int mode)
+Camera::Camera(istream& file)
 {
   file >> imgFilename_;
   file >> imgWidth_ >> imgHeight_;
   file >> featsFilename_;
 
-  readFeatures(mode);
+  readFeatures(Camera::ReadKeys);
 
   readKeysColors();
 }

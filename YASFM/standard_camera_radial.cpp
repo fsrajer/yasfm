@@ -39,8 +39,8 @@ StandardCameraRadial::StandardCameraRadial(const string& imgFilename,
   invRadParams_.fill(0.);
 }
 
-StandardCameraRadial::StandardCameraRadial(istream& file,int readMode)
-  : StandardCamera(file,readMode)
+StandardCameraRadial::StandardCameraRadial(istream& file)
+  : StandardCamera(file)
 {  
   file >> invRadParams_[0] 
     >> invRadParams_[1] 

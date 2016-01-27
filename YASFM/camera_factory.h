@@ -43,16 +43,14 @@ public:
   /**
   \param[in] className Name of the derived camera with which it was registered.
   \param[in,out] file Opened input file to construct camera.
-  \param[in] camReadMode Camera::ReadMode to construct camera.
-  \param[in] featuresDir Directory with features file to construct camera.
   \return Camera pointer to the new derived camera.
   */
   YASFM_API static unique_ptr<Camera> createInstance(const string& className,
-    istream& file,int camReadMode);
+    istream& file);
 
 protected:
   /// Shortcut name.
-  typedef umap<string,unique_ptr<Camera>(*)(istream&,int)> MapType;
+  typedef umap<string,unique_ptr<Camera>(*)(istream&)> MapType;
 
   /// \return Reference to the register with cameras. A class name is the key 
   /// and the value is a function creating a derived camera.
@@ -86,12 +84,9 @@ namespace
 /// Make a new derived camera. The new camera class is given by T.
 /**
 \param[in,out] file Opened input file to construct camera.
-\param[in] camReadMode Camera::ReadMode to construct camera.
-\param[in] featuresDir Directory with features file to construct camera.
-\return Camera pointer to the new derived camera.
 */
 template<class T>
-unique_ptr<Camera> createCamera(istream& file,int camReadMode);
+unique_ptr<Camera> createCamera(istream& file);
 
 } // namespace
 
@@ -115,9 +110,9 @@ namespace
 {
 
 template<class T>
-unique_ptr<Camera> createCamera(istream& file,int camReadMode)
+unique_ptr<Camera> createCamera(istream& file)
 {
-  return make_unique<T>(file,camReadMode);
+  return make_unique<T>(file);
 }
 
 } // namespace

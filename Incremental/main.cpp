@@ -217,7 +217,7 @@ int main(int argc,const char* argv[])
   detectSiftGPU(opt.getOpt<OptionsSIFTGPU>("sift"),&data.cams());
   data.readKeysColors();
   data.writeASCII("init.txt");
-  //data.readASCII("init.txt",Camera::ReadKeys | Camera::ReadDescriptors);
+  //data.readASCII("init.txt");
   
   cout << "Looking for similar camera pairs.\n";
   vector<set<int>> queries;
@@ -231,7 +231,7 @@ int main(int argc,const char* argv[])
   data.clearDescriptors();
 
   data.writeASCII("tentatively_matched.txt");
-  //data.readASCII("tentatively_matched.txt",Camera::ReadKeys);
+  //data.readASCII("tentatively_matched.txt");
 
   //verifyMatchesGeometrically(opt.get<OptionsGeometricVerification>("geometricVerification"),
   //  data.cams(),&data.pairs());
@@ -239,7 +239,7 @@ int main(int argc,const char* argv[])
     data.cams(),&data.pairs());
   
   data.writeASCII("matched.txt");
-  //data.readASCII("matched.txt",Camera::ReadKeys);
+  //data.readASCII("matched.txt");
 
   cout << "Computing homographies of verified pairs.\n";
   ArrayXXd homographyProportion;

@@ -76,9 +76,8 @@ public:
 
   \param[in,out] file Opened file containg main camera information as written
   by writeASCII().
-  \param[in] readMode Given by WriteMode.
   */
-  YASFM_API Camera(istream& file,int readMode);
+  YASFM_API Camera(istream& file);
 
   /// Copy constructor.
   /// \param[in] o Other camera.
@@ -229,15 +228,6 @@ private:
   ///////////////////////////////////
 
 public:
-  /// Enum for indicating what features information should be read.
-  enum ReadMode
-  {
-    /// Read only keys (coordinates, scales and orientations).
-    ReadKeys = 1,
-    /// Read descriptors and normalize descriptors to unit length.
-    ReadDescriptors = 2
-  };
-
   /// Allocate storage for keys and descriptors.
   /**
   WARNING: Might trigger release of descriptors of some other camera if the
@@ -339,6 +329,16 @@ public:
   /// Write out features.
   /// \param[in] saveAsBinary Should the output file be binary?
   YASFM_API void writeFeatures() const;
+
+  /// Enum for indicating what features information should be read.
+  /// Use | for using more options at once.
+  enum ReadMode
+  {
+    /// Read only keys (coordinates, scales and orientations).
+    ReadKeys = 1,
+    /// Read descriptors.
+    ReadDescriptors = 2
+  };
 
   /// Read in features.
   /// WARNING: Might trigger release of descriptors of some other camera if the

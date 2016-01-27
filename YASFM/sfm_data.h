@@ -261,10 +261,8 @@ public:
   /// Reads the dataset from a file (features get read from separate files).
   /**
   \param[in] filename Path to input file relative to the working directory.
-  \param[in] camReadMode Defined by Camera::ReadMode and determines how the 
-  features get read.
   */
-  YASFM_API void readASCII(const string& filename,int camReadMode);
+  YASFM_API void readASCII(const string& filename);
 
   /// \return Working directory.
   YASFM_API const string& dir() const;

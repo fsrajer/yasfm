@@ -333,7 +333,7 @@ void Dataset::writeASCII(const string& filename) const
   file.close();
 }
 
-void Dataset::readASCII(const string& filename,int camReadMode)
+void Dataset::readASCII(const string& filename)
 {
   string fn = joinPaths(dir(),filename);
   ifstream file(fn);
@@ -384,7 +384,7 @@ void Dataset::readASCII(const string& filename,int camReadMode)
             string className;
             file >> className;
             getline(file,s);
-            cams_.push_back(CameraFactory::createInstance(className,file,camReadMode));
+            cams_.push_back(CameraFactory::createInstance(className,file));
           }
         } else if(s == "points_")
         {

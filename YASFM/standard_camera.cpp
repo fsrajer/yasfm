@@ -32,8 +32,8 @@ StandardCamera::StandardCamera(const string& imgFilename,const string& featuresD
   x0_(1) = 0.5 * (imgHeight() - 1);
 }
 
-StandardCamera::StandardCamera(istream& file,int readMode)
-  : Camera(file,readMode)
+StandardCamera::StandardCamera(istream& file)
+  : Camera(file)
 {
   int n;
   file >> n;

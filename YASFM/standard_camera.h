@@ -73,9 +73,8 @@ public:
 
   \param[in,out] file Opened file containg main camera information as written
   by writeASCII().
-  \param[in] readMode Given by WriteMode.
   */
-  YASFM_API StandardCamera(istream& file,int readMode);
+  YASFM_API StandardCamera(istream& file);
 
   /// Destructor.
   /**
