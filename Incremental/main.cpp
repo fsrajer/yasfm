@@ -232,8 +232,8 @@ int main(int argc,const char* argv[])
 
   data.writeASCII("tentatively_matched.txt");
   //data.readASCII("tentatively_matched.txt");
-
-  //verifyMatchesGeometrically(opt.get<OptionsGeometricVerification>("geometricVerification"),
+  
+  //verifyMatchesGeometrically(opt.getOpt<OptionsGeometricVerification>("geometricVerification"),
   //  data.cams(),&data.pairs());
   verifyMatchesEpipolar(opt.getOpt<OptionsRANSAC>("epipolarVerification"),
     data.cams(),&data.pairs());
