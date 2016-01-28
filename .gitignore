@@ -105,3 +105,8 @@
 /libs_build/SiftGPU/msvc/src/SiftGPU/ProgramCU.cu.deps
 /libs_build/SiftGPU/msvc/TestWin/Debug
 /libs_build/SiftGPU/msvc/TestWin/Release
+
+# zlib build
+/libs_build/zlib-1.2.8/build/*
+!/libs_build/zlib-1.2.8/build/CMakeCache.txt
+/libs_build/zlib-1.2.8/install
