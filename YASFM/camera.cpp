@@ -6,6 +6,8 @@
 #include <iomanip>
 #include <mutex>
 
+#include "zlib/zlib.h"
+
 #include "utils_io.h"
 
 using Eigen::VectorXf;
@@ -36,7 +38,7 @@ Camera::Camera(const string& imgFilename,const string& featuresDir)
 {
   string fn = extractFilename(imgFilename);
   size_t dotPos = fn.find_last_of(".");
-  featsFilename_ = joinPaths(featuresDir,fn.substr(0,dotPos) + ".sft");
+  featsFilename_ = joinPaths(featuresDir,fn.substr(0,dotPos) + ".feat.gz");
 
   getImgDims(imgFilename,&imgWidth_,&imgHeight_);
 }
@@ -153,8 +155,9 @@ void Camera::writeASCII(ostream& file) const
 
 void Camera::writeFeatures() const
 {
-  ofstream featuresFile(featsFilename_,std::ios::binary);
-  if(!featuresFile.is_open())
+  gzFile file = gzopen(featsFilename_.c_str(),"wb"); // wb = write binary
+
+  if(!file)
   {
     cerr << "ERROR: Camera::writeFeatures: unable to open: " << featsFilename_
       << " for writing\n";
@@ -163,8 +166,8 @@ void Camera::writeFeatures() const
 
   int nKeys = static_cast<int>(keys_.size());
   int dim = static_cast<int>(descr_.rows());
-  featuresFile.write((char*)(&nKeys),sizeof(int));
-  featuresFile.write((char*)(&dim),sizeof(int));
+  gzwrite(file,(void*)(&nKeys),sizeof(int));
+  gzwrite(file,(void*)(&dim),sizeof(int));
 
   for(size_t i = 0; i < keys_.size(); i++)
   {
@@ -173,67 +176,134 @@ void Camera::writeFeatures() const
     float scale = float(keysScales_[i]);
     float ori = float(keysOrientations_[i]);
 
-    featuresFile.write((char*)(&y),sizeof(float));
-    featuresFile.write((char*)(&x),sizeof(float));
-    featuresFile.write((char*)(&scale),sizeof(float));
-    featuresFile.write((char*)(&ori),sizeof(float));
+    gzwrite(file,(void*)(&y),sizeof(float));
+    gzwrite(file,(void*)(&x),sizeof(float));
+    gzwrite(file,(void*)(&scale),sizeof(float));
+    gzwrite(file,(void*)(&ori),sizeof(float));
   }
 
-  for(size_t i = 0; i < keys_.size(); i++)
+  for(int i = 0; i < nKeys; i++)
   {
-    featuresFile.write((char*)(&descr_(0,i)),dim*sizeof(float));
+    for(int j = 0; j < dim; j++)
+    {
+      unsigned int tmpui = (unsigned int)floor(0.5+512.0*descr_(j,i));
+      unsigned char tmpuc = (unsigned char)std::min((unsigned int)UCHAR_MAX,tmpui);
+      gzwrite(file,(void*)(&tmpuc),sizeof(unsigned char));
+    }
   }
 
-  featuresFile.close();
+  gzclose(file);
 }
 
 void Camera::readFeatures(int mode)
 {
-  ifstream featuresFile(featsFilename_,std::ios::binary);
-  if(!featuresFile.is_open())
+  // compressed in .feat.gz or old full binary in .sft
+  if(!featsFilename_.empty() && featsFilename_[featsFilename_.size() - 1] == 'z')
   {
-    cerr << "ERROR: Camera::readFeatures: unable to open: " << featsFilename_
-      << " for reading\n";
-    return;
-  }
+    gzFile file = gzopen(featsFilename_.c_str(),"rb"); // rb = read binary
 
-  int nKeys,descrDim;
-  featuresFile.read((char*)(&nKeys),sizeof(int));
-  featuresFile.read((char*)(&descrDim),sizeof(int));
-
-  if(mode & ReadKeys)
-  {
-    keys_.resize(nKeys);
-    keysScales_.resize(nKeys);
-    keysOrientations_.resize(nKeys);
-  }
-  if(mode & ReadDescriptors)
-    allocAndRegisterDescr(nKeys,descrDim); 
-
-  float tmp[4];
-  if(mode & ReadKeys)
-  {
-    for(int i = 0; i < nKeys; i++)
+    if(!file)
     {
-      featuresFile.read((char*)(&tmp[0]),4*sizeof(float));
-      keys_[i](0) = tmp[1];
-      keys_[i](1) = tmp[0];
-      keysScales_[i] = tmp[2];
-      keysOrientations_[i] = tmp[3];
+      cerr << "ERROR: Camera::readFeatures: unable to open: " << featsFilename_
+        << " for reading\n";
+      return;
     }
+
+    int nKeys,dim;
+    gzread(file,(void*)(&nKeys),sizeof(int));
+    gzread(file,(void*)(&dim),sizeof(int));
+
+    if(mode & ReadKeys)
+    {
+      keys_.resize(nKeys);
+      keysScales_.resize(nKeys);
+      keysOrientations_.resize(nKeys);
+    }
+
+    if(mode & ReadDescriptors)
+      allocAndRegisterDescr(nKeys,dim);
+
+    float tmp[4];
+    if(mode & ReadKeys)
+    {
+      for(int i = 0; i < nKeys; i++)
+      {
+        gzread(file,(void*)(&tmp[0]),4*sizeof(float));
+        keys_[i](0) = tmp[1];
+        keys_[i](1) = tmp[0];
+        keysScales_[i] = tmp[2];
+        keysOrientations_[i] = tmp[3];
+      }
+    } else
+    {
+      for(int i = 0; i < nKeys; i++)
+        gzread(file,(void*)(&tmp[0]),4*sizeof(float));
+    }
+
+    if(mode & ReadDescriptors)
+    {
+      for(int i = 0; i < nKeys; i++)
+      {
+        for(int j = 0; j < dim; j++)
+        {
+          unsigned char tmp;
+          gzread(file,(void*)(&tmp),sizeof(unsigned char));
+          descr_(j,i) = tmp;
+        }
+      }
+      descr_.colwise().normalize();
+    }
+
+    gzclose(file);
+
   } else
   {
-    for(int i = 0; i < nKeys; i++)
-      featuresFile.read((char*)(&tmp[0]),4*sizeof(float));
-  }
+    ifstream featuresFile(featsFilename_,std::ios::binary);
+    if(!featuresFile.is_open())
+    {
+      cerr << "ERROR: Camera::readFeatures: unable to open: " << featsFilename_
+        << " for reading\n";
+      return;
+    }
 
-  if(mode & ReadDescriptors)
-  {
-    for(int i = 0; i < nKeys; i++)
-      featuresFile.read((char*)(&descr_(0,i)),descrDim*sizeof(float));
-  }
+    int nKeys,descrDim;
+    featuresFile.read((char*)(&nKeys),sizeof(int));
+    featuresFile.read((char*)(&descrDim),sizeof(int));
 
-  featuresFile.close();
+    if(mode & ReadKeys)
+    {
+      keys_.resize(nKeys);
+      keysScales_.resize(nKeys);
+      keysOrientations_.resize(nKeys);
+    }
+    if(mode & ReadDescriptors)
+      allocAndRegisterDescr(nKeys,descrDim);
+
+    float tmp[4];
+    if(mode & ReadKeys)
+    {
+      for(int i = 0; i < nKeys; i++)
+      {
+        featuresFile.read((char*)(&tmp[0]),4*sizeof(float));
+        keys_[i](0) = tmp[1];
+        keys_[i](1) = tmp[0];
+        keysScales_[i] = tmp[2];
+        keysOrientations_[i] = tmp[3];
+      }
+    } else
+    {
+      for(int i = 0; i < nKeys; i++)
+        featuresFile.read((char*)(&tmp[0]),4*sizeof(float));
+    }
+
+    if(mode & ReadDescriptors)
+    {
+      for(int i = 0; i < nKeys; i++)
+        featuresFile.read((char*)(&descr_(0,i)),descrDim*sizeof(float));
+    }
+
+    featuresFile.close();
+  }
 }
 
 void Camera::allocAndRegisterDescr(int num,int dim)
