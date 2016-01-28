@@ -147,7 +147,7 @@
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <ImportLibrary>$(SolutionDir)lib\Debug\$(TargetName).lib</ImportLibrary>
-      <AdditionalDependencies>DevIL.lib;Jheadd.lib;5pointd.lib;ceres-debug.lib;libglog.lib;cminpackd.lib;SIFTGPU_d.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>DevIL.lib;Jheadd.lib;5pointd.lib;ceres-debug.lib;libglog.lib;cminpackd.lib;SIFTGPU_d.lib;zlibstaticd.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)lib\Debug\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>
@@ -196,7 +196,7 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
       <ImportLibrary>$(SolutionDir)lib\$(TargetName).lib</ImportLibrary>
-      <AdditionalDependencies>DevIL.lib;Jhead.lib;5point.lib;ceres.lib;libglog.lib;cminpack.lib;SIFTGPU.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>DevIL.lib;Jhead.lib;5point.lib;ceres.lib;libglog.lib;cminpack.lib;SIFTGPU.lib;zlibstatic.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalLibraryDirectories>$(SolutionDir)lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
   </ItemDefinitionGroup>

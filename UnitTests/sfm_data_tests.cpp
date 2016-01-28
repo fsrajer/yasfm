@@ -162,12 +162,21 @@ public:
 
     // reserveFeatures
     int nFeats = 4;
-    int descrDim = 5;
+    int descrDim = 128;
     cam.resizeFeatures(nFeats,descrDim);
 
     double x = 3,y = 5;
-    VectorXf descr(VectorXf::Random(descrDim));
-    descr = descr.cwiseAbs();
+    // A sift descriptor - important to be normalizable so that no element
+    // is higher than 0.5
+    VectorXf descr;
+    descr.resize(descrDim);
+    descr << 4,5,16,4,11,15,12,31,24,15,11,0,0,0,4,57,14,0,0,7
+      ,9,1,1,24,0,0,0,2,1,0,0,0,8,34,149,112,10,2,0,2
+      ,149,144,72,3,3,0,0,10,45,7,0,51,58,1,0,6,0,0,0,9
+      ,5,0,0,0,50,24,53,92,17,0,5,127,149,39,8,2,6,13,23,149
+      ,37,2,0,28,79,103,14,33,0,0,0,3,5,6,0,0,34,1,1,5
+      ,14,9,42,149,20,0,0,0,0,16,40,149,1,0,0,0,4,105,34,17
+      ,0,0,0,0,0,4,1,0;
     descr.normalize();
     for(int i = 0; i < nFeats; i++)
       cam.setFeature(i,x,y,0,0,&descr(0));
@@ -183,7 +192,7 @@ public:
     cam.writeFeatures();
     cam.clearDescriptors();
     cam.readFeatures(Camera::ReadDescriptors);
-    Assert::IsTrue(cam.descr().col(1).isApprox(descr,1e-6f));
+    Assert::IsTrue(cam.descr().col(1).isApprox(descr,1e-2f));
 
     // copy
     unique_ptr<Camera> pcam2(cam.clone());

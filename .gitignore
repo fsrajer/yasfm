@@ -21,6 +21,7 @@
 # /UnitTests/
 /UnitTests/x64
 /UnitTests/test_dataset/keys/test0.sft
+/UnitTests/test_dataset/keys/test0.feat.gz
 
 # /YASFM/
 /YASFM/x64
