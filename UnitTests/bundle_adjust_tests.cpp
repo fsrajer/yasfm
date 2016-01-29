@@ -18,7 +18,7 @@ namespace yasfm_tests
 		{
       OptionsBundleAdjustment opt;
       ptr_vector<Camera> cams;
-      Points pts;
+      vector<Point> pts;
       bundleAdjust(opt,&cams,&pts);
 
       int nCams = 4;
@@ -30,29 +30,26 @@ namespace yasfm_tests
         cams.back()->resizeFeatures(nPts,0);
       }
 
-      vector<Vector3d> ptCoord(nPts);
-      vector<Vector3uc> colors(nPts);
-      vector<SplitNViewMatch> matches(nPts);
-      for(int ptIdx = 0; ptIdx < nPts; ptIdx++)
+      pts.resize(nPts);
+      for(int iPt = 0; iPt < nPts; iPt++)
       {
-        ptCoord[ptIdx] = Vector3d::Random();
+        pts[iPt].coord = Vector3d::Random();
         for(int camIdx = 0; camIdx < nCams; camIdx++)
         {
-          matches[ptIdx].observedPart.emplace(camIdx,ptIdx);
-          Vector2d p = cams[camIdx]->project(ptCoord[ptIdx]);
+          pts[iPt].views.emplace(camIdx,iPt);
+          Vector2d p = cams[camIdx]->project(pts[iPt].coord);
           p += 0.1*Vector2d::Random(); // add noise
           float dummy;
-          cams[camIdx]->setFeature(ptIdx,p(0),p(1),0,0,&dummy);
+          cams[camIdx]->setFeature(iPt,p(0),p(1),0,0,&dummy);
         }
       }
-      pts.addPoints(ptCoord,colors,matches);
 
       double origErr = computeAverageReprojectionError(cams,pts);
 
       ptr_vector<Camera> cams1;
       for(int i = 0; i < nCams; i++)
         cams1.push_back(cams[i]->clone());
-      Points pts1 = pts;
+      vector<Point> pts1 = pts;
       bundleAdjustPoints(opt,&cams1,&pts1);
       double err1 = computeAverageReprojectionError(cams1,pts1);
       for(int i = 0; i < nCams; i++)
@@ -70,7 +67,7 @@ namespace yasfm_tests
       err1 = computeAverageReprojectionError(cams1,pts1);
       for(int i = 0; i < nPts; i++)
       {
-        Assert::IsTrue(ptCoord[i] == pts1.ptCoord()[i]);
+        Assert::IsTrue(pts[i].coord == pts1[i].coord);
       }
       Assert::IsTrue(origErr >= err1);
 
@@ -87,7 +84,7 @@ namespace yasfm_tests
     {
       OptionsBundleAdjustment opt;
       ptr_vector<Camera> cams;
-      Points pts;
+      vector<Point> pts;
       bundleAdjust(opt,&cams,&pts);
 
       int nCams = 1;
@@ -99,29 +96,26 @@ namespace yasfm_tests
         cams.back()->resizeFeatures(nPts,0);
       }
 
-      vector<Vector3d> ptCoord(nPts);
-      vector<Vector3uc> colors(nPts);
-      vector<SplitNViewMatch> matches(nPts);
-      for(int ptIdx = 0; ptIdx < nPts; ptIdx++)
+      pts.resize(nPts);
+      for(int iPt = 0; iPt < nPts; iPt++)
       {
-        ptCoord[ptIdx] = Vector3d::Random();
+        pts[iPt].coord = Vector3d::Random();
         for(int camIdx = 0; camIdx < nCams; camIdx++)
         {
-          matches[ptIdx].observedPart.emplace(camIdx,ptIdx);
-          Vector2d p = cams[camIdx]->project(ptCoord[ptIdx]);
+          pts[iPt].views.emplace(camIdx,iPt);
+          Vector2d p = cams[camIdx]->project(pts[iPt].coord);
           p += 0.1*Vector2d::Random(); // add noise
           float dummy;
-          cams[camIdx]->setFeature(ptIdx,p(0),p(1),0,0,&dummy);
+          cams[camIdx]->setFeature(iPt,p(0),p(1),0,0,&dummy);
         }
       }
-      pts.addPoints(ptCoord,colors,matches);
 
       double origErr = computeAverageReprojectionError(cams,pts);
 
       ptr_vector<Camera> cams1;
       for(int i = 0; i < nCams; i++)
         cams1.push_back(cams[i]->clone());
-      Points pts1 = pts;
+      vector<Point> pts1 = pts;
       bundleAdjustOneCam(opt,0,&(*cams1[0]),&pts1);
       double err1 = computeAverageReprojectionError(cams1,pts1);
       Assert::IsTrue(origErr >= err1);

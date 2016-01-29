@@ -14,16 +14,17 @@ namespace yasfm_tests
 		
     TEST_METHOD(resectCameraLSTest)
 		{
+      int nPts = 15;
       vector<Vector2d> keys;
-      vector<Vector3d> pts;
+      vector<Point> pts(nPts);
       vector<IntPair> matches;
       vector<Matrix34d> _Ps(1);
 
       Matrix34d P(generateRandomProjection());
-      for(int i = 0; i < 15; i++)
+      for(int i = 0; i < nPts; i++)
       {
-        pts.push_back(Vector3d::Random());
-        Vector3d proj = P * pts.back().homogeneous();
+        pts[i].coord = Vector3d::Random();
+        Vector3d proj = P * pts[i].coord.homogeneous();
         keys.push_back(proj.hnormalized());
         matches.emplace_back(i,i);
       }
@@ -42,18 +43,20 @@ namespace yasfm_tests
 
     TEST_METHOD(resectCamera5AndHalfPtTest)
     {
+      int nPts = 15;
       vector<Vector2d> keys;
-      vector<Vector3d> pts;
+      vector<Point> pts;
       vector<IntPair> matches;
       vector<Matrix34d> _Ps;
       resectCamera5AndHalfPt(keys,pts,matches,&_Ps);
       Assert::IsTrue(_Ps.empty());
 
+      pts.resize(nPts);
       Matrix34d P(generateRandomProjection());
-      for(int i = 0; i < 15; i++)
+      for(int i = 0; i < nPts; i++)
       {
-        pts.push_back(Vector3d::Random());
-        Vector3d proj = P * pts.back().homogeneous();
+        pts[i].coord = Vector3d::Random();
+        Vector3d proj = P * pts[i].coord.homogeneous();
         keys.push_back(proj.hnormalized());
         matches.emplace_back(i,i);
       }
@@ -77,16 +80,17 @@ namespace yasfm_tests
 
       for(int i : inliers)
       {
-        Vector3d proj = _P * pts[i].homogeneous();
+        Vector3d proj = _P * pts[i].coord.homogeneous();
         Assert::IsTrue(
           (proj.hnormalized() - keys[i]).norm() < opt.errorThresh());
       }
     }
 
 	TEST_METHOD(resectCamera3ptTest)
-	{
+  {
+    int nPts = 15;
 		vector<Vector2d> keys;
-		vector<Vector3d> pts;
+		vector<Point> pts;
 		vector<IntPair> matches;
 		vector<Matrix34d> _Ps;
 		resectCamera3pt(keys, pts, matches, &_Ps);
@@ -98,10 +102,11 @@ namespace yasfm_tests
 		shift << 0, 0, 3;
 		P << generateRandomRotation(), Vector3d().Random()+shift;
 
-		for (int i = 0; i < 15; i++)
+    pts.resize(nPts);
+		for (int i = 0; i < nPts; i++)
 		{
-			pts.push_back(Vector3d::Random());
-			Vector3d proj = P * pts.back().homogeneous();
+			pts[i].coord = Vector3d::Random();
+			Vector3d proj = P * pts[i].coord.homogeneous();
 			keys.push_back(proj.hnormalized());
 			matches.emplace_back(i, i);
 		}
@@ -125,7 +130,7 @@ namespace yasfm_tests
 
 		for (int i : inliers)
 		{
-			Vector3d proj = _P * pts[i].homogeneous();
+			Vector3d proj = _P * pts[i].coord.homogeneous();
 			Assert::IsTrue((proj.hnormalized() - keys[i]).norm() < opt.errorThresh());
 		}
 	}

@@ -290,7 +290,7 @@ Matrix34d generateRandomProjection()
     TEST_METHOD(computeAverageReprojectionErrorTest)
     {
       ptr_vector<Camera> cams;
-      Points points;
+      vector<Point> points;
       double err = computeAverageReprojectionError(cams,points);
       Assert::AreEqual(err,0.);
 
@@ -301,14 +301,11 @@ Matrix34d generateRandomProjection()
       P.setIdentity();
       P.rightCols(1) = -C;
 
-      vector<Vector3d> ptCoord(1);
-      vector<Vector3uc> colors(1);
-      ptCoord[0] = Vector3d::Random();
-      vector<SplitNViewMatch> ptViews(1);
-      ptViews[0].observedPart.emplace(0,0);
-      ptViews[0].observedPart.emplace(1,0);
-      points.addPoints(ptCoord,colors,ptViews);
-
+      points.resize(1);
+      points[0].coord = Vector3d::Random();
+      points[0].views.emplace(0,0);
+      points[0].views.emplace(1,0);
+      
       cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test0.JPG",""));
       cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test1.JPG",""));
       cams[0]->setParams(P);
@@ -316,7 +313,7 @@ Matrix34d generateRandomProjection()
       cams[0]->resizeFeatures(1,1);
       cams[1]->resizeFeatures(1,1);
 
-      Vector2d proj = cams[0]->project(ptCoord[0]);
+      Vector2d proj = cams[0]->project(points[0].coord);
       float descr = 0;
 
       cams[0]->setFeature(0,proj(0),proj(1),0,0,&descr);

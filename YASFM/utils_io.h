@@ -32,7 +32,7 @@ namespace yasfm
 {
 
 // Forward declarations
-class Points;
+struct Point;
 class Dataset;
 
 /// List all image files with supported extensions in a directory.
@@ -135,7 +135,7 @@ IMPORTANT: Only alive points (with .reconstructed.size() > 0) get written out.
 */
 YASFM_API void writeSFMBundlerFormat(const string& filename,
   const uset<int>& reconstructedCams,const ptr_vector<Camera>& cams,
-  const Points& points);
+  const vector<Point>& points);
 
 /// Calls overloaded fuction.
 YASFM_API void writeSFMBundlerFormat(const string& filename,const Dataset& data);
