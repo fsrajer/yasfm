@@ -237,46 +237,7 @@ void Dataset::readASCII(const string& filename)
           readPointsOld(file);
         } else if(s == "pairs_")
         {
-          int nPairs,nFieldsCameraPair;
-          file >> nPairs >> nFieldsCameraPair;
-          int format = 0;
-          for(int i = 0; i < nFieldsCameraPair; i++)
-          {
-            file >> s;
-            if(s == "matches")
-              format |= 1;
-            else if(s == "dists")
-              format |= 2;
-          }
-          pairs_.clear();
-          pairs_.reserve(nPairs);
-          for(int iPair = 0; iPair < nPairs; iPair++)
-          {
-            IntPair idx;
-            file >> idx.first >> idx.second;
-            auto& pair = pairs_[idx];
-            if(format & 1)
-            {
-              int nMatches;
-              file >> nMatches;
-              pair.matches.resize(nMatches);
-              for(int iMatch = 0; iMatch < nMatches; iMatch++)
-              {
-                auto& match = pair.matches[iMatch];
-                file >> match.first >> match.second;
-              }
-            }
-            if(format & 2)
-            {
-              int nDists;
-              file >> nDists;
-              pair.dists.resize(nDists);
-              for(int iDist = 0; iDist < nDists; iDist++)
-              {
-                file >> pair.dists[iDist];
-              }
-            }
-          }
+          readMatches(file);
         }
       }
     }
@@ -326,6 +287,50 @@ void Dataset::readPts(istream& file)
         int tmp;
         file >> tmp;
         pt.color(i) = tmp;
+      }
+    }
+  }
+}
+void Dataset::readMatches(istream& file)
+{
+  string s;
+  int nPairs,nFields;
+  file >> nPairs >> nFields;
+  int format = 0;
+  for(int i = 0; i < nFields; i++)
+  {
+    file >> s;
+    if(s == "matches")
+      format |= 1;
+    else if(s == "dists")
+      format |= 2;
+  }
+  pairs_.clear();
+  pairs_.reserve(nPairs);
+  for(int iPair = 0; iPair < nPairs; iPair++)
+  {
+    IntPair idx;
+    file >> idx.first >> idx.second;
+    auto& pair = pairs_[idx];
+    if(format & 1)
+    {
+      int nMatches;
+      file >> nMatches;
+      pair.matches.resize(nMatches);
+      for(int iMatch = 0; iMatch < nMatches; iMatch++)
+      {
+        auto& match = pair.matches[iMatch];
+        file >> match.first >> match.second;
+      }
+    }
+    if(format & 2)
+    {
+      int nDists;
+      file >> nDists;
+      pair.dists.resize(nDists);
+      for(int iDist = 0; iDist < nDists; iDist++)
+      {
+        file >> pair.dists[iDist];
       }
     }
   }
