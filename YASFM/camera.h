@@ -56,7 +56,7 @@ public:
   /// Total number of descriptors that can be kept in memory (over all images).
   /// Adjust this based on your machine. 
   /// Default 4M which eats 2GB memory (made for a laptop with 8GB of memory).
-  static size_t maxDescrInMemoryTotal_;
+  YASFM_API static size_t maxDescrInMemoryTotal_;
 
   /// Constructor. (empty)
   YASFM_API Camera();
