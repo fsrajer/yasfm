@@ -170,6 +170,12 @@ void Dataset::writeASCII(const string& filename) const
 void Dataset::readASCII(const string& filename)
 {
   string fn = joinPaths(dir(),filename);
+  dir_.clear();
+  cams_.clear();
+  pairs_.clear();
+  reconstructedCams_.clear();
+  nViewMatches_.clear();
+  pts_.clear();
   ifstream file(fn);
   if(!file.is_open())
   {
