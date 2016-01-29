@@ -47,14 +47,6 @@ typedef struct CameraPair
   vector<double> dists;
 } CameraPair;
 
-typedef struct Point
-{
-  Vector3d coord;
-  NViewMatch views;
-  NViewMatch viewsToAdd;
-  Vector3uc color;
-}Point;
-
 /// Main class for storing results of the reconstruction.
 /**
 Class used for storing results of the reconstruction. Able to copy itself using

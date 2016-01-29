@@ -32,7 +32,6 @@ namespace yasfm
 {
 
 // Forward declarations
-struct Point;
 class Dataset;
 
 /// List all image files with supported extensions in a directory.
