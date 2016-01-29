@@ -37,7 +37,7 @@ namespace yasfm_tests
         for(int camIdx = 0; camIdx < nCams; camIdx++)
         {
           pts[iPt].views.emplace(camIdx,iPt);
-          Vector2d p = cams[camIdx]->project(pts[iPt].coord);
+          Vector2d p = cams[camIdx]->project(pts[iPt]);
           p += 0.1*Vector2d::Random(); // add noise
           float dummy;
           cams[camIdx]->setFeature(iPt,p(0),p(1),0,0,&dummy);
@@ -103,7 +103,7 @@ namespace yasfm_tests
         for(int camIdx = 0; camIdx < nCams; camIdx++)
         {
           pts[iPt].views.emplace(camIdx,iPt);
-          Vector2d p = cams[camIdx]->project(pts[iPt].coord);
+          Vector2d p = cams[camIdx]->project(pts[iPt]);
           p += 0.1*Vector2d::Random(); // add noise
           float dummy;
           cams[camIdx]->setFeature(iPt,p(0),p(1),0,0,&dummy);

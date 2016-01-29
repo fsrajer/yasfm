@@ -390,7 +390,7 @@ int removeHighReprojErrorPoints(double avgReprojErrThresh,ptr_vector<Camera> *pc
     {
       const auto& cam = *cams[camKey.first];
       const auto& key = cam.key(camKey.second);
-      Vector2d proj = cam.project(pt.coord);
+      Vector2d proj = cam.project(pt);
       err += (proj - key).norm();
     }
     if(!pt.views.empty())

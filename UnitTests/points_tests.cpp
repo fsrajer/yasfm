@@ -400,13 +400,13 @@ namespace yasfm_tests
         pts[i].views.emplace(1,i);
       }
       float dummy;
-      Vector2d p = cams[0]->project(pts[0].coord);
+      Vector2d p = cams[0]->project(pts[0]);
       cams[0]->setFeature(0,p(0),p(1),0,0,&dummy);
-      p = cams[1]->project(pts[0].coord);
+      p = cams[1]->project(pts[0]);
       cams[1]->setFeature(0,p(0),p(1),0,0,&dummy);
-      p = cams[0]->project(pts[1].coord);
+      p = cams[0]->project(pts[1]);
       cams[0]->setFeature(1,p(0),p(1),0,0,&dummy);
-      p = cams[1]->project(pts[1].coord);
+      p = cams[1]->project(pts[1]);
       p(0) += 100;
       cams[1]->setFeature(1,p(0),p(1),0,0,&dummy);
       pts[1].viewsToAdd.emplace(2,1);
@@ -432,7 +432,8 @@ namespace yasfm_tests
       NViewMatch views;
       Assert::IsFalse(isWellConditioned(rayAngleThresh,cams,views));
 
-      Vector3d pt(Vector3d::Random());
+      Point pt;
+      pt.coord = Vector3d::Random();
       for(int i = 0; i < 2; i++)
       {
         cams.push_back(make_unique<StandardCamera>());

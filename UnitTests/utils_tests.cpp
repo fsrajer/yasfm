@@ -313,7 +313,7 @@ Matrix34d generateRandomProjection()
       cams[0]->resizeFeatures(1,1);
       cams[1]->resizeFeatures(1,1);
 
-      Vector2d proj = cams[0]->project(points[0].coord);
+      Vector2d proj = cams[0]->project(points[0]);
       float descr = 0;
 
       cams[0]->setFeature(0,proj(0),proj(1),0,0,&descr);
