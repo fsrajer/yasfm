@@ -8,28 +8,29 @@ using std::cout;
 namespace yasfm
 {
 
-void bundleAdjust(const OptionsBundleAdjustment& opt,ptr_vector<Camera> *pcams,Points *ppts)
+void bundleAdjust(const OptionsBundleAdjustment& opt,ptr_vector<Camera> *pcams,
+  vector<Point> *ppts)
 {
-  vector<bool> constantCams(pcams->size(),false),constantPts(ppts->numPtsAll(),false);
+  vector<bool> constantCams(pcams->size(),false),constantPts(ppts->size(),false);
   bundleAdjust(opt,constantCams,constantPts,pcams,ppts);
 }
 
 void bundleAdjustCams(const OptionsBundleAdjustment& opt,ptr_vector<Camera> *pcams,
-  Points *ppts)
+  vector<Point> *ppts)
 {
-  vector<bool> constantCams(pcams->size(),false),constantPts(ppts->numPtsAll(),true);
+  vector<bool> constantCams(pcams->size(),false),constantPts(ppts->size(),true);
   bundleAdjust(opt,constantCams,constantPts,pcams,ppts);
 }
 
 void bundleAdjustPoints(const OptionsBundleAdjustment& opt,ptr_vector<Camera> *pcams,
-  Points *ppts)
+  vector<Point> *ppts)
 {
-  vector<bool> constantCams(pcams->size(),true),constantPts(ppts->numPtsAll(),false);
+  vector<bool> constantCams(pcams->size(),true),constantPts(ppts->size(),false);
   bundleAdjust(opt,constantCams,constantPts,pcams,ppts);
 }
 
 void bundleAdjust(const OptionsBundleAdjustment& opt,const vector<bool>& constantCams,
-  const vector<bool>& constantPoints,ptr_vector<Camera> *pcams,Points *ppts)
+  const vector<bool>& constantPoints,ptr_vector<Camera> *pcams,vector<Point> *ppts)
 {
   auto& cams = *pcams;
   auto& pts = *ppts;
@@ -39,10 +40,10 @@ void bundleAdjust(const OptionsBundleAdjustment& opt,const vector<bool>& constan
   vector<bool> camParamsUsed(cams.size(),false);
 
   ceres::Problem problem;
-  for(int ptIdx = 0; ptIdx < pts.numPtsAll(); ptIdx++)
+  for(int ptIdx = 0; ptIdx < pts.size(); ptIdx++)
   {
-    auto& projections = pts.ptData()[ptIdx].reconstructed;
-    for(const auto& camKey : projections)
+    auto& pt = pts[ptIdx];
+    for(const auto& camKey : pt.views)
     {
       int camIdx = camKey.first;
       auto& cam = *cams[camIdx];
@@ -61,10 +62,10 @@ void bundleAdjust(const OptionsBundleAdjustment& opt,const vector<bool>& constan
       problem.AddResidualBlock(costFunction,
         lossFunction,
         &camParams[camIdx][0],
-        pts.ptCoord(ptIdx));
+        &pt.coord(0));
     }
-    if(constantPoints[ptIdx] && !projections.empty())
-      problem.SetParameterBlockConstant(pts.ptCoord(ptIdx));
+    if(constantPoints[ptIdx] && !pt.views.empty())
+      problem.SetParameterBlockConstant(&pt.coord(0));
   }
 
   for(size_t camIdx = 0; camIdx < cams.size(); camIdx++)
@@ -96,14 +97,14 @@ void bundleAdjust(const OptionsBundleAdjustment& opt,const vector<bool>& constan
 }
 
 void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,int camIdx,Camera *pcam,
-  Points *ppts)
+  vector<Point> *ppts)
 {
-  vector<bool> constantPts(ppts->numPtsAll(),true);
+  vector<bool> constantPts(ppts->size(),true);
   bundleAdjustOneCam(opt,camIdx,constantPts,pcam,ppts);
 }
 
 void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,
-  int camIdx,const vector<bool>& constantPoints,Camera *pcam,Points *ppts)
+  int camIdx,const vector<bool>& constantPoints,Camera *pcam,vector<Point> *ppts)
 {
   auto& cam = *pcam;
   auto& pts = *ppts;
@@ -113,12 +114,12 @@ void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,
   cam.params(&camParams);
 
   ceres::Problem problem;
-  for(int ptIdx = 0; ptIdx < pts.numPtsAll(); ptIdx++)
+  for(int ptIdx = 0; ptIdx < pts.size(); ptIdx++)
   {
-    auto& projections = pts.ptData()[ptIdx].reconstructed;
+    auto& pt = pts[ptIdx];
     try
     {
-      int keyIdx = projections.at(camIdx);
+      int keyIdx = pt.views.at(camIdx);
       ceres::CostFunction *costFunction = cam.costFunction(keyIdx);
 
       // NULL specifies squared loss
@@ -127,7 +128,7 @@ void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,
       problem.AddResidualBlock(costFunction,
         lossFunction,
         &camParams[0],
-        pts.ptCoord(ptIdx));
+        &pt.coord(0));
 
     } catch(const std::out_of_range&)
     {
@@ -135,8 +136,8 @@ void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,
       continue;
     }
 
-    if(constantPoints[ptIdx] && !projections.empty())
-      problem.SetParameterBlockConstant(pts.ptCoord(ptIdx));
+    if(constantPoints[ptIdx] && !pt.views.empty())
+      problem.SetParameterBlockConstant(&pt.coord(0));
   }
 
   {

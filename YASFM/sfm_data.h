@@ -47,141 +47,6 @@ typedef struct CameraPair
   vector<double> dists;
 } CameraPair;
 
-/// The class for storing points and n-view matches.
-/**
-Class including point data as well as n-view matches which have not been reconstructed 
-yet. For adding points, prefer member functions which handle removal of corresponding
-n-view matches.
-*/
-class Points
-{
-public:
-  /// Data for one point except coordinates.
-  typedef struct PointData
-  {
-    NViewMatch reconstructed; ///< Points views in images that have been reconstucted.
-    NViewMatch toReconstruct; ///< Points views in images that have not been reconstucted.
-    Vector3uc color;          ///< Point color.
-  } PointData;
-
-  /// Constructor
-  YASFM_API Points();
-
-  /// Add new points reconstructed from two views.
-  /**
-  Add new points created from corresponding matchesToReconstructIdxs.
-  The corresponding matchesToReconstruct are erased so NOTE that indices
-  to matchesToReconstruct you might have get invalidated.
-  All the inputs except the first one have to be the same size.
-
-  \param[in] camsIdxs Indices of the two cameras used for reconstuction of the points.
-  \param[in] matchesToReconstructIdxs Indices of matchesToReconstruct from which
-  the points have been reconstructed. The corresponding matchesToReconstruct 
-  will be deleted.
-  \param[in] coord New points' coordinates.
-  \param[in] colors New points' colors.
-  */
-  YASFM_API void addPoints(const IntPair& camsIdxs,
-    const vector<int>& matchesToReconstructIdxs,const vector<Vector3d>& coord,
-    const vector<Vector3uc>& colors);
-
-  /// Add new points reconstructed from n views. 
-  /**
-  All the inputs have to be the same size.
-
-  \param[in] pointCoord New points' coordinates.
-  \param[in] colors New points' colors.
-  \param[in] pointViews View of the new points in cameras that have been reconstructed
-  and in cameras that haven't been reconstucted yet.
-  */
-  YASFM_API void addPoints(const vector<Vector3d>& pointCoord,
-    const vector<Vector3uc>& colors,const vector<SplitNViewMatch>& pointViews);
-
-  /// Remove points views (disables the points).
-  /**
-  This clears .reconstructed and .toReconstruct in order to disable the points.
-  This is used instead of directly removing the points in order to keep the indices
-  to points, which someone might have, valid.
-
-  \param[in] keep Indication which points to keep.
-  */
-  YASFM_API void removePointsViews(const vector<bool>& keep);
-  
-  /// \return Number of reconstucted points including those with no views.
-  YASFM_API int numPtsAll() const;
-
-  /// \return Number of reconstucted points that were not removed using 
-  /// removePointsProjections.
-  YASFM_API int numPtsAlive() const;
-
-  /// Update points' views.
-  /**
-  Goes through pointData and updates reconstructed and toReconstruct by moving 
-  the cam for all corresponding points from toReconstruct to reconstructed.
-
-  \param[in] camIdx Index of the camera which got reconstructed
-  */
-  YASFM_API void markCamAsReconstructed(int camIdx);
-
-  /// Update points' views.
-  /**
-  Goes through pointData and updates reconstructed and toReconstruct by moving 
-  the cam for all correspondingPoints[correspondingPointsInliers[i]] from 
-  toReconstruct to reconstructed and removing the cam from toReconstruct for all 
-  non-inliers. When correspondingPointsInliers is null then all correspondingPoints 
-  are considered to be inliers.
-
-  \param[in] camIdx Index of the camera which got reconstructed.
-  \param[in] correspondingPoints Indices of the relevant points.
-  \param[in] correspondingPointsInliers Indices to correspondingPoints. Indicates
-  inliers to the reconstructed camera.
-  */
-  YASFM_API void markCamAsReconstructed(int camIdx,
-    const vector<int>& correspondingPoints,
-    const vector<int>& correspondingPointsInliers);
-
-  /// Write all the point data including matchesToReconstruct.
-  /**
-  IMPORTANT: Only alive points (with .reconstructed.size() > 0) get written out.
-
-  \param[in,out] file Opened output file.
-  */
-  YASFM_API void writeASCII(ostream& file) const;
-  
-  /// Read points from a file.
-  /// \param[in,out] file Opened input file.
-  YASFM_API void readASCII(istream& file);
-
-  /// \return N-View matches which have not been yet reconstructed.
-  YASFM_API const vector<NViewMatch>& matchesToReconstruct() const;
-
-  /// \return N-View matches which have not been yet reconstructed.
-  YASFM_API vector<NViewMatch>& matchesToReconstruct();
-
-  /// \return Points' coordinates.
-  YASFM_API const vector<Vector3d>& ptCoord() const;
-
-  /**
-  Points are stored in a contiguous block so getting pointer to first points 
-  also gives you all the points (including those with no projection).
-
-  \param[in] ptIdx Index of the point.
-  \return Point coordinates.
-  */
-  YASFM_API double* ptCoord(int ptIdx);
-
-  /// \return Points' data.
-  YASFM_API const vector<PointData>& ptData() const;
-
-private:
-  /// N-View matches which have not been yet reconstructed.
-  vector<NViewMatch> matchesToReconstruct_; 
-  vector<Vector3d> ptCoord_;  ///< Points' coordinates.
-  vector<PointData> ptData_;  ///< Points' data.
-  /// Number of reconstucted points that were not removed using removePointsProjections.
-  int nPtsAlive_; 
-};
-
 /// Main class for storing results of the reconstruction.
 /**
 Class used for storing results of the reconstruction. Able to copy itself using
@@ -230,11 +95,11 @@ public:
   /// \return Number of cameras.
   YASFM_API int numCams() const;
 
-  /// Marks cam as reconstructed and calls the same method in points.
+  /// Marks cam as reconstructed and updates points views and viewsToAdd.
   /// \param[in] camIdx Index of the reconstructed camera.
   YASFM_API void markCamAsReconstructed(int camIdx);
 
-  /// Marks cam as reconstructed and calls the same method in points.
+  /// Marks cam as reconstructed and updates points views and viewsToAdd.
   /**
   \param[in] camIdx Index of the reconstructed camera.
   \param[in] correspondingPoints Indices of the relevant points.
@@ -248,6 +113,10 @@ public:
   /// Go through all the points and count number of reconstructed views/observations.
   /// \return Total number of observations/views.
   YASFM_API int countReconstructedObservations() const;
+  
+  /// Count points that have some views.
+  /// \return Number of points that have non-empty views.
+  YASFM_API int countPtsAlive() const;
 
   /// Write the dataset to a file (except features).
   /**
@@ -301,11 +170,14 @@ public:
   /// \return Reconstructed cameras.
   YASFM_API const uset<int>& reconstructedCams() const;
 
-  /// \return Points and unreconstructed n-view matches.
-  YASFM_API const Points& points() const;
+  YASFM_API const vector<NViewMatch>& nViewMatches() const;
+  YASFM_API vector<NViewMatch>& nViewMatches();
 
-  /// \return Points and unreconstructed n-view matches.
-  YASFM_API Points& points();
+  /// \return Points.
+  YASFM_API const vector<Point>& pts() const;
+
+  /// \return Points.
+  YASFM_API vector<Point>& pts();
 
   /// \return Features directory.
   YASFM_API string featsDir() const;
@@ -320,12 +192,19 @@ private:
   */
   void copyIn(const Dataset& o);
 
+  void readPts(istream& file);
+  void readMatches(istream& file);
+
+  // Keep this for a while and remove when that format is not used anywhere.
+  void readPointsOld(istream& file);
+
   string dir_; ///< Working directory.
   /// The cameras stored as pointers to Camera.
   ptr_vector<Camera> cams_;
   pair_umap<CameraPair> pairs_;
   uset<int> reconstructedCams_;
-  Points points_;
+  vector<NViewMatch> nViewMatches_; ///< Only matches not converted to points yet.
+  vector<Point> pts_;
 };
 
 ////////////////////////////////////////////////////

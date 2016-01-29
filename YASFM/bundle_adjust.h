@@ -62,7 +62,7 @@ public:
 \param[in,out] pts Points.
 */
 YASFM_API void bundleAdjust(const OptionsBundleAdjustment& opt,
-  ptr_vector<Camera> *cams,Points *pts);
+  ptr_vector<Camera> *cams,vector<Point> *pts);
 
 /// Run bundle adjustement on all the cameras and keep the points fixed.
 /**
@@ -71,7 +71,7 @@ YASFM_API void bundleAdjust(const OptionsBundleAdjustment& opt,
 \param[in,out] pts Points.
 */
 YASFM_API void bundleAdjustCams(const OptionsBundleAdjustment& opt,
-  ptr_vector<Camera> *cams,Points *pts);
+  ptr_vector<Camera> *cams,vector<Point> *pts);
 
 /// Run bundle adjustement on and all the points and keep the cameras fixed.
 /**
@@ -80,7 +80,7 @@ YASFM_API void bundleAdjustCams(const OptionsBundleAdjustment& opt,
 \param[in,out] pts Points.
 */
 YASFM_API void bundleAdjustPoints(const OptionsBundleAdjustment& opt,
-  ptr_vector<Camera> *cams,Points *pts);
+  ptr_vector<Camera> *cams,vector<Point> *pts);
 
 /// Run bundle adjustment.
 /**
@@ -92,7 +92,7 @@ YASFM_API void bundleAdjustPoints(const OptionsBundleAdjustment& opt,
 */
 YASFM_API void bundleAdjust(const OptionsBundleAdjustment& opt,
   const vector<bool>& constantCams,const vector<bool>& constantPoints,
-  ptr_vector<Camera> *cams,Points *pts);
+  ptr_vector<Camera> *cams,vector<Point> *pts);
 
 /// Run bundle adjustment of one camera and keep all the points fixed.
 /**
@@ -102,7 +102,7 @@ YASFM_API void bundleAdjust(const OptionsBundleAdjustment& opt,
 \param[in] pts Points.
 */
 YASFM_API void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,int camIdx,
-  Camera *cam,Points *pts);
+  Camera *cam,vector<Point> *pts);
 
 /// Run bundle adjustment of one camera.
 /**
@@ -113,6 +113,6 @@ YASFM_API void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,int camIdx,
 \param[in,out] pts Points.
 */
 YASFM_API void bundleAdjustOneCam(const OptionsBundleAdjustment& opt,
-  int camIdx,const vector<bool>& constantPoints,Camera *cam,Points *pts);
+  int camIdx,const vector<bool>& constantPoints,Camera *cam,vector<Point> *pts);
 
 } // namespace yasfm

@@ -68,59 +68,71 @@ void nViewMatchesToTwoViewMatches(const vector<NViewMatch>& nViewMatches,
   }
 }
 
-void reconstructPoints(const vector<int>& nViewMatchIdxs,const IntPair& camsIdxs,
-  Camera* pcam1,Camera* pcam2,Points *points)
+int reconstructPoints(const vector<NViewMatch>& nViewMatches,
+  const vector<int>& nViewMatchIdxs,const IntPair& camsIdxs,
+  Camera* pcam1,Camera* pcam2,vector<Point> *pts)
 {
   auto& cam1 = *pcam1;
   auto& cam2 = *pcam2;
-  vector<Vector3d> coord(nViewMatchIdxs.size());
-  vector<Vector3uc> colors(coord.size());
   Matrix34d Rt1 = cam1.pose();
   Matrix34d Rt2 = cam2.pose();
-  vector<bool> isInFrontOfBoth(nViewMatchIdxs.size(),true);
+
+  int nPtsBefore = static_cast<int>(pts->size());
+  pts->reserve(pts->size() + nViewMatchIdxs.size());
+
   for(size_t i = 0; i < nViewMatchIdxs.size(); i++)
   {
-    const auto& nViewMatch = points->matchesToReconstruct()[nViewMatchIdxs[i]];
-    int key1Idx = nViewMatch.at(camsIdxs.first);
-    int key2Idx = nViewMatch.at(camsIdxs.second);
+    const auto& match = nViewMatches[nViewMatchIdxs[i]];
+    int key1Idx = match.at(camsIdxs.first);
+    int key2Idx = match.at(camsIdxs.second);
     Vector2d key1 = cam1.keyNormalized(key1Idx);
     Vector2d key2 = cam2.keyNormalized(key2Idx);
 
-    auto& pt = coord[i];
-    triangulate(Rt1,Rt2,key1,key2,&pt);
+    Point pt;
+    triangulate(Rt1,Rt2,key1,key2,&pt.coord);
 
-    isInFrontOfBoth[i] = isInFrontNormalizedP(Rt1,pt) && isInFrontNormalizedP(Rt2,pt);
+    bool isInFrontOfBoth = 
+      isInFrontNormalizedP(Rt1,pt.coord) && isInFrontNormalizedP(Rt2,pt.coord);
 
-    if(!cam1.keysColors().empty())
-      colors[i] = cam1.keyColor(key1Idx);
+    if(isInFrontOfBoth)
+    {
+      pt.views.emplace(camsIdxs.first,key1Idx);
+      pt.views.emplace(camsIdxs.second,key2Idx);
+      for(const auto& camKey : match)
+      {
+        if(camKey.first != camsIdxs.first && camKey.first != camsIdxs.second)
+          pt.viewsToAdd.insert(camKey);
+      }
+
+      if(!cam1.keysColors().empty())
+        pt.color = cam1.keyColor(key1Idx);
+
+      pts->push_back(pt);
+    }
   }
 
-  vector<int> nViewMatchIdxsFiltered = nViewMatchIdxs;
-  filterVector(isInFrontOfBoth,&nViewMatchIdxsFiltered);
-  filterVector(isInFrontOfBoth,&coord);
-  filterVector(isInFrontOfBoth,&colors);
-  int nPtsBefore = points->numPtsAll();
-  points->addPoints(camsIdxs,nViewMatchIdxsFiltered,coord,colors);
-  for(int iNew = 0; iNew < static_cast<int>(coord.size()); iNew++)
+  int nPtsNew = static_cast<int>(pts->size()) - nPtsBefore;
+  for(int iNew = 0; iNew < nPtsNew; iNew++)
   {
     cam1.visiblePoints().push_back(nPtsBefore + iNew);
     cam2.visiblePoints().push_back(nPtsBefore + iNew);
   }
+  return nPtsNew;
 }
 
-void reconstructPoints(const vector<SplitNViewMatch>& matchesToReconstruct,
-  ptr_vector<Camera>* pcams,Points *points)
+int reconstructPoints(const vector<SplitNViewMatch>& matchesToReconstruct,
+  ptr_vector<Camera>* pcams,vector<Point> *ppts)
 {
   auto& cams = *pcams;
+  auto& pts = *ppts;
   vector<Matrix34d> Rts(cams.size());
   vector<bool> RtsValid(cams.size(),false);
-  vector<Vector3d> ptCoord(matchesToReconstruct.size());
-  vector<Vector3uc> colors(ptCoord.size());
-  vector<bool> isInFrontOfAll(ptCoord.size(),true);
 
-  for(size_t iMatch = 0; iMatch < matchesToReconstruct.size(); iMatch++)
+  int nPtsBefore = static_cast<int>(pts.size());
+  pts.reserve(pts.size() + matchesToReconstruct.size());
+
+  for(const auto& match : matchesToReconstruct)
   {
-    const auto& match = matchesToReconstruct[iMatch];
     vector<Vector2d> keys;
     vector<int> camIdxs;
     keys.reserve(match.observedPart.size());
@@ -136,39 +148,46 @@ void reconstructPoints(const vector<SplitNViewMatch>& matchesToReconstruct,
       }
       keys.emplace_back(cams[camIdx]->keyNormalized(camKey.second));
     }
-    if(match.observedPart.size() == 2)
-      triangulate(Rts[camIdxs[0]],Rts[camIdxs[1]],keys[0],keys[1],&ptCoord[iMatch]);
-    else
-      triangulate(Rts,camIdxs,keys,&ptCoord[iMatch]);
 
+    Point pt;
+    if(match.observedPart.size() == 2)
+      triangulate(Rts[camIdxs[0]],Rts[camIdxs[1]],keys[0],keys[1],&pt.coord);
+    else
+      triangulate(Rts,camIdxs,keys,&pt.coord);
+
+    bool isInFrontOfAll = true;
     for(size_t iProj = 0; iProj < camIdxs.size(); iProj++)
     {
-      if(!isInFrontNormalizedP(Rts[camIdxs[iProj]],ptCoord[iMatch]))
+      if(!isInFrontNormalizedP(Rts[camIdxs[iProj]],pt.coord))
       {
-        isInFrontOfAll[iMatch] = false;
+        isInFrontOfAll = false;
         break;
       }
     }
 
-    const auto& camKey = *(match.observedPart.begin());
-    if(!cams[camKey.first]->keysColors().empty())
-      colors[iMatch] = cams[camKey.first]->keyColor(camKey.second);
+    if(isInFrontOfAll)
+    {
+      pt.views = match.observedPart;
+      pt.viewsToAdd = match.unobservedPart;
+
+      int cam0 = camIdxs[0];
+      if(!cams[cam0]->keysColors().empty())
+        pt.color = cams[cam0]->keyColor(match.observedPart.at(cam0));
+
+      pts.push_back(pt);
+    }
   }
 
-  vector<SplitNViewMatch> matchesToReconstructFiltered = matchesToReconstruct;
-  filterVector(isInFrontOfAll,&matchesToReconstructFiltered);
-  filterVector(isInFrontOfAll,&ptCoord);
-  filterVector(isInFrontOfAll,&colors);
-  int nPtsBefore = points->numPtsAll();
-  points->addPoints(ptCoord,colors,matchesToReconstructFiltered);
-  for(int iNew = 0; iNew < static_cast<int>(ptCoord.size()); iNew++)
+  int nPts = static_cast<int>(pts.size());
+  for(int iPt = nPtsBefore; iPt < nPts; iPt++)
   {
-    for(const auto& camKey : matchesToReconstructFiltered[iNew].observedPart)
-      cams[camKey.first]->visiblePoints().push_back(nPtsBefore + iNew);
+    for(const auto& camKey : pts[iPt].views)
+      cams[camKey.first]->visiblePoints().push_back(iPt);
 
-    for(const auto& camKey : matchesToReconstructFiltered[iNew].unobservedPart)
-      cams[camKey.first]->visiblePoints().push_back(nPtsBefore + iNew);
+    for(const auto& camKey : pts[iPt].viewsToAdd)
+      cams[camKey.first]->visiblePoints().push_back(iPt);
   }
+  return nPts-nPtsBefore;
 }
 
 void triangulate(const Matrix34d& P1,const Matrix34d& P2,const vector<Vector2d>& keys1,
@@ -273,13 +292,13 @@ void extractCandidateNewPoints(int minObservingCams,double rayAngleThresh,
 }
 
 void findCamToSceneMatches(const uset<int>& camsToIgnore,int numCams,
-  const Points& points,vector<vector<IntPair>> *pmatches)
+  const vector<Point>& pts,vector<vector<IntPair>> *pmatches)
 {
   auto &matches = *pmatches;
   matches.resize(numCams);
-  for(int ptIdx = 0; ptIdx < points.numPtsAll(); ptIdx++)
+  for(int ptIdx = 0; ptIdx < static_cast<int>(pts.size()); ptIdx++)
   {
-    for(const auto& camKey : points.ptData()[ptIdx].toReconstruct)
+    for(const auto& camKey : pts[ptIdx].viewsToAdd)
     {
       if(camsToIgnore.count(camKey.first) == 0)
       {
@@ -321,93 +340,89 @@ double computeRayAngle(const Camera& cam1,int key1Idx,
   return acos(ray1.dot(ray2) / (ray1.norm() * ray2.norm()));
 }
 
-void removeIllConditionedPoints(double rayAngleThresh,
-  ptr_vector<Camera> *pcams,Points *ppts)
+int removeIllConditionedPoints(double rayAngleThresh,
+  ptr_vector<Camera> *pcams,vector<Point> *ppts)
 {
   auto& cams = *pcams;
   auto& pts = *ppts;
-  vector<bool> wellConditioned(pts.numPtsAll(),false);
-  for(int ptIdx = 0; ptIdx < pts.numPtsAll(); ptIdx++)
+  int nPts = static_cast<int>(pts.size());
+  int nPtsRemoved = 0;
+  for(int ptIdx = 0; ptIdx < nPts; ptIdx++)
   {
-    const auto& pt = pts.ptCoord()[ptIdx];
-    const auto& views = pts.ptData()[ptIdx].reconstructed;
-    auto camKey1 = views.begin();
-    for(; camKey1 != views.end() && !wellConditioned[ptIdx]; ++camKey1)
+    bool wellConditioned = false;
+    auto& pt = pts[ptIdx];
+    auto camKey1 = pt.views.begin();
+    for(; camKey1 != pt.views.end() && !wellConditioned; ++camKey1)
     {
-      Vector3d ray1 = pt - cams[camKey1->first]->C();
+      Vector3d ray1 = pt.coord - cams[camKey1->first]->C();
       ray1.normalize();
       auto camKey2 = camKey1;
       ++camKey2;
-      for(; camKey2 != views.end() && !wellConditioned[ptIdx]; ++camKey2)
+      for(; camKey2 != pt.views.end() && !wellConditioned; ++camKey2)
       {
-        Vector3d ray2 = pt - cams[camKey2->first]->C();
+        Vector3d ray2 = pt.coord - cams[camKey2->first]->C();
         ray2.normalize();
         double angle = rad2Deg(acos(ray1.dot(ray2)));
-        wellConditioned[ptIdx] = angle > rayAngleThresh;
+        wellConditioned = angle > rayAngleThresh;
       }
     }
-    if(!wellConditioned[ptIdx])
+    if(!wellConditioned && !pt.views.empty())
     {
-      for(const auto& camKey : views)
-      {
-        auto& visPts = cams[camKey.first]->visiblePoints();
-        auto elem = std::lower_bound(visPts.begin(),visPts.end(),ptIdx);
-        if(elem != visPts.end())
-          visPts.erase(elem);
-      }
-      for(const auto& camKey : pts.ptData()[ptIdx].toReconstruct)
-      {
-        auto& visPts = cams[camKey.first]->visiblePoints();
-        auto elem = std::lower_bound(visPts.begin(),visPts.end(),ptIdx);
-        if(elem != visPts.end())
-          visPts.erase(elem);
-      }
+      nPtsRemoved++;
+      removePointViews(ptIdx,&pt,&cams);
     }
   }
-  pts.removePointsViews(wellConditioned);
+  return nPtsRemoved;
 }
 
-void removeHighReprojErrorPoints(double avgReprojErrThresh,ptr_vector<Camera> *pcams,
-  Points *ppts)
+int removeHighReprojErrorPoints(double avgReprojErrThresh,ptr_vector<Camera> *pcams,
+  vector<Point> *ppts)
 {
   auto& cams = *pcams;
   auto& pts = *ppts;
-  vector<bool> keep(pts.numPtsAll());
-  int nToRemove = 0;
-  for(int iPt = 0; iPt < pts.numPtsAll(); iPt++)
+  int nPts = static_cast<int>(pts.size());
+  int nPtsRemoved = 0;
+  for(int ptIdx = 0; ptIdx < nPts; ptIdx++)
   {
+    auto& pt = pts[ptIdx];
     double err = 0;
-    const auto& reconstructPointViews = pts.ptData()[iPt].reconstructed;
-    for(const auto& camKey : reconstructPointViews)
+    for(const auto& camKey : pt.views)
     {
       const auto& cam = *cams[camKey.first];
       const auto& key = cam.key(camKey.second);
-      Vector2d proj = cam.project(pts.ptCoord()[iPt]);
+      Vector2d proj = cam.project(pt);
       err += (proj - key).norm();
     }
-    if(!reconstructPointViews.empty())
-      err /= reconstructPointViews.size();
-    keep[iPt] = err < avgReprojErrThresh;
-    nToRemove += !keep[iPt];
-    if(!keep[iPt])
+    if(!pt.views.empty())
+      err /= pt.views.size();
+    if(err > avgReprojErrThresh)
     {
-      for(const auto& camKey : reconstructPointViews)
-      {
-        auto& visPts = cams[camKey.first]->visiblePoints();
-        auto elem = std::lower_bound(visPts.begin(),visPts.end(),iPt);
-        if(elem != visPts.end())
-          visPts.erase(elem);
-      }
-      for(const auto& camKey : pts.ptData()[iPt].toReconstruct)
-      {
-        auto& visPts = cams[camKey.first]->visiblePoints();
-        auto elem = std::lower_bound(visPts.begin(),visPts.end(),iPt);
-        if(elem != visPts.end())
-          visPts.erase(elem);
-      }
+      nPtsRemoved++;
+      removePointViews(ptIdx,&pt,&cams);
     }
   }
-  pts.removePointsViews(keep);
+  return nPtsRemoved;
+}
+
+void removePointViews(int ptIdx,Point *pt,ptr_vector<Camera> *pcams)
+{
+  auto& cams = *pcams;
+  for(const auto& camKey : pt->views)
+  {
+    auto& visPts = cams[camKey.first]->visiblePoints();
+    auto elem = std::lower_bound(visPts.begin(),visPts.end(),ptIdx);
+    if(elem != visPts.end())
+      visPts.erase(elem);
+  }
+  for(const auto& camKey : pt->viewsToAdd)
+  {
+    auto& visPts = cams[camKey.first]->visiblePoints();
+    auto elem = std::lower_bound(visPts.begin(),visPts.end(),ptIdx);
+    if(elem != visPts.end())
+      visPts.erase(elem);
+  }
+  pt->views.clear();
+  pt->viewsToAdd.clear();
 }
 
 } // namespace yasfm

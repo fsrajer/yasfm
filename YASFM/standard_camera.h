@@ -117,7 +117,7 @@ public:
   \param[in] pt The 3d point.
   \return A projection of the 3d point.
   */
-  YASFM_API virtual Vector2d project(const Vector3d& pt) const;
+  YASFM_API virtual Vector2d project(const Point& pt) const;
 
   /// Generate ceres cost function.
   /**

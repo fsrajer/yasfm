@@ -82,6 +82,14 @@ typedef PairHash<int,int> IntPairHash;
 template<typename T>
 using pair_umap = std::unordered_map < IntPair,T,IntPairHash >;
 
+typedef struct Point
+{
+  Eigen::Vector3d coord;
+  NViewMatch views;
+  NViewMatch viewsToAdd;
+  Vector3uc color;
+}Point;
+
 } // namespace yasfm
 
 ////////////////////////////////////////////////////

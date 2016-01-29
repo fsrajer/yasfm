@@ -68,14 +68,17 @@ it is triangulated in front of both cameras. Points colors are chosen from the f
 key.
 Adds the indices of the points to the visible points list of the cameras.
 
-\param[in] nViewMatchIdxs Corresponding indices to points->matchesToReconstruct.
+\param[in] nViewMatches N-View matches.
+\param[in] nViewMatchIdxs Corresponding indices to nViewMatches (others are ignored).
 \param[in] camsIdxs Camera pair indices.
 \param[in] cam1 First camera.
 \param[in] cam2 Second camera.
 \param[out] points Points.
+\return Number of points reconstructed.
 */
-YASFM_API void reconstructPoints(const vector<int>& nViewMatchIdxs,const IntPair& camsIdxs,
-  Camera* cam1,Camera* cam2,Points *points);
+YASFM_API int reconstructPoints(const vector<NViewMatch>& nViewMatches, 
+  const vector<int>& nViewMatchIdxs,const IntPair& camsIdxs,
+  Camera* cam1,Camera* cam2,vector<Point> *points);
 
 /// Reconstruct points using any number of cameras.
 /**
@@ -87,9 +90,10 @@ Adds the indices of the points to the visible points list of the cameras.
 \param[in] matchesToReconstruct Points views.
 \param[in] cams Cameras.
 \param[out] points Points.
+\return Number of points reconstructed.
 */
-YASFM_API void reconstructPoints(const vector<SplitNViewMatch>& matchesToReconstruct,
-  ptr_vector<Camera>* cams,Points *points);
+YASFM_API int reconstructPoints(const vector<SplitNViewMatch>& matchesToReconstruct,
+  ptr_vector<Camera>* cams,vector<Point> *points);
 
 /// Trianguates all points given by two-view matches.
 /**
@@ -172,7 +176,7 @@ YASFM_API void extractCandidateNewPoints(int minObservingCams,double rayAngleThr
 \param[out] matches Cam to scene matches. matches[i] are matches for camera i.
 */
 YASFM_API void findCamToSceneMatches(const uset<int>& camsToIgnore,int numCams,
-  const Points& points,vector<vector<IntPair>> *matches);
+  const vector<Point>& points,vector<vector<IntPair>> *matches);
 
 /// Determine conditioning.
 /**
@@ -200,29 +204,41 @@ the resulting rays.
 YASFM_API double computeRayAngle(const Camera& cam1,int key1Idx,
   const Camera& cam2,int key2Idx);
 
-/// Remove ill conditioned points views.
+/// Remove views of ill conditioned points views.
 /**
-Remove points views with the maximum angle of all pairs of rays smaller than rayAngleThresh. 
+Remove all views and viewToAdd of points with the maximum angle of all 
+pairs of rays smaller than rayAngleThresh. 
 A ray is computed by subtracting a point and a camera center.
 Removes also the point indices from cameras visible points list.
 
 \param[in] rayAngleThresh Angle threshold in degrees.
 \param[in] cams Cameras.
 \param[in,out] pts Points.
+\return Number of "removed" points.
 */
-YASFM_API void removeIllConditionedPoints(double rayAngleThresh,
-  ptr_vector<Camera> *cams,Points *pts);
+YASFM_API int removeIllConditionedPoints(double rayAngleThresh,
+  ptr_vector<Camera> *cams,vector<Point> *pts);
 
-/// Remove points views with high reprojection error.
+/// Remove views of points with high reprojection error.
 /**
+Removes all views and viewsToAdd.
 Removes also the point indices from cameras visible points list.
 
 \param[in] avgReprojErrThresh Threshold for the average reprojection error.
 \param[in] cams Cameras.
 \param[in,out] pts Points.
+\return Number of "removed" points.
 */
-YASFM_API void removeHighReprojErrorPoints(double avgReprojErrThresh,
-  ptr_vector<Camera> *cams,Points *pts);
+YASFM_API int removeHighReprojErrorPoints(double avgReprojErrThresh,
+  ptr_vector<Camera> *cams,vector<Point> *pts);
+
+/// Remove views and viewsToAdd of the point and corresponding entries in cams.
+/**
+\param[in] ptIdx Index of the point. 
+\param[in,out] pt Point. 
+\param[in,out] cams Cameras with visiblePoints. 
+*/
+YASFM_API void removePointViews(int ptIdx,Point *pt,ptr_vector<Camera> *cams);
 
 } // namespace yasfm
 

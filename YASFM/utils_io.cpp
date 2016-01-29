@@ -219,7 +219,7 @@ double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilena
 }
 
 void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructedCams,
-  const ptr_vector<Camera>& cams,const Points& points)
+  const ptr_vector<Camera>& cams,const vector<Point>& pts)
 {
   ofstream out(filename);
   if(!out.is_open())
@@ -228,7 +228,10 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
     return;
   }
   out << "# Bundle file v0.3\n";
-  out << cams.size() << " " << points.numPtsAlive() << "\n";
+  int nPtsAlive = 0;
+  for(const auto& pt : pts)
+    nPtsAlive += (!pt.views.empty());
+  out << cams.size() << " " << nPtsAlive << "\n";
 
   vector<Vector2d> x0(cams.size());
   out.flags(std::ios::scientific);
@@ -269,24 +272,20 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
       out << t(0) << " " << t(1) << " " << t(2) << "\n";
     }
   }
-  for(int i = 0; i < points.numPtsAll(); i++)
+  for(const auto& pt : pts)
   {
-    const auto& ptData = points.ptData()[i];
-    if(ptData.reconstructed.empty())
+    if(pt.views.empty())
       continue;
 
     out.flags(std::ios::scientific);
     // coordinates
-    const auto& coord = points.ptCoord()[i];
-    out << coord(0) << " " << coord(1) << " " << coord(2) << "\n";
+    out << pt.coord(0) << " " << pt.coord(1) << " " << pt.coord(2) << "\n";
     out.flags(std::ios::fixed);
     // color
-    const auto& col = points.ptData()[i].color;
-    Eigen::Vector3i color = col.cast<int>();
-    out << color(0) << " " << color(1) << " " << color(2) << "\n";
+    out << pt.color.cast<int>().transpose() << "\n";
     // views
     vector<BundlerPointView> views;
-    for(const auto& camKey : points.ptData()[i].reconstructed)
+    for(const auto& camKey : pt.views)
     {
       if(reconstructedCams.count(camKey.first) > 0)
       {
@@ -309,7 +308,7 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
 
 void writeSFMBundlerFormat(const string& filename,const Dataset& data)
 {
-  writeSFMBundlerFormat(filename,data.reconstructedCams(),data.cams(),data.points());
+  writeSFMBundlerFormat(filename,data.reconstructedCams(),data.cams(),data.pts());
 }
 
 ostream& operator<<(ostream& file,const NViewMatch& m)
