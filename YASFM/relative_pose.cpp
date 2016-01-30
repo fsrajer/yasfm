@@ -606,8 +606,16 @@ void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
       *cams[camsIdx.first],*cams[camsIdx.second],pair.matches,&inliers);
     if(nInliers >= opt.get<int>("minInliersPerTransform"))
     {
-      filterVector(inliers,&pair.matches);
-      filterVector(inliers,&pair.dists);
+      // Filter and reorder
+      vector<IntPair> newMatches(inliers.size());
+      vector<double> newDists(inliers.size());
+      for(size_t i = 0; i < inliers.size(); i++)
+      {
+        newMatches[i] = pair.matches[inliers[i]];
+        newDists[i] = pair.dists[inliers[i]];
+      }
+      pair.matches = newMatches;
+      pair.dists = newDists;
       ++it;
     } else
     {
