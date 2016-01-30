@@ -245,6 +245,7 @@ void Dataset::copyIn(const Dataset& o)
   {
     cams_.push_back(cam->clone());
   }
+  queries_ = o.queries_;
   pairs_ = o.pairs_;
   reconstructedCams_ = o.reconstructedCams_;
   points_ = o.points_;
@@ -285,7 +286,7 @@ void Dataset::writeASCII(const string& filename) const
     return;
   }
 
-  const int nFields = 5;
+  const int nFields = 6;
   const int nFieldsCameraPair = 2;
 
   file << "########### INFO ###########\n"
@@ -314,6 +315,15 @@ void Dataset::writeASCII(const string& filename) const
   file << "points_\n";
   points_.writeASCII(file);
 
+  file << "queries_ " << queries_.size() <<"\n";
+  for(size_t i = 0; i < queries_.size(); i++)
+  {
+    file << queries_[i].size();
+    for(int idx : queries_[i])
+      file << " " << idx;
+    file << "\n";
+  }
+
   file << "pairs_ " << pairs_.size() << " " << nFieldsCameraPair << "\n";
   file << "matches\n";
   file << "dists\n";
@@ -336,6 +346,7 @@ void Dataset::writeASCII(const string& filename) const
 void Dataset::readASCII(const string& filename)
 {
   string fn = joinPaths(dir(),filename);
+  queries_.clear();
   ifstream file(fn);
   if(!file.is_open())
   {
@@ -389,6 +400,22 @@ void Dataset::readASCII(const string& filename)
         } else if(s == "points_")
         {
           points_.readASCII(file);
+        } else if(s == "queries_")
+        {
+          size_t nQueries;
+          file >> nQueries;
+          queries_.resize(nQueries);
+          for(size_t i = 0; i < nQueries; i++)
+          {
+            size_t n;
+            file >> n;
+            for(size_t j = 0; j < n; j++)
+            {
+              int idx;
+              file >> idx;
+              queries_[i].insert(idx);
+            }
+          }
         } else if(s == "pairs_")
         {
           int nPairs,nFieldsCameraPair;
@@ -475,6 +502,8 @@ pair_umap<CameraPair>& Dataset::pairs() { return pairs_; }
 const uset<int>& Dataset::reconstructedCams() const { return reconstructedCams_; }
 const Points& Dataset::points() const { return points_; }
 Points& Dataset::points() { return points_; }
+const vector<set<int>>& Dataset::queries() const { return queries_; }
+vector<set<int>>& Dataset::queries() { return queries_; }
 
 string Dataset::featsDir() const
 {

@@ -15,6 +15,7 @@
 #include <vector>
 #include <istream>
 #include <ostream>
+#include <set>
 
 #include "Eigen/Dense"
 
@@ -28,6 +29,7 @@ using std::string;
 using std::vector;
 using std::ostream;
 using std::istream;
+using std::set;
 using std::make_unique;
 
 namespace yasfm
@@ -307,6 +309,9 @@ public:
   /// \return Points and unreconstructed n-view matches.
   YASFM_API Points& points();
 
+  YASFM_API const vector<set<int>>& queries() const;
+  YASFM_API vector<set<int>>& queries();
+
   /// \return Features directory.
   YASFM_API string featsDir() const;
 
@@ -323,6 +328,7 @@ private:
   string dir_; ///< Working directory.
   /// The cameras stored as pointers to Camera.
   ptr_vector<Camera> cams_;
+  vector<set<int>> queries_; ///< Which pairs should be matched. 
   pair_umap<CameraPair> pairs_;
   uset<int> reconstructedCams_;
   Points points_;

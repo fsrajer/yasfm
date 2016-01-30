@@ -220,12 +220,15 @@ int main(int argc,const char* argv[])
   //data.readASCII("init.txt");
   
   cout << "Looking for similar camera pairs.\n";
-  vector<set<int>> queries;
   bool verbose = true;
   findSimilarCameraPairs(data.cams(),opt.get<int>("maxVocabularySize"),
-    opt.get<int>("nSimilarCamerasToMatch"),verbose,&queries);
+    opt.get<int>("nSimilarCamerasToMatch"),verbose,&data.queries());
 
-  matchFeatFLANN(opt.getOpt<OptionsFLANN>("matchingFLANN"),data.cams(),queries,&data.pairs());
+  data.writeASCII("similar.txt");
+  //data.readASCII("similar.txt");
+
+  matchFeatFLANN(opt.getOpt<OptionsFLANN>("matchingFLANN"),data.cams(),
+    data.queries(),&data.pairs());
   //matchFeatFLANN(opt.getOpt<OptionsFLANN>("matchingFLANN"),data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.get<int>("minNumPairwiseMatches"),&data.pairs());
   data.clearDescriptors();
