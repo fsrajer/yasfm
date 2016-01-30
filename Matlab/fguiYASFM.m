@@ -2,13 +2,13 @@ clear fs;
 closeall
 
 % Dataset path
-fs.DataDirectory      = 'C:\Users\Filip\Workspace\cmp\Data\';
-fs.DatasetSubdirectory      = 'daliborka\yasfm';
-fs.imgsSubdir        = '..\imgs';
+fs.DataDirectory      = 'C:\Users\Filip\Workspace\Data\';
+fs.DatasetSubdirectory      = 'pairs';
+fs.imgsSubdir        = 'imgs';
 
 % Running sfm and reading results
 fs.YASFMExe            = '..\bin\Incremental.exe';
-fs.ccdWidthDb          = '..\resources\camera_ccd_widths.txt';
+fs.ccdWidthDb          = 'C:\Users\Filip\Workspace\YASFM\resources\camera_ccd_widths.txt';
 fs.firstOctave         = -1;
 fs.RunYASFM           = @fguiButtonRunYASFM;
 
@@ -19,7 +19,7 @@ fs.ResultsToReadIdxs     = '2 3';
 fs.ReadResults          = @fguiButtonReadResults;
 
 % Visualization
-fs.ImgIdxs           = '1 2';
+fs.ImgIdxs           = '1';
 fs.SimplePoints      = false;
 fs.ShowKeypoints     = @fguiButtonShowKeypoints;
 fs.ImgPairs            = '1-2';
@@ -28,7 +28,7 @@ fs.ShowAllKeys       = false;
 fs.ShowMatches       = @fguiButtonShowMatches;
 % fs.MaxEpLinesInImage = 40;
 % fs.ShowEpipolarLines = @fguiShowEpipolarLines;
-fs.SfmToolsExe        = 'C:\Users\Filip\Workspace\cmp\SFMTools\gui.exe';
+fs.SfmToolsExe        = 'C:\Users\Filip\Workspace\SFMTools\gui.exe';
 fs.FinalBundleFile    = 'bundle_final_model0.out';
 fs.SfMTools          = @fguiButtonShowInSfMTools;
 
