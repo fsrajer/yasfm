@@ -103,8 +103,6 @@ void Dataset::writeASCII(const string& filename) const
   }
 
   const int nFields = 7;
-  const int nFieldsPoints = 4;
-  const int nFieldsCameraPair = 2;
   int nPtsAlive = countPtsAlive();
 
   file << "########### INFO ###########\n"
@@ -133,6 +131,7 @@ void Dataset::writeASCII(const string& filename) const
   for(const auto& match : nViewMatches_)
     file << match << "\n";
 
+  const int nFieldsPoints = 4;
   file << "pts_ " << nPtsAlive << " " << nFieldsPoints << "\n";
   file << "coord\n";
   file << "views\n";
@@ -158,9 +157,11 @@ void Dataset::writeASCII(const string& filename) const
     file << "\n";
   }
 
+  const int nFieldsCameraPair = 3;
   file << "pairs_ " << pairs_.size() << " " << nFieldsCameraPair << "\n";
   file << "matches\n";
   file << "dists\n";
+  file << "supportSizes\n";
   for(const auto& entry : pairs_)
   {
     IntPair idxs = entry.first;
@@ -172,6 +173,10 @@ void Dataset::writeASCII(const string& filename) const
     file << pair.dists.size() << "\n";
     for(double dist : pair.dists)
       file << dist << "\n";
+    file << pair.supportSizes.size() << "\n";
+    for(int supportSize : pair.supportSizes)
+      file << " " << supportSize;
+    file << "\n";
   }
 
   file.close();
@@ -337,6 +342,8 @@ void Dataset::readMatches(istream& file)
       format |= 1;
     else if(s == "dists")
       format |= 2;
+    else if(s == "supportSizes")
+      format |= 4;
   }
   pairs_.clear();
   pairs_.reserve(nPairs);
@@ -365,6 +372,14 @@ void Dataset::readMatches(istream& file)
       {
         file >> pair.dists[iDist];
       }
+    }
+    if(format & 4)
+    {
+      int n;
+      file >> n;
+      pair.supportSizes.resize(n); 
+      for(int& sz : pair.supportSizes)
+        file >> sz;
     }
   }
 }

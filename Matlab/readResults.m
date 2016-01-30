@@ -212,5 +212,10 @@ for i=1:nPairs
         pairs(im1,im2).dists = fscanf(fid,'%lf',[1 nDists]);
         fgetl(fid);
     end
+    if nFields >= 3 && strcmp(fields{3},'supportSizes')
+        nSuppSz = fscanf(fid,'%i',1);
+        pairs(im1,im2).supportSizes = fscanf(fid,'%i',[1 nSuppSz]);
+        fgetl(fid);
+    end
 end
 end

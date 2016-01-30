@@ -3,12 +3,38 @@ function fs = fguiButtonShowMatches(fs, fn)
 pairsToShow = parseInitPairsToShow(fs.ImgIdxs,fs.ImgPairs,...
     numel(fs.res{1}.cams));
 
-pairs = cell(numel(fs.res),1);
+pairs = {};
 for i=1:numel(fs.res)
-    pairs{i} = fs.res{i}.pairs;
+    if ~isfield(fs.res{i}.pairs,'supportSizes')
+        pairs{end+1} = fs.res{i}.pairs;
+    else
+        tmp = divideMatchesBySupport(fs.res{i}.pairs);
+        pairs((end+1):(end+numel(tmp))) = tmp;
+    end
 end
+
 showMatches(fs.res{1}.cams,pairs,fs.ShowAllKeys,fs.ShowLines,pairsToShow,...
             fs.subfigX,fs.subfigY);
+end
+
+function pairs = divideMatchesBySupport(pairsIn)
+maxTrans = max(cellfun(@numel,{pairsIn.supportSizes}));
+pairs = cell(maxTrans,1);
+for iT=1:maxTrans
+    pairs{iT} = repmat(struct('matches',[]),size(pairsIn));
+    for i=1:size(pairsIn,1)
+        for j=1:size(pairsIn,2)
+            curr = pairsIn(i,j);
+            currS = curr.supportSizes;
+            if numel(currS) >= iT
+                off = sum(currS(1:(iT-1)));
+                cnt = currS(iT);
+                pairs{iT}(i,j).matches = ...
+                    pairsIn(i,j).matches(:,(off+1):(off+cnt));
+            end
+        end
+    end
+end
 end
 
 function pairs = parseInitPairsToShow(idxsStr,pairsIdxsStr,nCams)

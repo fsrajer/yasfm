@@ -603,7 +603,8 @@ void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
 
     vector<int> inliers;
     int nInliers = verifyMatchesGeometrically(opt,
-      *cams[camsIdx.first],*cams[camsIdx.second],pair.matches,&inliers);
+      *cams[camsIdx.first],*cams[camsIdx.second],pair.matches,&inliers,
+      &pair.supportSizes);
     if(nInliers >= opt.get<int>("minInliersPerTransform"))
     {
       // Filter and reorder
@@ -633,9 +634,10 @@ void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
 
 YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   const Camera& cam1,const Camera& cam2,const vector<IntPair>& allMatches,
-  vector<int> *poutInliers)
+  vector<int> *poutInliers,vector<int> *pinlierSetSizes)
 {
   auto& outInliers = *poutInliers;
+  auto& inlierSetSizes = *pinlierSetSizes;
 
   int nAllMatches = static_cast<int>(allMatches.size());
   vector<IntPair> remainingMatches = allMatches;
@@ -698,6 +700,7 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
     if(bestInliers.size() < opt.get<int>("minInliersPerTransform"))
       break;
 
+    inlierSetSizes.push_back(static_cast<int>(bestInliers.size()));
     for(int remainingMatchesInlier : bestInliers)
       outInliers.push_back(remainingToAll[remainingMatchesInlier]);
     filterOutOutliers(bestInliers,&remainingMatches);

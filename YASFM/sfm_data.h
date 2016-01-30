@@ -47,6 +47,8 @@ typedef struct CameraPair
   vector<IntPair> matches; 
   /// This can be any score. The smaller the better.
   vector<double> dists;
+  /// For geometric verification. Numbers of inliers to individual transformations.
+  vector<int> supportSizes;
 } CameraPair;
 
 /// Main class for storing results of the reconstruction.

@@ -466,12 +466,14 @@ https://github.com/vedaldi/practical-object-instance-recognition/blob/master/geo
 \param[in] cam1 First camera.
 \param[in] cam2 Second camera.
 \param[in] matches Keys matches.
-\param[out] inliers Indices of geometrically verified matches.
+\param[out] inliers Indices of geometrically verified matches n the order of 
+transformations from the most supported one.
+\param[out] inlierSetSizes Numbers of inliers to individual transformations.
 \return Number of inliers.
 */
 YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   const Camera& cam1,const Camera& cam2,const vector<IntPair>& matches,
-  vector<int> *inliers);
+  vector<int> *inliers,vector<int> *inlierSetSizes);
 
 /// Compute similarity transform given one feature match.
 /**
