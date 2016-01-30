@@ -36,17 +36,17 @@ void chooseWellMatchedCameras(int minMatchesThresh,double factor,
 }
 
 double computeAverageReprojectionError(const ptr_vector<Camera>& cams,
-  const Points& points)
+  const vector<Point>& pts)
 {
   double cumulativeError = 0.;
   int observationsCount = 0;
-  for(int iPt = 0; iPt < points.numPtsAll(); iPt++)
+  for(const auto& pt : pts)
   {
-    for(const auto& camKey : points.ptData()[iPt].reconstructed)
+    for(const auto& camKey : pt.views)
     {
       const auto& cam = *cams[camKey.first];
       const auto& key = cam.key(camKey.second);
-      Vector2d proj = cam.project(points.ptCoord()[iPt]);
+      Vector2d proj = cam.project(pt);
       cumulativeError += (proj - key).norm();
       observationsCount++;
     }
@@ -59,7 +59,7 @@ double computeAverageReprojectionError(const ptr_vector<Camera>& cams,
 }
 
 bool resectCamera5AndHalfPtRANSAC(const OptionsRANSAC& opt,
-  const vector<IntPair>& camToSceneMatches,const vector<Vector3d>& points,
+  const vector<IntPair>& camToSceneMatches,const vector<Point>& points,
   Camera *cam,vector<int> *inliers)
 {
   Matrix34d P;
@@ -72,7 +72,7 @@ bool resectCamera5AndHalfPtRANSAC(const OptionsRANSAC& opt,
 
 bool resectCamera5AndHalfPtRANSAC(const OptionsRANSAC& opt,
   const vector<IntPair>& camToSceneMatches,const vector<Vector2d>& keys,
-  const vector<Vector3d>& points,
+  const vector<Point>& points,
   Matrix34d *P,vector<int> *inliers)
 {
   MediatorResectioning5AndHalfPtRANSAC m(keys,points,camToSceneMatches);
@@ -80,7 +80,7 @@ bool resectCamera5AndHalfPtRANSAC(const OptionsRANSAC& opt,
   return (nInliers > 0);
 }
 
-void resectCamera5AndHalfPt(const vector<Vector2d>& keys,const vector<Vector3d>& points,
+void resectCamera5AndHalfPt(const vector<Vector2d>& keys,const vector<Point>& points,
   const vector<IntPair>& camToSceneMatches,vector<Matrix34d> *Ps)
 {
   const size_t minPts = 6;
@@ -99,7 +99,7 @@ void resectCamera5AndHalfPt(const vector<Vector2d>& keys,const vector<Vector3d>&
   {
     const auto& key = keys[camToSceneMatches[i].first];
     int ptIdx = camToSceneMatches[i].second;
-    const auto& pt = points[ptIdx].homogeneous().transpose();
+    const auto& pt = points[ptIdx].coord.homogeneous().transpose();
 
     Ms[0].block(2 * i,0,1,4) = pt;
     Ms[0].block(2 * i,8,1,4) = -key.x() * pt;
@@ -130,7 +130,7 @@ void resectCamera5AndHalfPt(const vector<Vector2d>& keys,const vector<Vector3d>&
 }
 
 bool resectCamera6ptLSRANSAC(const OptionsRANSAC& opt,
-  const vector<IntPair>& camToSceneMatches,const vector<Vector3d>& points,
+  const vector<IntPair>& camToSceneMatches,const vector<Point>& points,
   Camera *cam,vector<int> *inliers)
 {
   Matrix34d P;
@@ -142,7 +142,7 @@ bool resectCamera6ptLSRANSAC(const OptionsRANSAC& opt,
 
 bool resectCamera6ptLSRANSAC(const OptionsRANSAC& opt,
   const vector<IntPair>& camToSceneMatches,const vector<Vector2d>& keys,
-  const vector<Vector3d>& points,
+  const vector<Point>& points,
   Matrix34d *P,vector<int> *inliers)
 {
   MediatorResectioning6ptLSRANSAC m(keys,points,camToSceneMatches);
@@ -150,7 +150,7 @@ bool resectCamera6ptLSRANSAC(const OptionsRANSAC& opt,
   return (nInliers > 0);
 }
 
-void resectCameraLS(const vector<Vector2d>& keys,const vector<Vector3d>& points,
+void resectCameraLS(const vector<Vector2d>& keys,const vector<Point>& points,
   const vector<IntPair>& camToSceneMatches,Matrix34d *pP)
 {
   MatrixXd A(MatrixXd::Zero(2 * camToSceneMatches.size(),11));
@@ -161,7 +161,7 @@ void resectCameraLS(const vector<Vector2d>& keys,const vector<Vector3d>& points,
     int keyIdx = camToSceneMatches[i].first;
     const auto& key = keys[keyIdx];
     int ptIdx = camToSceneMatches[i].second;
-    const auto& pt = points[ptIdx];
+    const auto& pt = points[ptIdx].coord;
 
     A.block(2*i,0,1,4) = pt.homogeneous().transpose();
     A.block(2*i,8,1,3) = -key.x() * pt.transpose();
@@ -182,7 +182,7 @@ void resectCameraLS(const vector<Vector2d>& keys,const vector<Vector3d>& points,
 }
 
 bool resectCamera3ptRANSAC(const OptionsRANSAC& opt,
-	const vector<IntPair>& camToSceneMatches, const vector<Vector3d>& points,
+  const vector<IntPair>& camToSceneMatches,const vector<Point>& points,
 	Camera *cam, vector<int> *inliers)
 {
 	Matrix34d Rt;
@@ -205,7 +205,7 @@ bool resectCamera3ptRANSAC(const OptionsRANSAC& opt,
 
 bool resectCamera3ptRANSAC(const OptionsRANSAC& opt,
   const vector<IntPair>& camToSceneMatches,const vector<Vector2d>& normKeys,
-	const vector<Vector3d>& points,Matrix34d *Rt,vector<int> *inliers)
+  const vector<Point>& points,Matrix34d *Rt,vector<int> *inliers)
 {
 	
   MediatorResectioning3ptRANSAC m(normKeys,points,camToSceneMatches);
@@ -214,7 +214,7 @@ bool resectCamera3ptRANSAC(const OptionsRANSAC& opt,
 }
 
 void resectCamera3pt(const vector<Vector2d>& normKeys,
-	const vector<Vector3d>& points, const vector<IntPair>& camToSceneMatches, 
+  const vector<Point>& points,const vector<IntPair>& camToSceneMatches,
 	vector<Matrix34d> *Ps){
 
 	const size_t minPts = 3;
@@ -228,9 +228,12 @@ void resectCamera3pt(const vector<Vector2d>& normKeys,
 
 	double a, b, c;
 
-	a = (points[camToSceneMatches[1].second] - points[camToSceneMatches[2].second]).norm();
-	b = (points[camToSceneMatches[0].second] - points[camToSceneMatches[2].second]).norm();
-	c = (points[camToSceneMatches[0].second] - points[camToSceneMatches[1].second]).norm();
+	a = (points[camToSceneMatches[1].second].coord 
+    - points[camToSceneMatches[2].second].coord).norm();
+  b = (points[camToSceneMatches[0].second].coord 
+    - points[camToSceneMatches[2].second].coord).norm();
+  c = (points[camToSceneMatches[0].second].coord 
+    - points[camToSceneMatches[1].second].coord).norm();
 
 	if (a==0||b==0||c==0)
 	{
@@ -334,12 +337,14 @@ void resectCamera3pt(const vector<Vector2d>& normKeys,
 	Eigen::Matrix3d X;
 	for (int j = 0; j < 3; j++)
 	{
-		mean1(j) = (points[camToSceneMatches[0].second](j) + points[camToSceneMatches[1].second](j) + points[camToSceneMatches[2].second](j)) / 3;
+    mean1(j) = (points[camToSceneMatches[0].second].coord(j) 
+      + points[camToSceneMatches[1].second].coord(j) 
+      + points[camToSceneMatches[2].second].coord(j)) / 3;
 	}
 
 	for (int j = 0; j < 3; j++)
 	{
-		X.col(j) = points[camToSceneMatches[j].second] - mean1;
+    X.col(j) = points[camToSceneMatches[j].second].coord - mean1;
 	}
 	//find rigid transform between X and XX for all solutions
 	for (int i = 0; i < nreal; i++)
@@ -403,7 +408,7 @@ void resectCamera3pt(const vector<Vector2d>& normKeys,
 }
 
 MediatorResectioningRANSAC::MediatorResectioningRANSAC(int minMatches,
-  const vector<Vector2d>& keys,const vector<Vector3d>& points,
+  const vector<Vector2d>& keys,const vector<Point>& points,
   const vector<IntPair>& camToSceneMatches)
   : minMatches_(minMatches),keys_(keys),points_(points),
   camToSceneMatches_(camToSceneMatches)
@@ -426,7 +431,7 @@ double MediatorResectioningRANSAC::computeSquaredError(const Matrix34d& P,
   const auto& pt = points_[camToSceneMatches_[matchIdx].second];
   const auto& key = keys_[camToSceneMatches_[matchIdx].first];
 
-  Vector3d proj = (P*pt.homogeneous());
+  Vector3d proj = (P*pt.coord.homogeneous());
   return (key - proj.hnormalized()).squaredNorm();
 }
 
@@ -436,7 +441,7 @@ void MediatorResectioningRANSAC::refine(double tolerance,const vector<int>& inli
 }
 
 MediatorResectioning5AndHalfPtRANSAC::MediatorResectioning5AndHalfPtRANSAC(
-  const vector<Vector2d>& keys,const vector<Vector3d>& points,
+  const vector<Vector2d>& keys,const vector<Point>& points,
   const vector<IntPair>& camToSceneMatches)
   : MediatorResectioningRANSAC(6,keys,points,camToSceneMatches)
 {
@@ -453,7 +458,7 @@ void MediatorResectioning5AndHalfPtRANSAC::computeTransformation(const vector<in
 }
 
 MediatorResectioning6ptLSRANSAC::MediatorResectioning6ptLSRANSAC(
-  const vector<Vector2d>& keys,const vector<Vector3d>& points,
+  const vector<Vector2d>& keys,const vector<Point>& points,
   const vector<IntPair>& camToSceneMatches)
   : MediatorResectioningRANSAC(6,keys,points,camToSceneMatches)
 {
@@ -471,7 +476,7 @@ void MediatorResectioning6ptLSRANSAC::computeTransformation(const vector<int>& i
 }
 
 MediatorResectioning3ptRANSAC::MediatorResectioning3ptRANSAC(
-  const vector<Vector2d>& normKeys,const vector<Vector3d>& points,
+  const vector<Vector2d>& normKeys,const vector<Point>& points,
 	const vector<IntPair>& camToSceneMatches)
   : MediatorResectioningRANSAC(3,normKeys,points,camToSceneMatches)
 {

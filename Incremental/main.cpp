@@ -252,8 +252,8 @@ int main(int argc,const char* argv[])
 
   cout << "Searching for N view matches ... ";
   twoViewMatchesToNViewMatches(data.cams(),data.pairs(),
-    &data.points().matchesToReconstruct());
-  cout << "found " << data.points().matchesToReconstruct().size() << "\n";
+    &data.nViewMatches());
+  cout << "found " << data.nViewMatches().size() << "\n";
   data.pairs().clear(); // No need for 2 view matches anymore.
 
   vector<bool> isCalibrated(data.numCams(),false);
@@ -297,7 +297,7 @@ int main(int argc,const char* argv[])
 
     if(currData.reconstructedCams().size() > 3)
     {
-      currData.points().matchesToReconstruct().clear(); // We don't need bad n-view matches
+      currData.nViewMatches().clear(); // We don't need unused n-view matches
       writeSFMBundlerFormat(joinPaths(currData.dir(),"bundle_final_"
         + appendix + ".out"),currData);
       currData.writeASCII("final_" + appendix + ".txt");
@@ -325,7 +325,7 @@ void runSFM(const IncrementalOptions& opt,const string& outDir,
   cout << "Choosing initial pair ... ";
   IntPair initPair = chooseInitialCameraPair(opt.get<int>("minNumPairwiseMatches"),
     minPairScore,isCalibrated,camsToIgnoreForInitialization,
-    data.points().matchesToReconstruct(),homographyScores);
+    data.nViewMatches(),homographyScores);
   cout << "[" << initPair.first << "," << initPair.second << "]\n";
 
   if(initPair.first < 0 || initPair.second < 0)
@@ -358,14 +358,14 @@ void runSFM(const IncrementalOptions& opt,const string& outDir,
     opt.getOpt<OptionsRANSAC>("initialPairRelativePose"),
     opt.get<double>("pointsReprojErrorThresh"),initPair,&data);
 
-  bundleAdjust(baOpt,&data.cams(),&data.points());
+  bundleAdjust(baOpt,&data.cams(),&data.pts());
 
   exploredCams.insert(initPair.first);
   exploredCams.insert(initPair.second);
   while(data.cams().size() > exploredCams.size())
   {
     vector<vector<IntPair>> camToSceneMatches;
-    findCamToSceneMatches(exploredCams,data.numCams(),data.points(),&camToSceneMatches);
+    findCamToSceneMatches(exploredCams,data.numCams(),data.pts(),&camToSceneMatches);
 
     uset<int> wellMatchedCams;
     chooseWellMatchedCameras(opt.get<int>("minNumCamToSceneMatches"),
@@ -384,7 +384,7 @@ void runSFM(const IncrementalOptions& opt,const string& outDir,
       //  data.points().ptCoord(),&data.cam(camIdx),&inliers);
       bool success = resectCamera6ptLSRANSAC(
         opt.getOpt<OptionsRANSAC>("absolutePose"),camToSceneMatches[camIdx],
-        data.points().ptCoord(),&data.cam(camIdx),&inliers);
+        data.pts(),&data.cam(camIdx),&inliers);
 
 
       StandardCamera *cam = static_cast<StandardCamera *>(&data.cam(camIdx));
@@ -397,7 +397,7 @@ void runSFM(const IncrementalOptions& opt,const string& outDir,
         data.markCamAsReconstructed(camIdx,ptIdxs,inliers);
 
         cout << "Bundle adjusting the new camera\n";
-        bundleAdjustOneCam(baOpt,camIdx,&data.cam(camIdx),&data.points());
+        bundleAdjustOneCam(baOpt,camIdx,&data.cam(camIdx),&data.pts());
       } else
       {
         cout << "camera could not be added.\n";
@@ -408,34 +408,29 @@ void runSFM(const IncrementalOptions& opt,const string& outDir,
     vector<SplitNViewMatch> matchesToReconstructNow;
     extractCandidateNewPoints(minObservingCams,opt.get<double>("rayAngleThresh"),
       data.reconstructedCams(),data.cams(),
-      &data.points().matchesToReconstruct(),&matchesToReconstructNow);
+      &data.nViewMatches(),&matchesToReconstructNow);
 
     cout << "Reconstructing " << matchesToReconstructNow.size() << " points\n";
-    reconstructPoints(matchesToReconstructNow,&data.cams(),&data.points());
-    int prevPts = data.points().numPtsAlive();
-    removeHighReprojErrorPoints(opt.get<double>("pointsReprojErrorThresh"),
-      &data.cams(),&data.points());
-    cout << "Removing " << prevPts-data.points().numPtsAlive()
-      << " points with high reprojection error\n";
+    reconstructPoints(matchesToReconstructNow,&data.cams(),&data.pts());
+    int nPtsRemoved = removeHighReprojErrorPoints(
+      opt.get<double>("pointsReprojErrorThresh"),&data.cams(),&data.pts());
+    cout << "Removing " << nPtsRemoved << " points with high reprojection error\n";
 
     do
     {
-      prevPts = data.points().numPtsAlive();
       cout << "Running bundle adjustment with: \n"
         << "  " << data.reconstructedCams().size() << " cams\n"
-        << "  " << prevPts << " points\n"
+        << "  " << data.countPtsAlive() << " points\n"
         << "  " << data.countReconstructedObservations() << " observations\n";
-      bundleAdjust(baOpt,&data.cams(),&data.points());
-      removeHighReprojErrorPoints(opt.get<double>("pointsReprojErrorThresh"),
-        &data.cams(),&data.points());
-      cout << "Removing " << prevPts-data.points().numPtsAlive()
-        << " points with high reprojection error\n";
-    } while(prevPts > data.points().numPtsAlive());
+      bundleAdjust(baOpt,&data.cams(),&data.pts());
+      nPtsRemoved = removeHighReprojErrorPoints(
+        opt.get<double>("pointsReprojErrorThresh"),&data.cams(),&data.pts());
+      cout << "Removing " << nPtsRemoved << " points with high reprojection error\n";
+    } while(nPtsRemoved > 0);
 
-    removeIllConditionedPoints(0.5*opt.get<double>("rayAngleThresh"),
-      &data.cams(),&data.points());
-    cout << "Removing " << prevPts-data.points().numPtsAlive() 
-      << " ill conditioned points\n";
+    nPtsRemoved = removeIllConditionedPoints(0.5*opt.get<double>("rayAngleThresh"),
+      &data.cams(),&data.pts());
+    cout << "Removing " << nPtsRemoved << " ill conditioned points\n";
 
     writeSFMBundlerFormat(joinPaths(outDir,"bundle" +
       std::to_string(data.reconstructedCams().size()) + ".out"),data);

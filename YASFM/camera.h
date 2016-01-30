@@ -56,7 +56,7 @@ public:
   /// Total number of descriptors that can be kept in memory (over all images).
   /// Adjust this based on your machine. 
   /// Default 4M which eats 2GB memory (made for a laptop with 8GB of memory).
-  static size_t maxDescrInMemoryTotal_;
+  YASFM_API static size_t maxDescrInMemoryTotal_;
 
   /// Constructor. (empty)
   YASFM_API Camera();
@@ -120,7 +120,7 @@ public:
   \param[in] pt The 3d point.
   \return A projection of the 3d point.
   */
-  YASFM_API virtual Vector2d project(const Vector3d& pt) const = 0;
+  YASFM_API virtual Vector2d project(const Point& pt) const = 0;
   
   /// Generate ceres cost function.
   /**

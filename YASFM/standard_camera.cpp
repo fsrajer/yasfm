@@ -58,10 +58,10 @@ unique_ptr<Camera> StandardCamera::clone() const
   return make_unique<StandardCamera>(*this);
 }
 
-Vector2d StandardCamera::project(const Vector3d& pt) const
+Vector2d StandardCamera::project(const Point& pt) const
 {
   Vector2d proj;
-  projectWithExternalParams(&params_[0],&pt(0),&proj(0));
+  projectWithExternalParams(&params_[0],&pt.coord(0),&proj(0));
   return proj;
 }
 
