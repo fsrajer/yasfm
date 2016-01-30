@@ -163,6 +163,25 @@ bool hasExtension(const string& filename,const string& extension);
 /// Check if the filename has any of the extensions.
 bool hasExtension(const string& filename,const vector<string>& allowedExtensions);
 
+/// Initialize DevIL library if not already initialized.
+void initDevIL();
+
+/// Read JPG header and return dimensions (using jhead).
+/**
+\param[in] filename Image filename.
+\param[out] width Image width.
+\param[out] height Image height.
+*/
+void getImgDimsJPG(const string& filename,int *width,int *height);
+
+/// Load image and read dimensions of any image type (using devil).
+/**
+\param[in] filename Image filename.
+\param[out] width Image width.
+\param[out] height Image height.
+*/
+void getImgDimsAny(const string& filename,int *width,int *height);
+
 /// Find entry in CCD Database.
 /**
 \param[in] dbFilename Filename with database.

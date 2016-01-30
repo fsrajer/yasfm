@@ -71,39 +71,12 @@ void listFilenames(const string& dir,
   }
 }
 
-void initDevIL()
-{
-  static bool devilLoaded = false;
-  if(!devilLoaded)
-  {
-    ilInit();
-    ilOriginFunc(IL_ORIGIN_UPPER_LEFT);
-    ilEnable(IL_ORIGIN_SET);
-    devilLoaded = true;
-  }
-}
-
 void getImgDims(const string& filename,int *width,int *height)
 {
-  initDevIL();
-
-  ILuint imId; // will be used to store image name
-  ilGenImages(1,&imId); //this is what DevIL uses to keep track of image object
-  ilBindImage(imId); // setting the current working image
-
-  ILboolean success = ilLoadImage((const ILstring)filename.c_str());
-  if(success)
-  {
-    if(width)
-      *width = ilGetInteger(IL_IMAGE_WIDTH);
-
-    if(height)
-      *height = ilGetInteger(IL_IMAGE_HEIGHT);
-  } else
-  {
-    cerr << "ERROR: getImgDims: Could not load image: " << filename << "\n";
-  }
-  ilDeleteImages(1,&imId);
+  if(hasExtension(filename,"jpg") || hasExtension(filename,"jpeg"))
+    getImgDimsJPG(filename,width,height);
+  else
+    getImgDimsAny(filename,width,height);
 }
 
 void readColors(const string& filename,const vector<Vector2d>& coord,
@@ -358,6 +331,59 @@ bool hasExtension(const string& filename,const vector<string>& allowedExtensions
     }
   }
   return false;
+}
+
+void getImgDimsJPG(const string& filename,int *width,int *height)
+{
+  jhead::ResetJpgfile();
+  jhead::ImageInfo = jhead::ImageInfo_t();
+  jhead::ReadJpegFile(filename.c_str(),jhead::ReadMode_t::READ_METADATA);
+
+  if(width)
+    *width = jhead::ImageInfo.Width;
+
+  if(height)
+    *height = jhead::ImageInfo.Height;
+
+  // Precaution - maybe useless
+  if((width && *width <= 0) || (height && *height <= 0))
+    getImgDimsAny(filename,width,height);
+}
+
+
+void initDevIL()
+{
+  static bool devilLoaded = false;
+  if(!devilLoaded)
+  {
+    ilInit();
+    ilOriginFunc(IL_ORIGIN_UPPER_LEFT);
+    ilEnable(IL_ORIGIN_SET);
+    devilLoaded = true;
+  }
+}
+
+void getImgDimsAny(const string& filename,int *width,int *height)
+{
+  initDevIL();
+
+  ILuint imId; // will be used to store image name
+  ilGenImages(1,&imId); //this is what DevIL uses to keep track of image object
+  ilBindImage(imId); // setting the current working image
+
+  ILboolean success = ilLoadImage((const ILstring)filename.c_str());
+  if(success)
+  {
+    if(width)
+      *width = ilGetInteger(IL_IMAGE_WIDTH);
+
+    if(height)
+      *height = ilGetInteger(IL_IMAGE_HEIGHT);
+  } else
+  {
+    cerr << "ERROR: getImgDimsAny: Could not load image: " << filename << "\n";
+  }
+  ilDeleteImages(1,&imId);
 }
 
 double findCCDWidthInDB(const string& dbFilename,const string& cameraMake,const string& cameraModel)
