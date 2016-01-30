@@ -40,6 +40,13 @@ void detectSiftGPU(const OptionsSIFTGPU& opt,const vector<int>& camsToUse,
     maxHeight = std::max(maxHeight,cam.imgHeight());
   }
 
+  if(maxHeight <= 0 || maxHeight <= 0)
+  {
+    if(!cams.empty())
+      cout << "detectSiftGPU: Dimensions of images probably not set. Exiting.\n";
+    return;
+  }
+
   unique_ptr<SiftGPU> sift(CreateNewSiftGPU(1));
 
   bool success = initializeSiftGPU(opt,maxWidth,maxHeight,sift.get());
