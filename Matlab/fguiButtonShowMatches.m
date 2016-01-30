@@ -1,9 +1,13 @@
 function fs = fguiButtonShowMatches(fs, fn)
 
 pairsToShow = parseInitPairsToShow(fs.ImgIdxs,fs.ImgPairs,...
-    numel(fs.res.cams));
+    numel(fs.res{1}.cams));
 
-showMatches(fs.res,fs.ShowAllKeys,fs.ShowLines,pairsToShow,...
+pairs = cell(numel(fs.res),1);
+for i=1:numel(fs.res)
+    pairs{i} = fs.res{i}.pairs;
+end
+showMatches(fs.res{1}.cams,pairs,fs.ShowAllKeys,fs.ShowLines,pairsToShow,...
             fs.subfigX,fs.subfigY);
 end
 

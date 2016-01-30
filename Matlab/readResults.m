@@ -1,4 +1,4 @@
-function res = readResults(fn)
+function res = readResults(fn,ignoreFeats)
 
 fid = fopen(fn,'r');
 
@@ -24,9 +24,19 @@ while ~feof(fid)
                 fgetl(fid);
             elseif strcmp(name,'cams_')
                 nCams = str2double(tokens{2});
-                res.cams = readCams(fid,nCams,fullfile(res.dir,'keys'));
+                res.cams = readCams(fid,nCams,ignoreFeats);
+            elseif strcmp(name,'queries_')
+                nQueries = str2double(tokens{2});
+                res.queries = readQueries(fid,nQueries);
+            elseif strcmp(name,'nViewMatches_')
+                nMatches = str2double(tokens{2});
+                res.nViewMatches = readNViewMatches(fid,nMatches);
+            elseif strcmp(name,'pts_')
+                nPts = str2double(tokens{2});
+                nFields = str2double(tokens{3});
+                res.pts = readPts(fid,nPts,nFields);
             elseif strcmp(name,'points_')
-                [res.matchesToDo,res.pts] = readPoints(fid);
+                [res.nViewMatches,res.pts] = readPointsOld(fid);
             elseif strcmp(name,'pairs_')
                 nPairs = str2double(tokens{2});
                 nFields = str2double(tokens{3});
@@ -38,33 +48,80 @@ end
 fclose(fid);
 end
 
-function cams = readCams(fid,nCams,keysDir)
+function cams = readCams(fid,nCams,ignoreFeats)
 cams = {};
 for iCam = 1:nCams
     line = fgetl(fid);
     tokens = strsplit(line);
     name = tokens{1};
-    if strcmp(name,'Camera')
-        nLines = 2;
-    elseif strcmp(name,'StandardCamera')
-        nLines = 11;
+    if strcmp(name,'StandardCamera')
+        nLines = 12;
     elseif strcmp(name,'StandardCameraRadial')
-        nLines = 14;
+        nLines = 15;
     else
        error(['ERROR: readCams: unknown camera class: ' name]); 
     end
     cams(iCam).fn = fgetl(fid);
-    for i=1:(nLines-1)
+    fgetl(fid);
+    cams(iCam).featFn = fgetl(fid);
+    for i=1:(nLines-3)
         fgetl(fid);
     end
     
-    [~,fn,~] = fileparts(cams(iCam).fn);
-    keysFn = fullfile(keysDir,[fn '.key']);
-    cams(iCam).keys = readKeys(keysFn);
+    if ~ignoreFeats
+        cams(iCam).keys = readKeys(cams(iCam).featFn);
+    end
 end
 end
 
-function [matchesToDo,pts] = readPoints(fid)
+function queries = readQueries(fid,nQueries)
+queries = cell(nQueries,1);
+for i=1:nQueries
+    n = fscanf(fid,'%i',1);
+    queries{i} = fscanf(fid,'%i',n);
+end
+fgetl(fid);
+end
+
+function pts = readPts(fid,nPts,nFields)
+pts = repmat(struct('coord',[]),nPts,1);
+fields = cell(nFields,1);
+for i=1:nFields
+    fields{i} = fgetl(fid);
+end
+for i=1:nPts
+    line = fgetl(fid);
+    tokens = str2double(strsplit(line));
+    start = 1;
+    if nFields >= 1 && strcmp(fields{1},'coord')
+        pts(i).coord = tokens(start:(start+2));
+        start = start + 3;
+    end
+    if nFields >= 1 && strcmp(fields{2},'views')
+        pts(i).views = retrieveNViewMatch(tokens(start:end));
+        start = start + 1 + 2*size(pts(i).views,1);
+    end
+    if nFields >= 2 && strcmp(fields{3},'viewsToAdd')
+        pts(i).viewsToAdd = retrieveNViewMatch(tokens(start:end));
+        start = start + 1 + 2*size(pts(i).viewsToAdd,1);
+    end
+    if nFields >= 3 && strcmp(fields{4},'color')
+        pts(i).color = tokens(start:(start+2));
+        start = start + 3;
+    end
+end
+end
+
+function matches = readNViewMatches(fid,nMatches)
+matches = cell(nMatches,1);
+for i=1:nMatches
+    line = fgetl(fid);
+    tokens = str2double(strsplit(line));
+    matches{i} = retrieveNViewMatch(tokens);
+end
+end
+
+function [matchesToDo,pts] = readPointsOld(fid)
 line = fgetl(fid);
 nFields = str2double(line);
 matchesToDo = [];

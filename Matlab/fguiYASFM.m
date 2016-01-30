@@ -15,7 +15,7 @@ fs.RunYASFM           = @fguiButtonRunYASFM;
 fs.ResultsFn1           = 'init.txt';
 fs.ResultsFn2           = 'tentatively_matched.txt';
 fs.ResultsFn3           = 'matched.txt';
-fs.ResultsToReadIdx     = 1;
+fs.ResultsToReadIdxs     = '2 3';
 fs.ReadResults          = @fguiButtonReadResults;
 
 % Visualization
