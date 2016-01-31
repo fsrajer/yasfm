@@ -32,6 +32,7 @@ namespace yasfm
 {
 
 // Forward declarations
+struct CameraPair;
 class Dataset;
 
 /// Check if the filename has the extension.
@@ -158,6 +159,16 @@ YASFM_API void readCMPSFMFocalEstimates(const string& focalsFn,
 \param[in,out] data Dataset with directory set.
 */
 YASFM_API void readCMPSFMKeys(const string& keysListFn,Dataset *data);
+
+/// Read CMPSFM Matches.
+/**
+\param[in] matchesFn Matches filename.
+\param[in] isMatchesEG Are this EG verified matches? (They have slightly different
+format).
+\param[out] pairs Pairs for storing matches.
+*/
+YASFM_API void readCMPSFMMatches(const string& matchesFn,
+  bool isMatchesEG,pair_umap<CameraPair> *pairs);
 
 /// Writes data into Bundler's Bundle format
 /**

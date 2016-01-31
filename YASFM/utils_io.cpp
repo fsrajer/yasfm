@@ -6,6 +6,7 @@
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <sstream>
 
 #include "IL\il.h"
 #ifdef _WIN32
@@ -30,6 +31,7 @@ using std::ifstream;
 using std::ofstream;
 using std::setprecision;
 using std::getline;
+using std::istringstream;
 
 namespace yasfm
 {
@@ -215,17 +217,19 @@ double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilena
 }
 
 void readCMPSFMFormat(double focalConstraintWeight,double radConstraint,
-  double radConstraintWeight,Dataset *data)
+  double radConstraintWeight,Dataset *pdata)
 {
-  string listImgs = joinPaths(data->dir(),"list_imgs.txt");
-  string focalEstimates = joinPaths(data->dir(),"focal_estimates.txt");
-  string listKeys = joinPaths(data->dir(),"list_keys.txt");
-  /*string matchesInit = joinPaths(data->dir(),"matches.init.txt");
-  string matchesEG = joinPaths(data->dir(),"matches.eg.txt");
+  auto& data = *pdata;
+  string listImgs = joinPaths(data.dir(),"list_imgs.txt");
+  string focalEstimates = joinPaths(data.dir(),"focal_estimates.txt");
+  string listKeys = joinPaths(data.dir(),"list_keys.txt");
+  string matchesInit = joinPaths(data.dir(),"matches.init.txt");
+  /*string matchesEG = joinPaths(data.dir(),"matches.eg.txt");
   string transforms = joinPaths(data->dir(),"transforms.txt");*/
-  readCMPSFMImageList(listImgs,radConstraint,radConstraintWeight,data);
-  readCMPSFMFocalEstimates(focalEstimates,focalConstraintWeight,data);
-  readCMPSFMKeys(listKeys,data);
+  readCMPSFMImageList(listImgs,radConstraint,radConstraintWeight,&data);
+  readCMPSFMFocalEstimates(focalEstimates,focalConstraintWeight,&data);
+  readCMPSFMKeys(listKeys,&data);
+  readCMPSFMMatches(matchesInit,false,&data.pairs());
 }
 
 void readCMPSFMImageList(const string& imgListFn,double radConstraint,
@@ -306,6 +310,44 @@ void readCMPSFMKeys(const string& keysListFn,Dataset *data)
     data->cam(i).setFeaturesFilename(joinPaths(data->dir(),fn),true);
 
     i++;
+  }
+  file.close();
+}
+
+void readCMPSFMMatches(const string& matchesFn,
+  bool isMatchesEG,pair_umap<CameraPair> *ppairs)
+{
+  auto& pairs = *ppairs;
+  ifstream file(matchesFn);
+  if(!file.is_open())
+  {
+    cerr << "ERROR: readCMPSFMMatches: unable to open: " << matchesFn << "\n";
+    return;
+  }
+  int version;
+  file >> version;
+  string line;
+  while(!file.eof())
+  {
+    getline(file,line);
+    if(line.empty())
+      continue;
+
+    istringstream ss(line);
+    int i,j;
+    ss >> i >> j;
+
+    auto& pair = pairs[IntPair(i,j)];
+    int n;
+    file >> n;
+    pair.matches.resize(n);
+    pair.dists.resize(n);
+    for(int i = 0; i < n; i++)
+      file >> pair.matches[i].first >> pair.matches[i].second >> pair.dists[i];
+    
+    if(isMatchesEG)
+      getline(file,line);
+    getline(file,line);
   }
   file.close();
 }
