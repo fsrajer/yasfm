@@ -358,6 +358,21 @@ private:
 
   void allocAndRegisterDescr(int num,int dim);
 
+  /// Read in features in .feat.gz format.
+  /// WARNING: Might trigger release of descriptors of some other camera if the
+  /// memory limit is reached.
+  YASFM_API void readFeaturesFeatGz(int readMode);
+
+  /// Read in features in .sft format.
+  /// WARNING: Might trigger release of descriptors of some other camera if the
+  /// memory limit is reached.
+  YASFM_API void readFeaturesSft(int readMode);
+
+  /// Read in features in .key format.
+  /// WARNING: Might trigger release of descriptors of some other camera if the
+  /// memory limit is reached.
+  YASFM_API void readFeaturesKey(int readMode);
+
   string imgFilename_; ///< Path to image file.
   int imgWidth_;       ///< Image width.
   int imgHeight_;      ///< Image height.

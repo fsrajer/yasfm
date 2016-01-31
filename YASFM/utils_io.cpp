@@ -34,6 +34,27 @@ using std::getline;
 namespace yasfm
 {
 
+bool hasExtension(const string& filename,const string& extension)
+{
+  if(filename.length() < extension.length())
+    return false;
+  string filenameExt = filename.substr(filename.length() - extension.length());
+  std::transform(filenameExt.begin(),filenameExt.end(),filenameExt.begin(),::tolower);
+  return (filenameExt.compare(extension) == 0);
+}
+
+bool hasExtension(const string& filename,const vector<string>& allowedExtensions)
+{
+  for(const string& ext : allowedExtensions)
+  {
+    if(hasExtension(filename,ext))
+    {
+      return true;
+    }
+  }
+  return false;
+}
+
 void listImgFilenames(const string& dir,vector<string> *filenames)
 {
   vector<string> extensions{"jpg","jpeg","jpe","jp2","png","pgm","gif","bmp","raw",
@@ -385,27 +406,6 @@ istream& operator>>(istream& file,NViewMatch& m)
 
 namespace
 {
-
-bool hasExtension(const string& filename,const string& extension)
-{
-  if(filename.length() < extension.length())
-    return false;
-  string filenameExt = filename.substr(filename.length() - extension.length());
-  std::transform(filenameExt.begin(),filenameExt.end(),filenameExt.begin(),::tolower);
-  return (filenameExt.compare(extension) == 0);
-}
-
-bool hasExtension(const string& filename,const vector<string>& allowedExtensions)
-{
-  for(const string& ext : allowedExtensions)
-  {
-    if(hasExtension(filename,ext))
-    {
-      return true;
-    }
-  }
-  return false;
-}
 
 void getImgDimsJPG(const string& filename,int *width,int *height)
 {

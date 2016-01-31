@@ -213,112 +213,23 @@ void Camera::writeFeatures() const
 
 void Camera::readFeatures(int mode)
 {
-  // compressed in .feat.gz or old full binary in .sft
-  if(!featsFilename_.empty() && featsFilename_[featsFilename_.size() - 1] == 'z')
+  // Format is:
+  // 1) compressed in .feat.gz 
+  // 2) old full binary in .sft
+  // 3) classic ASCII .key
+  if(hasExtension(featsFilename_,".feat.gz"))
   {
-    gzFile file = gzopen(featsFilename_.c_str(),"rb"); // rb = read binary
-
-    if(!file)
-    {
-      cerr << "ERROR: Camera::readFeatures: unable to open: " << featsFilename_
-        << " for reading\n";
-      return;
-    }
-
-    int nKeys,dim;
-    gzread(file,(void*)(&nKeys),sizeof(int));
-    gzread(file,(void*)(&dim),sizeof(int));
-
-    if(mode & ReadKeys)
-    {
-      keys_.resize(nKeys);
-      keysScales_.resize(nKeys);
-      keysOrientations_.resize(nKeys);
-    }
-
-    if(mode & ReadDescriptors)
-      allocAndRegisterDescr(nKeys,dim);
-
-    float tmp[4];
-    if(mode & ReadKeys)
-    {
-      for(int i = 0; i < nKeys; i++)
-      {
-        gzread(file,(void*)(&tmp[0]),4*sizeof(float));
-        keys_[i](0) = tmp[1];
-        keys_[i](1) = tmp[0];
-        keysScales_[i] = tmp[2];
-        keysOrientations_[i] = tmp[3];
-      }
-    } else
-    {
-      for(int i = 0; i < nKeys; i++)
-        gzread(file,(void*)(&tmp[0]),4*sizeof(float));
-    }
-
-    if(mode & ReadDescriptors)
-    {
-      for(int i = 0; i < nKeys; i++)
-      {
-        for(int j = 0; j < dim; j++)
-        {
-          unsigned char tmp;
-          gzread(file,(void*)(&tmp),sizeof(unsigned char));
-          descr_(j,i) = tmp;
-        }
-      }
-      descr_.colwise().normalize();
-    }
-
-    gzclose(file);
-
+    readFeaturesFeatGz(mode);
+  } else if(hasExtension(featsFilename_,".sft"))
+  {
+    readFeaturesSft(mode);
+  } else if(hasExtension(featsFilename_,".key"))
+  {
+    readFeaturesKey(mode);
   } else
   {
-    ifstream featuresFile(featsFilename_,std::ios::binary);
-    if(!featuresFile.is_open())
-    {
-      cerr << "ERROR: Camera::readFeatures: unable to open: " << featsFilename_
-        << " for reading\n";
-      return;
-    }
-
-    int nKeys,descrDim;
-    featuresFile.read((char*)(&nKeys),sizeof(int));
-    featuresFile.read((char*)(&descrDim),sizeof(int));
-
-    if(mode & ReadKeys)
-    {
-      keys_.resize(nKeys);
-      keysScales_.resize(nKeys);
-      keysOrientations_.resize(nKeys);
-    }
-    if(mode & ReadDescriptors)
-      allocAndRegisterDescr(nKeys,descrDim);
-
-    float tmp[4];
-    if(mode & ReadKeys)
-    {
-      for(int i = 0; i < nKeys; i++)
-      {
-        featuresFile.read((char*)(&tmp[0]),4*sizeof(float));
-        keys_[i](0) = tmp[1];
-        keys_[i](1) = tmp[0];
-        keysScales_[i] = tmp[2];
-        keysOrientations_[i] = tmp[3];
-      }
-    } else
-    {
-      for(int i = 0; i < nKeys; i++)
-        featuresFile.read((char*)(&tmp[0]),4*sizeof(float));
-    }
-
-    if(mode & ReadDescriptors)
-    {
-      for(int i = 0; i < nKeys; i++)
-        featuresFile.read((char*)(&descr_(0,i)),descrDim*sizeof(float));
-    }
-
-    featuresFile.close();
+    cerr << "ERROR: Camera::readFeatures: unsupported features file format: "
+      << featsFilename_ << ".\n";
   }
 }
 
@@ -332,6 +243,165 @@ void Camera::allocAndRegisterDescr(int num,int dim)
   nDescrInMemoryTotal_ += num;
   camsWithLoadedDescr_.push_back(this);
   descr_.resize(dim,num);
+}
+
+void Camera::readFeaturesFeatGz(int mode)
+{
+  gzFile file = gzopen(featsFilename_.c_str(),"rb"); // rb = read binary
+
+  if(!file)
+  {
+    cerr << "ERROR: Camera::readFeaturesFeatGz: unable to open: " 
+      << featsFilename_ << " for reading\n";
+    return;
+  }
+
+  int nKeys,dim;
+  gzread(file,(void*)(&nKeys),sizeof(int));
+  gzread(file,(void*)(&dim),sizeof(int));
+
+  if(mode & ReadKeys)
+  {
+    keys_.resize(nKeys);
+    keysScales_.resize(nKeys);
+    keysOrientations_.resize(nKeys);
+  }
+
+  if(mode & ReadDescriptors)
+    allocAndRegisterDescr(nKeys,dim);
+
+  float tmp[4];
+  if(mode & ReadKeys)
+  {
+    for(int i = 0; i < nKeys; i++)
+    {
+      gzread(file,(void*)(&tmp[0]),4*sizeof(float));
+      keys_[i](0) = tmp[1];
+      keys_[i](1) = tmp[0];
+      keysScales_[i] = tmp[2];
+      keysOrientations_[i] = tmp[3];
+    }
+  } else
+  {
+    for(int i = 0; i < nKeys; i++)
+      gzread(file,(void*)(&tmp[0]),4*sizeof(float));
+  }
+
+  if(mode & ReadDescriptors)
+  {
+    for(int i = 0; i < nKeys; i++)
+    {
+      for(int j = 0; j < dim; j++)
+      {
+        unsigned char tmp;
+        gzread(file,(void*)(&tmp),sizeof(unsigned char));
+        descr_(j,i) = tmp;
+      }
+    }
+    descr_.colwise().normalize();
+  }
+
+  gzclose(file);
+}
+
+void Camera::readFeaturesSft(int mode)
+{
+  ifstream featuresFile(featsFilename_,std::ios::binary);
+  if(!featuresFile.is_open())
+  {
+    cerr << "ERROR: Camera::readFeaturesSft: unable to open: " << featsFilename_
+      << " for reading\n";
+    return;
+  }
+
+  int nKeys,descrDim;
+  featuresFile.read((char*)(&nKeys),sizeof(int));
+  featuresFile.read((char*)(&descrDim),sizeof(int));
+
+  if(mode & ReadKeys)
+  {
+    keys_.resize(nKeys);
+    keysScales_.resize(nKeys);
+    keysOrientations_.resize(nKeys);
+  }
+  if(mode & ReadDescriptors)
+    allocAndRegisterDescr(nKeys,descrDim);
+
+  float tmp[4];
+  if(mode & ReadKeys)
+  {
+    for(int i = 0; i < nKeys; i++)
+    {
+      featuresFile.read((char*)(&tmp[0]),4*sizeof(float));
+      keys_[i](0) = tmp[1];
+      keys_[i](1) = tmp[0];
+      keysScales_[i] = tmp[2];
+      keysOrientations_[i] = tmp[3];
+    }
+  } else
+  {
+    for(int i = 0; i < nKeys; i++)
+      featuresFile.read((char*)(&tmp[0]),4*sizeof(float));
+  }
+
+  if(mode & ReadDescriptors)
+  {
+    for(int i = 0; i < nKeys; i++)
+      featuresFile.read((char*)(&descr_(0,i)),descrDim*sizeof(float));
+  }
+
+  featuresFile.close();
+}
+
+void Camera::readFeaturesKey(int mode)
+{
+  ifstream file(featsFilename_);
+  if(!file.is_open())
+  {
+    cerr << "ERROR: Camera::readFeaturesKey: unable to open: " << featsFilename_
+      << " for reading\n";
+    return;
+  }
+
+  int nKeys,descrDim;
+  file >> nKeys >> descrDim;
+
+  if(mode & ReadKeys)
+  {
+    keys_.resize(nKeys);
+    keysScales_.resize(nKeys);
+    keysOrientations_.resize(nKeys);
+  }
+  if(mode & ReadDescriptors)
+    allocAndRegisterDescr(nKeys,descrDim);
+
+  double dummy;
+  for(int i = 0; i < nKeys; i++)
+  {
+    if(mode & ReadKeys)
+      file >> keys_[i](1) >> keys_[i](0) >> keysScales_[i] >> keysOrientations_[i];
+    else
+      file >> dummy >> dummy >> dummy >> dummy;
+
+    if(mode & ReadDescriptors)
+    {
+      for(int d = 0; d < descrDim; d++)
+        file >> descr_(d,i);
+    } else
+    {
+      int nLines = static_cast<int>(ceil(descrDim/20.)) + 1;
+      for(int j = 0; j < nLines; j++)
+      {
+        string s;
+        std::getline(file,s);
+      }
+    }
+  }
+
+  if(mode & ReadDescriptors)
+    descr_.colwise().normalize();
+
+  file.close();
 }
 
 } // namespace yasfm

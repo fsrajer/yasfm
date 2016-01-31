@@ -34,6 +34,12 @@ namespace yasfm
 // Forward declarations
 class Dataset;
 
+/// Check if the filename has the extension.
+YASFM_API bool hasExtension(const string& filename,const string& extension);
+
+/// Check if the filename has any of the extensions.
+YASFM_API bool hasExtension(const string& filename,const vector<string>& allowedExtensions);
+
 /// List all image files with supported extensions in a directory.
 /**
 \param[in] dir Directory.
@@ -185,12 +191,6 @@ public:
   int camIdx,keyIdx;
   double x,y;
 };
-
-/// Check if the filename has the extension.
-bool hasExtension(const string& filename,const string& extension);
-
-/// Check if the filename has any of the extensions.
-bool hasExtension(const string& filename,const vector<string>& allowedExtensions);
 
 /// Initialize DevIL library if not already initialized.
 void initDevIL();
