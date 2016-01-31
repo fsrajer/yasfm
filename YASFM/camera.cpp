@@ -126,6 +126,22 @@ void Camera::setImage(const string& filename,int width,int height)
   imgHeight_ = height;
 }
 
+void Camera::setFeaturesFilename(const string& filename,bool readKeys)
+{
+  keys_.clear();
+  keysScales_.clear();
+  keysOrientations_.clear();
+  clearDescriptors();
+  keysColors_.clear();
+
+  featsFilename_ = filename;
+  if(readKeys)
+  {
+    readFeatures(ReadMode::ReadKeys);
+    readKeysColors();
+  }
+}
+
 const string& Camera::imgFilename() const { return imgFilename_; }
 int Camera::imgWidth() const { return imgWidth_; }
 int Camera::imgHeight() const { return imgHeight_; }

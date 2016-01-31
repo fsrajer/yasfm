@@ -271,6 +271,13 @@ public:
   */
   YASFM_API virtual void setImage(const string& filename,int width,int height);
 
+  /// Set features filename, clear existing keys and optionally read the new ones.
+  /**
+  \param[in] filename Path to features file.
+  \param[in] readKeys Should the keys be read.
+  */
+  YASFM_API virtual void setFeaturesFilename(const string& filename,bool readKeys);
+
   /// \return Reference to the path to the image file.
   YASFM_API const string& imgFilename() const;
 
