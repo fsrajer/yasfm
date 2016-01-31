@@ -152,6 +152,13 @@ YASFM_API void readCMPSFMImageList(const string& imgListFn,double radConstraint,
 YASFM_API void readCMPSFMFocalEstimates(const string& focalsFn,
   double focalConstraintWeight,Dataset *data);
 
+/// Read CMPSFM keys.
+/**
+\param[in] keysListFn List of filenames of feature files.
+\param[in,out] data Dataset with directory set.
+*/
+YASFM_API void readCMPSFMKeys(const string& keysListFn,Dataset *data);
+
 /// Writes data into Bundler's Bundle format
 /**
 See: http://www.cs.cornell.edu/~snavely/bundler/bundler-v0.4-manual.html

@@ -219,12 +219,13 @@ void readCMPSFMFormat(double focalConstraintWeight,double radConstraint,
 {
   string listImgs = joinPaths(data->dir(),"list_imgs.txt");
   string focalEstimates = joinPaths(data->dir(),"focal_estimates.txt");
-  /*string listKeys = joinPaths(data->dir(),"list_keys.txt");
-  string matchesInit = joinPaths(data->dir(),"matches.init.txt");
+  string listKeys = joinPaths(data->dir(),"list_keys.txt");
+  /*string matchesInit = joinPaths(data->dir(),"matches.init.txt");
   string matchesEG = joinPaths(data->dir(),"matches.eg.txt");
   string transforms = joinPaths(data->dir(),"transforms.txt");*/
   readCMPSFMImageList(listImgs,radConstraint,radConstraintWeight,data);
   readCMPSFMFocalEstimates(focalEstimates,focalConstraintWeight,data);
+  readCMPSFMKeys(listKeys,data);
 }
 
 void readCMPSFMImageList(const string& imgListFn,double radConstraint,
@@ -280,6 +281,29 @@ void readCMPSFMFocalEstimates(const string& focalsFn,double focalConstraintWeigh
       cam->setFocal(focalEstimate);
       cam->constrainFocal(focalEstimate,focalConstraintWeight);
     }
+
+    i++;
+  }
+  file.close();
+}
+
+void readCMPSFMKeys(const string& keysListFn,Dataset *data)
+{
+  ifstream file(keysListFn);
+  if(!file.is_open())
+  {
+    cerr << "ERROR: readCMPSFMKeys: unable to open: " << keysListFn << "\n";
+    return;
+  }
+  string fn;
+  int i = 0;
+  while(!file.eof())
+  {
+    getline(file,fn);
+    if(fn.empty())
+      continue;
+    
+    data->cam(i).setFeaturesFilename(joinPaths(data->dir(),fn),true);
 
     i++;
   }
