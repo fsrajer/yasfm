@@ -606,6 +606,29 @@ void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
   closestRank2Matrix(tmp,F);
 }
 
+int findFundamentalMatrixInliers(double thresh,const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,const Matrix3d& F,
+  vector<int> *pinliers)
+{
+  auto& inliers = *pinliers;
+  int nMatches = static_cast<int>(matches.size());
+  double sqThresh = thresh*thresh;
+  inliers.clear();
+  inliers.reserve(nMatches);
+  for(int iMatch = 0; iMatch < nMatches; iMatch++)
+  {
+    double sqDist = computeSymmetricEpipolarSquaredDistanceFundMat(
+      pts2[matches[iMatch].second],
+      F,
+      pts1[matches[iMatch].first]);
+    if(sqDist < sqThresh)
+    {
+      inliers.push_back(iMatch);
+    }
+  }
+  return static_cast<int>(inliers.size());
+}
+
 void computeHomographyInliersProportion(const OptionsRANSAC& opt,
   const ptr_vector<Camera>& cams,const pair_umap<CameraPair>& pairs,
   ArrayXXd *pproportion, HomographyInliersCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
@@ -785,6 +808,31 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
 
     if(remainingMatches.size() < opt.get<int>("minInliersPerTransform"))
       break;
+  }
+
+  if(inlierSetSizes.size() > 1)
+  {
+    Matrix3d F;
+    estimateFundamentalMatrix(cam1.keys(),cam2.keys(),allMatches,outInliers,
+      opt.get<double>("fundMatRefineTolerance"),&F);
+
+    currInliers.clear();
+    findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
+      cam1.keys(),cam2.keys(),allMatches,F,&currInliers);
+
+    vector<bool> isIncluded(allMatches.size(),false);
+    for(int idx : outInliers)
+      isIncluded[idx] = true;
+
+    size_t inliersPrev = outInliers.size();
+    for(int idx : currInliers)
+      if(!isIncluded[idx])
+        outInliers.push_back(idx);
+
+    inlierSetSizes.push_back(static_cast<int>(outInliers.size() - inliersPrev));
+  } else
+  {
+    inlierSetSizes.push_back(0);
   }
 
   return static_cast<int>(outInliers.size());

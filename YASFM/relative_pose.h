@@ -362,6 +362,22 @@ YASFM_API void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,
   const vector<int>& matchesToUse,double tolerance,Matrix3d *F);
 
+/// Find fundamental matrix inliers.
+/**
+For pts2'*F*pts1 = 0.
+MIND THE ORDER of the input points.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] matches Points matches.
+\param[in] F Fundamental matrix.
+\param[out] inliers Inliers.
+\return Number of inliers.
+*/
+YASFM_API int findFundamentalMatrixInliers(double thresh,const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,const Matrix3d& F,
+  vector<int> *inliers);
+
 /// Compute proportion of the best homography inliers in the matches for all pairs.
 /**
 Estimate homography for every camera pair and save the proportion numInliers/numPoints 
@@ -454,6 +470,9 @@ public:
     opt.emplace("nRefineIterations",make_unique<OptTypeWithVal<int>>(8));
     opt.emplace("minInliersToRefine",make_unique<OptTypeWithVal<int>>(4));
     opt.emplace("stopInlierFraction",make_unique<OptTypeWithVal<double>>(0.7));
+
+    opt.emplace("fundMatRefineTolerance",make_unique<OptTypeWithVal<double>>(1e-12));
+    opt.emplace("fundMatThresh",make_unique<OptTypeWithVal<double>>(sqrt(5.)));
   }
 };
 

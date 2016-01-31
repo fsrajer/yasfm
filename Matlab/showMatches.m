@@ -89,7 +89,7 @@ end
 end
 
 function cols = initColors()
-cols=cell(2,3);
+cols=cell(2,9);
 cols{1,1} = [0.5 0.5 0.5];
 cols{2,1} = [0.5 0.5 0.5];
 cols{1,2} = [0 1 0];
@@ -106,4 +106,6 @@ cols{1,7} = [0 1 1];
 cols{2,7} = [0 0.5 0.5];
 cols{1,8} = 'k';
 cols{2,8} = 'w';
+cols{1,9} = 'm';
+cols{2,9} = 'm';
 end
