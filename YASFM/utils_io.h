@@ -20,6 +20,7 @@
 #include "camera.h"
 #include "sfm_data.h"
 
+using Eigen::ArrayXXd;
 using Eigen::Vector2d;
 using std::ifstream;
 using std::istream;
@@ -32,7 +33,14 @@ namespace yasfm
 {
 
 // Forward declarations
+struct CameraPair;
 class Dataset;
+
+/// Check if the filename has the extension.
+YASFM_API bool hasExtension(const string& filename,const string& extension);
+
+/// Check if the filename has any of the extensions.
+YASFM_API bool hasExtension(const string& filename,const vector<string>& allowedExtensions);
 
 /// List all image files with supported extensions in a directory.
 /**
@@ -117,6 +125,90 @@ YASFM_API double findFocalLengthInEXIF(const string& ccdDBFilename,const Camera&
 YASFM_API double findFocalLengthInEXIF(const string& ccdDBFilename,
   const string& imgFilename,int maxImgDim,bool verbose);
 
+enum ReadCMPSFMMode
+{
+  /// Reads only images and keys.
+  ReadCMPSFMModeKeys = 1,
+  /// Reads tentative matches and ReadCMPSFMModeKeys.
+  ReadCMPSFMModeTentativeMatches = 2,
+  /// Reads verified matches and previousReadCMPSFMModeKeys.
+  ReadCMPSFMModeVerifiedMatches = 3,
+  /// Reads transforms and ReadCMPSFMModeVerifiedMatches.
+  ReadCMPSFMModeTransforms = 4,
+  /// Reads tracks and ReadCMPSFMModeTransforms.
+  ReadCMPSFMModeTracks = 5
+};
+
+/// Reads results of CMPSFM (with default filenames).
+/**
+\param[in] focalConstraintWeight Constraint for focal.
+\param[in] radConstraint Constraint for radial distortion.
+\param[in] radConstraintWeight Weight for constraint for radial distortion.
+\param[in] readMode What should be read.
+\param[in,out] data Dataset with directory set.
+\param[out] homographyProportion Percentage of inliers to homography (in [0,1]).
+*/
+YASFM_API void readCMPSFMFormat(double focalConstraintWeight,double radConstraint,
+  double radConstraintWeight,ReadCMPSFMMode readMode,
+  Dataset *data,ArrayXXd *homographyProportion = nullptr);
+
+/// Initialize cameras from CMPSFM image list.
+/**
+\param[in] imgListFn List of images.
+\param[in] dataDir Data root directory.
+\param[in] defaultFeatsDir Default features directory.
+\param[in] radConstraint Constraint for radial distortion.
+\param[in] radConstraintWeight Weight for constraint for radial distortion.
+\param[out] cams Cameras.
+*/
+YASFM_API void readCMPSFMImageList(const string& imgListFn,const string& dataDir,
+  const string& defaultFeatsDir,double radConstraint,
+  double radConstraintWeight,ptr_vector<Camera> *cams);
+
+/// Set focal constraints from CMPSFM format.
+/**
+\param[in] focalsFn List of focal estimates.
+\param[in] focalConstraintWeight Constraint for focal.
+\param[out] cams Cameras.
+*/
+YASFM_API void readCMPSFMFocalEstimates(const string& focalsFn,
+  double focalConstraintWeight,ptr_vector<Camera> *cams);
+
+/// Read CMPSFM keys.
+/**
+\param[in] keysListFn List of filenames of feature files.
+\param[in] dataDir Dataset root directory.
+\param[in,out] cams Cameras.
+*/
+YASFM_API void readCMPSFMKeys(const string& keysListFn,const string& dataDir,
+  ptr_vector<Camera> *cams);
+
+/// Read CMPSFM Matches.
+/**
+\param[in] matchesFn Matches filename.
+\param[in] isMatchesEG Are this EG verified matches? (They have slightly different
+format).
+\param[out] pairs Pairs for storing matches.
+*/
+YASFM_API void readCMPSFMMatches(const string& matchesFn,
+  bool isMatchesEG,pair_umap<CameraPair> *pairs);
+
+/// Read CMPSFM transforms.
+/**
+\param[in] transformsFn Transforms filename.
+\param[out] homographyProportion Percentage of inliers to homography (in [0,1]).
+*/
+YASFM_API void readCMPSFMTransforms(const string& transformsFn,
+  ArrayXXd *homographyProportion);
+
+/// Read CMPSFM tracks.
+/**
+\param[in] tracksFn Tracks filename.
+\param[out] tracks Tracks.
+*/
+YASFM_API void readCMPSFMTracks(const string& tracksFn,
+  vector<NViewMatch> *tracks);
+
 /// Writes data into Bundler's Bundle format
 /**
 See: http://www.cs.cornell.edu/~snavely/bundler/bundler-v0.4-manual.html
@@ -156,12 +248,6 @@ public:
   int camIdx,keyIdx;
   double x,y;
 };
-
-/// Check if the filename has the extension.
-bool hasExtension(const string& filename,const string& extension);
-
-/// Check if the filename has any of the extensions.
-bool hasExtension(const string& filename,const vector<string>& allowedExtensions);
 
 /// Initialize DevIL library if not already initialized.
 void initDevIL();

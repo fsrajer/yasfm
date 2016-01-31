@@ -2,9 +2,11 @@
 
 #include <climits>
 #include <algorithm>
+#include <memory>
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <sstream>
 
 #include "IL\il.h"
 #ifdef _WIN32
@@ -28,9 +30,32 @@ using std::cerr;
 using std::ifstream;
 using std::ofstream;
 using std::setprecision;
+using std::getline;
+using std::istringstream;
 
 namespace yasfm
 {
+
+bool hasExtension(const string& filename,const string& extension)
+{
+  if(filename.length() < extension.length())
+    return false;
+  string filenameExt = filename.substr(filename.length() - extension.length());
+  std::transform(filenameExt.begin(),filenameExt.end(),filenameExt.begin(),::tolower);
+  return (filenameExt.compare(extension) == 0);
+}
+
+bool hasExtension(const string& filename,const vector<string>& allowedExtensions)
+{
+  for(const string& ext : allowedExtensions)
+  {
+    if(hasExtension(filename,ext))
+    {
+      return true;
+    }
+  }
+  return false;
+}
 
 void listImgFilenames(const string& dir,vector<string> *filenames)
 {
@@ -191,6 +216,231 @@ double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilena
   }
 }
 
+void readCMPSFMFormat(double focalConstraintWeight,double radConstraint,
+  double radConstraintWeight,ReadCMPSFMMode readMode,
+  Dataset *pdata,ArrayXXd *homographyProportion)
+{
+  auto& data = *pdata;
+  string dir = data.dir();
+  string listImgs = joinPaths(dir,"list_imgs.txt");
+  string focalEstimates = joinPaths(dir,"focal_estimates.txt");
+  string listKeys = joinPaths(dir,"list_keys.txt");
+  string matchesInit = joinPaths(dir,"matches.init.txt");
+  string matchesEG = joinPaths(dir,"matches.eg.txt");
+  string transforms = joinPaths(dir,"transforms.txt");
+  string tracks = joinPaths(dir,"tracks.txt");
+  
+  readCMPSFMImageList(listImgs,dir,data.featsDir(),
+    radConstraint,radConstraintWeight,&data.cams());
+  readCMPSFMFocalEstimates(focalEstimates,focalConstraintWeight,&data.cams());
+
+  if(readMode >= ReadCMPSFMModeKeys)
+    readCMPSFMKeys(listKeys,dir,&data.cams());
+  if(readMode == ReadCMPSFMModeTentativeMatches)
+    readCMPSFMMatches(matchesInit,false,&data.pairs());
+  if(readMode >= ReadCMPSFMModeVerifiedMatches && readMode < ReadCMPSFMModeTracks)
+    readCMPSFMMatches(matchesEG,true,&data.pairs());
+  if(readMode >= ReadCMPSFMModeTransforms)
+    readCMPSFMTransforms(transforms,homographyProportion);
+  if(readMode >= ReadCMPSFMModeTracks)
+    readCMPSFMTracks(tracks,&data.nViewMatches());
+}
+
+void readCMPSFMImageList(const string& imgListFn,const string& dataDir,
+  const string& defaultFeatsDir,double radConstraint,
+  double radConstraintWeight,ptr_vector<Camera> *pcams)
+{
+  auto& cams = *pcams;
+  ifstream file(imgListFn);
+  if(!file.is_open())
+  {
+    cerr << "ERROR: readCMPSFMImageList: unable to open: " << imgListFn << "\n";
+    return;
+  }
+  cams.clear();
+  string fn;
+  while(!file.eof())
+  {
+    getline(file,fn);
+    if(fn.empty())
+      continue;
+    fn = joinPaths(dataDir,fn);
+    cams.push_back(std::make_unique<StandardCameraRadial>(fn,defaultFeatsDir));
+
+    StandardCameraRadial *cam = 
+      static_cast<StandardCameraRadial *>(&(*cams.back()));
+    vector<double> radConstraints(2,radConstraint),radWeights(2,radConstraintWeight);
+    cam->constrainRadial(&radConstraints[0],&radWeights[0]);
+  }
+  file.close();
+}
+
+void readCMPSFMFocalEstimates(const string& focalsFn,double focalConstraintWeight,
+  ptr_vector<Camera> *pcams)
+{
+  auto& cams = *pcams;
+  ifstream file(focalsFn);
+  if(!file.is_open())
+  {
+    cerr << "ERROR: readCMPSFMFocalEstimates: unable to open: " << focalsFn << "\n";
+    return;
+  }
+  string endline;
+  int i = 0;
+  while(!file.eof())
+  {
+    double focalEstimate;
+    file >> focalEstimate;
+    getline(file,endline);
+    if(endline.empty())
+      continue;
+
+    StandardCamera *cam = static_cast<StandardCamera *>(&(*cams[i]));
+    if(focalEstimate > 0.)
+    {
+      cam->setFocal(focalEstimate);
+      cam->constrainFocal(focalEstimate,focalConstraintWeight);
+    }
+
+    i++;
+  }
+  file.close();
+}
+
+void readCMPSFMKeys(const string& keysListFn,const string& dataDir,
+  ptr_vector<Camera> *pcams)
+{
+  auto& cams = *pcams;
+  ifstream file(keysListFn);
+  if(!file.is_open())
+  {
+    cerr << "ERROR: readCMPSFMKeys: unable to open: " << keysListFn << "\n";
+    return;
+  }
+  string fn;
+  int i = 0;
+  while(!file.eof())
+  {
+    getline(file,fn);
+    if(fn.empty())
+      continue;
+    
+    cams[i]->setFeaturesFilename(joinPaths(dataDir,fn),true);
+
+    i++;
+  }
+  file.close();
+}
+
+void readCMPSFMMatches(const string& matchesFn,
+  bool isMatchesEG,pair_umap<CameraPair> *ppairs)
+{
+  auto& pairs = *ppairs;
+  pairs.clear();
+  ifstream file(matchesFn);
+  if(!file.is_open())
+  {
+    cerr << "ERROR: readCMPSFMMatches: unable to open: " << matchesFn << "\n";
+    return;
+  }
+  int version;
+  file >> version;
+  string line;
+  while(!file.eof())
+  {
+    getline(file,line);
+    if(line.empty())
+      continue;
+
+    istringstream ss(line);
+    int i,j;
+    ss >> i >> j;
+
+    auto& pair = pairs[IntPair(i,j)];
+    int n;
+    file >> n;
+    pair.matches.resize(n);
+    pair.dists.resize(n);
+    for(int i = 0; i < n; i++)
+      file >> pair.matches[i].first >> pair.matches[i].second >> pair.dists[i];
+    
+    if(isMatchesEG)
+      getline(file,line);
+    getline(file,line);
+  }
+  file.close();
+}
+
+void readCMPSFMTransforms(const string& transformsFn,
+  ArrayXXd *phomographyProportion)
+{
+  auto& prop = *phomographyProportion;
+  ifstream file(transformsFn);
+  if(!file.is_open())
+  {
+    cerr << "ERROR: readCMPSFMTransforms: unable to open: " << transformsFn << "\n";
+    return;
+  }
+  int nImgs;
+  file >> nImgs;
+  prop.resize(nImgs,nImgs);
+  prop.setZero();
+  string line;
+  while(!file.eof())
+  {
+    getline(file,line);
+    if(line.empty())
+      continue;
+
+    istringstream ss(line);
+    int i,j;
+    ss >> i >> j;
+
+    getline(file,line);
+    getline(file,line);
+    file >> prop(i,j);
+    prop(j,i) = prop(i,j);
+    getline(file,line);
+    getline(file,line);
+  }
+  file.close();
+}
+
+void readCMPSFMTracks(const string& tracksFn,
+  vector<NViewMatch> *ptracks)
+{
+  auto& tracks = *ptracks;
+  tracks.clear();
+  ifstream file(tracksFn);
+  if(!file.is_open())
+  {
+    cerr << "ERROR: readCMPSFMTransforms: unable to open: " << tracksFn << "\n";
+    return;
+  }
+  string line;
+  while(!file.eof())
+  {
+    getline(file,line);
+    if(line.empty())
+      continue;
+
+    tracks.emplace_back();
+    auto& track = tracks.back();
+    
+    istringstream ss(line);
+    int size,camIdx,keyIdx;
+    ss >> size;
+    track.reserve(size);
+
+    for(int i = 0; i < size; i++)
+    {
+      ss >> camIdx >> keyIdx;
+      track.emplace(camIdx,keyIdx);
+    }
+  }
+  file.close();
+}
+
 void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructedCams,
   const ptr_vector<Camera>& cams,const vector<Point>& pts)
 {
@@ -311,27 +561,6 @@ istream& operator>>(istream& file,NViewMatch& m)
 
 namespace
 {
-
-bool hasExtension(const string& filename,const string& extension)
-{
-  if(filename.length() < extension.length())
-    return false;
-  string filenameExt = filename.substr(filename.length() - extension.length());
-  std::transform(filenameExt.begin(),filenameExt.end(),filenameExt.begin(),::tolower);
-  return (filenameExt.compare(extension) == 0);
-}
-
-bool hasExtension(const string& filename,const vector<string>& allowedExtensions)
-{
-  for(const string& ext : allowedExtensions)
-  {
-    if(hasExtension(filename,ext))
-    {
-      return true;
-    }
-  }
-  return false;
-}
 
 void getImgDimsJPG(const string& filename,int *width,int *height)
 {
