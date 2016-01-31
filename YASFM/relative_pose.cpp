@@ -412,7 +412,7 @@ void estimateRelativePose7pt(const vector<Vector2d>& keys1,const vector<Vector2d
     return;
   }
 
-  // The equation pt1'*F*pt2 = 0 rewritten, i.e. one row
+  // The equation pt2'*F*pt1 = 0 rewritten, i.e. one row
   // corresponds to this equation for one pair of points. 
   MatrixXd A;
   A.resize(7,9);
@@ -422,13 +422,13 @@ void estimateRelativePose7pt(const vector<Vector2d>& keys1,const vector<Vector2d
     const auto& pt2 = keys2[matches[i].second];
     A.row(i) <<
       pt1(0) * pt2(0),
-      pt1(1) * pt2(0),
-      pt2(0),
       pt1(0) * pt2(1),
-      pt1(1) * pt2(1),
-      pt2(1),
       pt1(0),
+      pt1(1) * pt2(0),
+      pt1(1) * pt2(1),
       pt1(1),
+      pt2(0),
+      pt2(1),
       1;
   }
   // A*f has 9 variables and 7 equations, therefore the
@@ -476,9 +476,9 @@ void estimateRelativePose7pt(const vector<Vector2d>& keys1,const vector<Vector2d
   {
     double lambda = roots(i);
     f0 = lambda*f1 + (1 - lambda)*f2;
-    Fs[i].row(0) = f0.middleRows(0,3).transpose();
-    Fs[i].row(1) = f0.middleRows(3,3).transpose();
-    Fs[i].row(2) = f0.middleRows(6,3).transpose();
+    Fs[i].col(0) = f0.middleRows(0,3);
+    Fs[i].col(1) = f0.middleRows(3,3);
+    Fs[i].col(2) = f0.middleRows(6,3);
   }
 }
 
