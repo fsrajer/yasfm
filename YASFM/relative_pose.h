@@ -329,7 +329,24 @@ YASFM_API void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
   const vector<Vector3d>& pts2Norm,const vector<IntPair>& matches,
   vector<Matrix3d> *Es);
 
-/// Compute fundamental matrix using least squares and getting closest rank 2 matrix.
+/// Compute fundamental matrix from an all-inlier sample.
+/**
+Does least squares, closest rank 2 matrix and non-linear refinement.
+Finds a solution for pts2'*F*pts1 = 0.
+MIND THE ORDER of the input points.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] matches Points matches.
+\param[in] matchesToUse Matches which should be used.
+\param[in] tolerance Tolerance for refine optimization termination.
+\param[out] F Fundamental matrix.
+*/
+YASFM_API void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,double tolerance,Matrix3d *F);
+
+/// Refines fundamental matrix using least squares.
 /**
 Finds a solution for pts2'*F*pts1 = 0.
 MIND THE ORDER of the input points.
@@ -338,11 +355,12 @@ MIND THE ORDER of the input points.
 \param[in] pts2 Points 2 (see function description).
 \param[in] matches Points matches.
 \param[in] matchesToUse Matches which should be used.
-\param[out] F Fundamental matrix.
+\param[in] tolerance Tolerance for optimization termination (try e.g. 1e-12).
+\param[in,out] F Fundamental matrix.
 */
-YASFM_API void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
+YASFM_API void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,
-  const vector<int>& matchesToUse,Matrix3d *F);
+  const vector<int>& matchesToUse,double tolerance,Matrix3d *F);
 
 /// Compute proportion of the best homography inliers in the matches for all pairs.
 /**
@@ -595,15 +613,6 @@ public:
   */
   virtual void refine(double tolerance,const vector<int>& inliers,Matrix3d *F) const;
 
-  /// Structure for passing data into cminpack for refining.
-  struct RefineData
-  {
-    const vector<Vector2d> *keys1;
-    const vector<Vector2d> *keys2;
-    const vector<IntPair> *matches; ///< Keys matches.
-    const vector<int> *inliers;     ///< Indices of inlier matches.
-  };
-
 private:
   const int minMatches_;
   const vector<Vector2d>& keys1_;
@@ -742,6 +751,15 @@ double computeSymmetricEpipolarSquaredDistanceFundMat(const Vector2d& pt2,const 
 */
 int computeSymmetricEpipolarDistanceFundMatCMINPACK(void *data,int nPoints,
   int nParams,const double* params,double* residuals,int iflag);
+
+/// Structure for passing data into cminpack for refining.
+struct FundamentalMatrixRefineData
+{
+  const vector<Vector2d> *keys1;
+  const vector<Vector2d> *keys2;
+  const vector<IntPair> *matches; ///< Keys matches.
+  const vector<int> *matchesToUse;     ///< Indices of inlier matches.
+};
 
 /// Compute squared first-order geometric error approximation (Sampson distance).
 /**

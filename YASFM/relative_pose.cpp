@@ -531,7 +531,7 @@ void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
 
 void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,
-  const vector<int>& matchesToUse,Matrix3d *pF)
+  const vector<int>& matchesToUse,double tolerance,Matrix3d *pF)
 {
   auto& F = *pF;
   int nUseful = static_cast<int>(matchesToUse.size());
@@ -580,6 +580,30 @@ void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
 
   // Un-normalize
   F = C2.transpose() * F * C1;
+
+  refineFundamentalMatrixNonLinear(pts1,pts2,matches,matchesToUse,tolerance,&F);
+}
+
+void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,double tolerance,Matrix3d *F)
+{
+  int numPoints = static_cast<int>(matchesToUse.size());
+  const int numParams = 9;
+
+  FundamentalMatrixRefineData data;
+  data.keys1 = &pts1;
+  data.keys2 = &pts2;
+  data.matches = &matches;
+  data.matchesToUse = &matchesToUse;
+
+  vector<double> residuals(numPoints);
+
+  Matrix3d tmp = *F;
+  nonLinearOptimLMCMINPACK(computeSymmetricEpipolarDistanceFundMatCMINPACK,
+    &data,numPoints,numParams,tolerance,tmp.data(),&residuals[0]);
+
+  closestRank2Matrix(tmp,F);
 }
 
 void computeHomographyInliersProportion(const OptionsRANSAC& opt,
@@ -899,22 +923,7 @@ double Mediator7ptRANSAC::computeSquaredError(const Matrix3d& F,int matchIdx) co
 void Mediator7ptRANSAC::refine(double tolerance,const vector<int>& inliers,
   Matrix3d *F) const
 {
-  int numPoints = static_cast<int>(inliers.size());
-  const int numParams = 9;
-
-  RefineData data;
-  data.keys1 = &keys1_;
-  data.keys2 = &keys2_;
-  data.matches = &matches_;
-  data.inliers = &inliers;
-
-  vector<double> residuals(numPoints);
-
-  Matrix3d tmp = *F;
-  nonLinearOptimLMCMINPACK(computeSymmetricEpipolarDistanceFundMatCMINPACK,
-    &data,numPoints,numParams,tolerance,tmp.data(),&residuals[0]);
-
-  closestRank2Matrix(tmp,F);
+  refineFundamentalMatrixNonLinear(keys1_,keys2_,matches_,inliers,tolerance,F);
 }
 
 Mediator5ptRANSAC::Mediator5ptRANSAC(const Camera& cam1,const Camera& cam2,
@@ -1028,10 +1037,10 @@ int computeSymmetricEpipolarDistanceFundMatCMINPACK(void *pdata,
   Matrix3d F;
   closestRank2Matrix(params,F.data());
 
-  const auto& data = *static_cast<Mediator7ptRANSAC::RefineData *>(pdata);
+  const auto& data = *static_cast<FundamentalMatrixRefineData *>(pdata);
   for(int iInlier = 0; iInlier < nPoints; iInlier++)
   {
-    IntPair match = (*data.matches)[(*data.inliers)[iInlier]];
+    IntPair match = (*data.matches)[(*data.matchesToUse)[iInlier]];
     residuals[iInlier] = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(
       (*data.keys2)[match.second],F,(*data.keys1)[match.first]));
   }

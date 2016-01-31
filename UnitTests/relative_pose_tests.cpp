@@ -345,6 +345,7 @@ namespace yasfm_tests
 
     TEST_METHOD(estimateFundamentalMatrixTest)
     {
+      double tolerance = 1e-12;
       Matrix34d P1(Matrix34d::Identity()),P2(generateRandomProjection());
       Matrix3d ex;
       crossProdMat(P2.col(3),&ex);
@@ -369,7 +370,7 @@ namespace yasfm_tests
         matchesToUse.push_back(i);
       }
       Matrix3d _F;
-      estimateFundamentalMatrix(keys1,keys2,matches,matchesToUse,&_F);
+      estimateFundamentalMatrix(keys1,keys2,matches,matchesToUse,tolerance,&_F);
       _F /= _F(2,2);
       Assert::IsTrue(F.isApprox(_F,1e-5));
     }
