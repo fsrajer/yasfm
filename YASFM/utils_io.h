@@ -125,41 +125,63 @@ YASFM_API double findFocalLengthInEXIF(const string& ccdDBFilename,const Camera&
 YASFM_API double findFocalLengthInEXIF(const string& ccdDBFilename,
   const string& imgFilename,int maxImgDim,bool verbose);
 
+enum ReadCMPSFMMode
+{
+  /// Reads only images and keys.
+  ReadCMPSFMModeKeys = 1,
+  /// Reads tentative matches and ReadCMPSFMModeKeys.
+  ReadCMPSFMModeTentativeMatches = 2,
+  /// Reads verified matches and previousReadCMPSFMModeKeys.
+  ReadCMPSFMModeVerifiedMatches = 3,
+  /// Reads transforms and ReadCMPSFMModeVerifiedMatches.
+  ReadCMPSFMModeTransforms = 4,
+  /// Reads tracks and ReadCMPSFMModeTransforms.
+  ReadCMPSFMModeTracks = 5
+};
+
 /// Reads results of CMPSFM (with default filenames).
 /**
 \param[in] focalConstraintWeight Constraint for focal.
 \param[in] radConstraint Constraint for radial distortion.
 \param[in] radConstraintWeight Weight for constraint for radial distortion.
+\param[in] readMode What should be read.
 \param[in,out] data Dataset with directory set.
+\param[out] homographyProportion Percentage of inliers to homography (in [0,1]).
 */
 YASFM_API void readCMPSFMFormat(double focalConstraintWeight,double radConstraint,
-  double radConstraintWeight,Dataset *data,ArrayXXd *homographyProportion = nullptr);
+  double radConstraintWeight,ReadCMPSFMMode readMode,
+  Dataset *data,ArrayXXd *homographyProportion = nullptr);
 
 /// Initialize cameras from CMPSFM image list.
 /**
 \param[in] imgListFn List of images.
+\param[in] dataDir Data root directory.
+\param[in] defaultFeatsDir Default features directory.
 \param[in] radConstraint Constraint for radial distortion.
 \param[in] radConstraintWeight Weight for constraint for radial distortion.
-\param[in,out] data Dataset with directory set.
+\param[out] cams Cameras.
 */
-YASFM_API void readCMPSFMImageList(const string& imgListFn,double radConstraint,
-  double radConstraintWeight,Dataset *data);
+YASFM_API void readCMPSFMImageList(const string& imgListFn,const string& dataDir,
+  const string& defaultFeatsDir,double radConstraint,
+  double radConstraintWeight,ptr_vector<Camera> *cams);
 
 /// Set focal constraints from CMPSFM format.
 /**
 \param[in] focalsFn List of focal estimates.
 \param[in] focalConstraintWeight Constraint for focal.
-\param[in,out] data Dataset with directory set.
+\param[out] cams Cameras.
 */
 YASFM_API void readCMPSFMFocalEstimates(const string& focalsFn,
-  double focalConstraintWeight,Dataset *data);
+  double focalConstraintWeight,ptr_vector<Camera> *cams);
 
 /// Read CMPSFM keys.
 /**
 \param[in] keysListFn List of filenames of feature files.
-\param[in,out] data Dataset with directory set.
+\param[in] dataDir Dataset root directory.
+\param[in,out] cams Cameras.
 */
-YASFM_API void readCMPSFMKeys(const string& keysListFn,Dataset *data);
+YASFM_API void readCMPSFMKeys(const string& keysListFn,const string& dataDir,
+  ptr_vector<Camera> *cams);
 
 /// Read CMPSFM Matches.
 /**

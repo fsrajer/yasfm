@@ -217,47 +217,58 @@ double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilena
 }
 
 void readCMPSFMFormat(double focalConstraintWeight,double radConstraint,
-  double radConstraintWeight,Dataset *pdata,ArrayXXd *homographyProportion)
+  double radConstraintWeight,ReadCMPSFMMode readMode,
+  Dataset *pdata,ArrayXXd *homographyProportion)
 {
   auto& data = *pdata;
-  string listImgs = joinPaths(data.dir(),"list_imgs.txt");
-  string focalEstimates = joinPaths(data.dir(),"focal_estimates.txt");
-  string listKeys = joinPaths(data.dir(),"list_keys.txt");
-  string matchesInit = joinPaths(data.dir(),"matches.init.txt");
-  string matchesEG = joinPaths(data.dir(),"matches.eg.txt");
-  string transforms = joinPaths(data.dir(),"transforms.txt");
-  string tracks = joinPaths(data.dir(),"tracks.txt");
-  readCMPSFMImageList(listImgs,radConstraint,radConstraintWeight,&data);
-  readCMPSFMFocalEstimates(focalEstimates,focalConstraintWeight,&data);
-  readCMPSFMKeys(listKeys,&data);
-  //readCMPSFMMatches(matchesInit,false,&data.pairs());
-  readCMPSFMMatches(matchesEG,true,&data.pairs());
-  readCMPSFMTransforms(transforms,homographyProportion);
-  readCMPSFMTracks(tracks,&data.nViewMatches());
+  string dir = data.dir();
+  string listImgs = joinPaths(dir,"list_imgs.txt");
+  string focalEstimates = joinPaths(dir,"focal_estimates.txt");
+  string listKeys = joinPaths(dir,"list_keys.txt");
+  string matchesInit = joinPaths(dir,"matches.init.txt");
+  string matchesEG = joinPaths(dir,"matches.eg.txt");
+  string transforms = joinPaths(dir,"transforms.txt");
+  string tracks = joinPaths(dir,"tracks.txt");
+  
+  readCMPSFMImageList(listImgs,dir,data.featsDir(),
+    radConstraint,radConstraintWeight,&data.cams());
+  readCMPSFMFocalEstimates(focalEstimates,focalConstraintWeight,&data.cams());
+
+  if(readMode >= ReadCMPSFMModeKeys)
+    readCMPSFMKeys(listKeys,dir,&data.cams());
+  if(readMode == ReadCMPSFMModeTentativeMatches)
+    readCMPSFMMatches(matchesInit,false,&data.pairs());
+  if(readMode >= ReadCMPSFMModeVerifiedMatches && readMode < ReadCMPSFMModeTracks)
+    readCMPSFMMatches(matchesEG,true,&data.pairs());
+  if(readMode >= ReadCMPSFMModeTransforms)
+    readCMPSFMTransforms(transforms,homographyProportion);
+  if(readMode >= ReadCMPSFMModeTracks)
+    readCMPSFMTracks(tracks,&data.nViewMatches());
 }
 
-void readCMPSFMImageList(const string& imgListFn,double radConstraint,
-  double radConstraintWeight,Dataset *data)
+void readCMPSFMImageList(const string& imgListFn,const string& dataDir,
+  const string& defaultFeatsDir,double radConstraint,
+  double radConstraintWeight,ptr_vector<Camera> *pcams)
 {
+  auto& cams = *pcams;
   ifstream file(imgListFn);
   if(!file.is_open())
   {
     cerr << "ERROR: readCMPSFMImageList: unable to open: " << imgListFn << "\n";
     return;
   }
-  data->cams().clear();
+  cams.clear();
   string fn;
   while(!file.eof())
   {
     getline(file,fn);
     if(fn.empty())
       continue;
-    fn = joinPaths(data->dir(),fn);
-    data->cams().push_back(
-      std::make_unique<StandardCameraRadial>(fn,data->featsDir()));
+    fn = joinPaths(dataDir,fn);
+    cams.push_back(std::make_unique<StandardCameraRadial>(fn,defaultFeatsDir));
 
     StandardCameraRadial *cam = 
-      static_cast<StandardCameraRadial *>(&(*data->cams().back()));
+      static_cast<StandardCameraRadial *>(&(*cams.back()));
     vector<double> radConstraints(2,radConstraint),radWeights(2,radConstraintWeight);
     cam->constrainRadial(&radConstraints[0],&radWeights[0]);
   }
@@ -265,8 +276,9 @@ void readCMPSFMImageList(const string& imgListFn,double radConstraint,
 }
 
 void readCMPSFMFocalEstimates(const string& focalsFn,double focalConstraintWeight,
-  Dataset *data)
+  ptr_vector<Camera> *pcams)
 {
+  auto& cams = *pcams;
   ifstream file(focalsFn);
   if(!file.is_open())
   {
@@ -283,7 +295,7 @@ void readCMPSFMFocalEstimates(const string& focalsFn,double focalConstraintWeigh
     if(endline.empty())
       continue;
 
-    StandardCamera *cam = static_cast<StandardCamera *>(&data->cam(i));
+    StandardCamera *cam = static_cast<StandardCamera *>(&(*cams[i]));
     if(focalEstimate > 0.)
     {
       cam->setFocal(focalEstimate);
@@ -295,8 +307,10 @@ void readCMPSFMFocalEstimates(const string& focalsFn,double focalConstraintWeigh
   file.close();
 }
 
-void readCMPSFMKeys(const string& keysListFn,Dataset *data)
+void readCMPSFMKeys(const string& keysListFn,const string& dataDir,
+  ptr_vector<Camera> *pcams)
 {
+  auto& cams = *pcams;
   ifstream file(keysListFn);
   if(!file.is_open())
   {
@@ -311,7 +325,7 @@ void readCMPSFMKeys(const string& keysListFn,Dataset *data)
     if(fn.empty())
       continue;
     
-    data->cam(i).setFeaturesFilename(joinPaths(data->dir(),fn),true);
+    cams[i]->setFeaturesFilename(joinPaths(dataDir,fn),true);
 
     i++;
   }
@@ -322,6 +336,7 @@ void readCMPSFMMatches(const string& matchesFn,
   bool isMatchesEG,pair_umap<CameraPair> *ppairs)
 {
   auto& pairs = *ppairs;
+  pairs.clear();
   ifstream file(matchesFn);
   if(!file.is_open())
   {
@@ -369,6 +384,7 @@ void readCMPSFMTransforms(const string& transformsFn,
   int nImgs;
   file >> nImgs;
   prop.resize(nImgs,nImgs);
+  prop.setZero();
   string line;
   while(!file.eof())
   {
@@ -394,6 +410,7 @@ void readCMPSFMTracks(const string& tracksFn,
   vector<NViewMatch> *ptracks)
 {
   auto& tracks = *ptracks;
+  tracks.clear();
   ifstream file(tracksFn);
   if(!file.is_open())
   {
