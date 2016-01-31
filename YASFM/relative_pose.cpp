@@ -820,6 +820,13 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
     findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
       cam1.keys(),cam2.keys(),allMatches,F,&currInliers);
 
+    estimateFundamentalMatrix(cam1.keys(),cam2.keys(),allMatches,currInliers,
+      opt.get<double>("fundMatRefineTolerance"),&F);
+
+    currInliers.clear();
+    findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
+      cam1.keys(),cam2.keys(),allMatches,F,&currInliers);
+
     vector<bool> isIncluded(allMatches.size(),false);
     for(int idx : outInliers)
       isIncluded[idx] = true;
