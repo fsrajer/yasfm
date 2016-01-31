@@ -179,6 +179,14 @@ YASFM_API void readCMPSFMMatches(const string& matchesFn,
 YASFM_API void readCMPSFMTransforms(const string& transformsFn,
   ArrayXXd *homographyProportion);
 
+/// Read CMPSFM tracks.
+/**
+\param[in] tracksFn Tracks filename.
+\param[out] tracks Tracks.
+*/
+YASFM_API void readCMPSFMTracks(const string& tracksFn,
+  vector<NViewMatch> *tracks);
+
 /// Writes data into Bundler's Bundle format
 /**
 See: http://www.cs.cornell.edu/~snavely/bundler/bundler-v0.4-manual.html

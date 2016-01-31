@@ -226,12 +226,14 @@ void readCMPSFMFormat(double focalConstraintWeight,double radConstraint,
   string matchesInit = joinPaths(data.dir(),"matches.init.txt");
   string matchesEG = joinPaths(data.dir(),"matches.eg.txt");
   string transforms = joinPaths(data.dir(),"transforms.txt");
+  string tracks = joinPaths(data.dir(),"tracks.txt");
   readCMPSFMImageList(listImgs,radConstraint,radConstraintWeight,&data);
   readCMPSFMFocalEstimates(focalEstimates,focalConstraintWeight,&data);
   readCMPSFMKeys(listKeys,&data);
   //readCMPSFMMatches(matchesInit,false,&data.pairs());
   readCMPSFMMatches(matchesEG,true,&data.pairs());
   readCMPSFMTransforms(transforms,homographyProportion);
+  readCMPSFMTracks(tracks,&data.nViewMatches());
 }
 
 void readCMPSFMImageList(const string& imgListFn,double radConstraint,
@@ -384,6 +386,40 @@ void readCMPSFMTransforms(const string& transformsFn,
     prop(j,i) = prop(i,j);
     getline(file,line);
     getline(file,line);
+  }
+  file.close();
+}
+
+void readCMPSFMTracks(const string& tracksFn,
+  vector<NViewMatch> *ptracks)
+{
+  auto& tracks = *ptracks;
+  ifstream file(tracksFn);
+  if(!file.is_open())
+  {
+    cerr << "ERROR: readCMPSFMTransforms: unable to open: " << tracksFn << "\n";
+    return;
+  }
+  string line;
+  while(!file.eof())
+  {
+    getline(file,line);
+    if(line.empty())
+      continue;
+
+    tracks.emplace_back();
+    auto& track = tracks.back();
+    
+    istringstream ss(line);
+    int size,camIdx,keyIdx;
+    ss >> size;
+    track.reserve(size);
+
+    for(int i = 0; i < size; i++)
+    {
+      ss >> camIdx >> keyIdx;
+      track.emplace(camIdx,keyIdx);
+    }
   }
   file.close();
 }
