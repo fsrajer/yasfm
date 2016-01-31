@@ -196,12 +196,12 @@ double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilena
 void readCMPSFMFormat(double focalConstraintWeight,double radConstraint,
   double radConstraintWeight,Dataset *data)
 {
-  string listImgs = "list_imgs.txt";
-  string focalEstimates = "focal_estimates.txt";
-  /*string listKeys = "list_keys.txt";
-  string matchesInit = "matches.init.txt";
-  string matchesEG = "matches.eg.txt";
-  string transforms = "transforms.txt";*/
+  string listImgs = joinPaths(data->dir(),"list_imgs.txt");
+  string focalEstimates = joinPaths(data->dir(),"focal_estimates.txt");
+  /*string listKeys = joinPaths(data->dir(),"list_keys.txt");
+  string matchesInit = joinPaths(data->dir(),"matches.init.txt");
+  string matchesEG = joinPaths(data->dir(),"matches.eg.txt");
+  string transforms = joinPaths(data->dir(),"transforms.txt");*/
   readCMPSFMImageList(listImgs,radConstraint,radConstraintWeight,data);
   readCMPSFMFocalEstimates(focalEstimates,focalConstraintWeight,data);
 }
@@ -220,6 +220,8 @@ void readCMPSFMImageList(const string& imgListFn,double radConstraint,
   while(!file.eof())
   {
     getline(file,fn);
+    if(fn.empty())
+      continue;
     fn = joinPaths(data->dir(),fn);
     data->cams().push_back(
       std::make_unique<StandardCameraRadial>(fn,data->featsDir()));
@@ -248,6 +250,8 @@ void readCMPSFMFocalEstimates(const string& focalsFn,double focalConstraintWeigh
     double focalEstimate;
     file >> focalEstimate;
     getline(file,endline);
+    if(endline.empty())
+      continue;
 
     StandardCamera *cam = static_cast<StandardCamera *>(&data->cam(i));
     if(focalEstimate > 0.)
