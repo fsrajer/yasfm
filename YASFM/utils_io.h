@@ -117,6 +117,35 @@ YASFM_API double findFocalLengthInEXIF(const string& ccdDBFilename,const Camera&
 YASFM_API double findFocalLengthInEXIF(const string& ccdDBFilename,
   const string& imgFilename,int maxImgDim,bool verbose);
 
+/// Reads results of CMPSFM (with default filenames).
+/**
+\param[in] focalConstraintWeight Constraint for focal.
+\param[in] radConstraint Constraint for radial distortion.
+\param[in] radConstraintWeight Weight for constraint for radial distortion.
+\param[in,out] data Dataset with directory set.
+*/
+YASFM_API void readCMPSFMFormat(double focalConstraintWeight,double radConstraint,
+  double radConstraintWeight,Dataset *data);
+
+/// Initialize cameras from CMPSFM image list.
+/**
+\param[in] imgListFn List of images.
+\param[in] radConstraint Constraint for radial distortion.
+\param[in] radConstraintWeight Weight for constraint for radial distortion.
+\param[in,out] data Dataset with directory set.
+*/
+YASFM_API void readCMPSFMImageList(const string& imgListFn,double radConstraint,
+  double radConstraintWeight,Dataset *data);
+
+/// Set focal constraints from CMPSFM format.
+/**
+\param[in] focalsFn List of focal estimates.
+\param[in] focalConstraintWeight Constraint for focal.
+\param[in,out] data Dataset with directory set.
+*/
+YASFM_API void readCMPSFMFocalEstimates(const string& focalsFn,
+  double focalConstraintWeight,Dataset *data);
+
 /// Writes data into Bundler's Bundle format
 /**
 See: http://www.cs.cornell.edu/~snavely/bundler/bundler-v0.4-manual.html

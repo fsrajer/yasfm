@@ -2,6 +2,7 @@
 
 #include <climits>
 #include <algorithm>
+#include <memory>
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -28,6 +29,7 @@ using std::cerr;
 using std::ifstream;
 using std::ofstream;
 using std::setprecision;
+using std::getline;
 
 namespace yasfm
 {
@@ -189,6 +191,74 @@ double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilena
       return focalPX;
     }
   }
+}
+
+void readCMPSFMFormat(double focalConstraintWeight,double radConstraint,
+  double radConstraintWeight,Dataset *data)
+{
+  string listImgs = "list_imgs.txt";
+  string focalEstimates = "focal_estimates.txt";
+  /*string listKeys = "list_keys.txt";
+  string matchesInit = "matches.init.txt";
+  string matchesEG = "matches.eg.txt";
+  string transforms = "transforms.txt";*/
+  readCMPSFMImageList(listImgs,radConstraint,radConstraintWeight,data);
+  readCMPSFMFocalEstimates(focalEstimates,focalConstraintWeight,data);
+}
+
+void readCMPSFMImageList(const string& imgListFn,double radConstraint,
+  double radConstraintWeight,Dataset *data)
+{
+  ifstream file(imgListFn);
+  if(!file.is_open())
+  {
+    cerr << "ERROR: readCMPSFMImageList: unable to open: " << imgListFn << "\n";
+    return;
+  }
+  data->cams().clear();
+  string fn;
+  while(!file.eof())
+  {
+    getline(file,fn);
+    fn = joinPaths(data->dir(),fn);
+    data->cams().push_back(
+      std::make_unique<StandardCameraRadial>(fn,data->featsDir()));
+
+    StandardCameraRadial *cam = 
+      static_cast<StandardCameraRadial *>(&(*data->cams().back()));
+    vector<double> radConstraints(2,radConstraint),radWeights(2,radConstraintWeight);
+    cam->constrainRadial(&radConstraints[0],&radWeights[0]);
+  }
+  file.close();
+}
+
+void readCMPSFMFocalEstimates(const string& focalsFn,double focalConstraintWeight,
+  Dataset *data)
+{
+  ifstream file(focalsFn);
+  if(!file.is_open())
+  {
+    cerr << "ERROR: readCMPSFMFocalEstimates: unable to open: " << focalsFn << "\n";
+    return;
+  }
+  string endline;
+  int i = 0;
+  while(!file.eof())
+  {
+    double focalEstimate;
+    file >> focalEstimate;
+    getline(file,endline);
+
+    StandardCamera *cam = static_cast<StandardCamera *>(&data->cam(i));
+    if(focalEstimate > 0.)
+    {
+      cam->setFocal(focalEstimate);
+      cam->constrainFocal(focalEstimate,focalConstraintWeight);
+    }
+
+    i++;
+  }
+  file.close();
 }
 
 void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructedCams,
