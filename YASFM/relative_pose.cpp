@@ -529,6 +529,59 @@ void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
   }
 }
 
+void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,Matrix3d *pF)
+{
+  auto& F = *pF;
+  int nUseful = static_cast<int>(matchesToUse.size());
+
+  if(nUseful < 8)
+  {
+    cerr << "ERROR: estimateFundamentalMatrix: Too few matches handed."
+      << " At least 8 needed and " << nUseful << " was given.\n";
+    F.setZero();
+    return;
+  }
+
+  Matrix3d C1,C2;
+  matchedPointsCenteringMatrix<true>(pts1,matches,matchesToUse,&C1);
+  matchedPointsCenteringMatrix<false>(pts2,matches,matchesToUse,&C2);
+
+  MatrixXd A(nUseful,8);
+  VectorXd b(nUseful);
+  for(int i = 0; i < nUseful; i++)
+  {
+    Vector3d pt1 = C1 * pts1[matches[matchesToUse[i]].first].homogeneous();
+    Vector3d pt2 = C2 * pts2[matches[matchesToUse[i]].second].homogeneous();
+
+    A.row(i) <<
+      pt1(0) * pt2(0),
+      pt1(0) * pt2(1),
+      pt1(0) * pt2(2),
+      pt1(1) * pt2(0),
+      pt1(1) * pt2(1),
+      pt1(1) * pt2(2),
+      pt1(2) * pt2(0),
+      pt1(2) * pt2(1);
+
+    b(i) = -(pt1(2)*pt2(2));
+  }
+
+  VectorXd f = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+
+  // Not rank 2 yet.
+  Matrix3d F_;
+  F_.col(0) = f.topRows(3);
+  F_.col(1) = f.middleRows(3,3);
+  F_(0,2) = f(6); F_(1,2) = f(7); F_(2,2) = 1.;
+
+  closestRank2Matrix(F_,&F);
+
+  // Un-normalize
+  F = C2.transpose() * F * C1;
+}
+
 void computeHomographyInliersProportion(const OptionsRANSAC& opt,
   const ptr_vector<Camera>& cams,const pair_umap<CameraPair>& pairs,
   ArrayXXd *pproportion, HomographyInliersCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)

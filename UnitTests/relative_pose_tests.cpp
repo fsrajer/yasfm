@@ -343,6 +343,37 @@ namespace yasfm_tests
       }
     }
 
+    TEST_METHOD(estimateFundamentalMatrixTest)
+    {
+      Matrix34d P1(Matrix34d::Identity()),P2(generateRandomProjection());
+      Matrix3d ex;
+      crossProdMat(P2.col(3),&ex);
+      Matrix3d F = ex*P2.leftCols(3);
+      F /= F(2,2);
+
+      int n = 15;
+      vector<Vector2d> keys1(n),keys2(n);
+      vector<IntPair> matches;
+      vector<int> matchesToUse;
+      for(int i = 0; i < n; i++)
+      {
+        Vector3d pt(Vector3d::Random());
+        Vector3d tmp = P1 * pt.homogeneous();
+        keys1[i] = tmp.hnormalized();
+        keys1[i] += 1e-8*Vector2d::Random();
+        tmp = P2 * pt.homogeneous();
+        keys2[i] = tmp.hnormalized();
+        keys2[i] += 1e-8*Vector2d::Random();
+
+        matches.emplace_back(i,i);
+        matchesToUse.push_back(i);
+      }
+      Matrix3d _F;
+      estimateFundamentalMatrix(keys1,keys2,matches,matchesToUse,&_F);
+      _F /= _F(2,2);
+      Assert::IsTrue(F.isApprox(_F,1e-5));
+    }
+
     TEST_METHOD(computeSimilarityFromMatchTest)
     {
       const double cPrecision = 1e-8;

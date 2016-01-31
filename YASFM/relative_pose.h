@@ -329,6 +329,21 @@ YASFM_API void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
   const vector<Vector3d>& pts2Norm,const vector<IntPair>& matches,
   vector<Matrix3d> *Es);
 
+/// Compute fundamental matrix using least squares and getting closest rank 2 matrix.
+/**
+Finds a solution for pts2'*F*pts1 = 0.
+MIND THE ORDER of the input points.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] matches Points matches.
+\param[in] matchesToUse Matches which should be used.
+\param[out] F Fundamental matrix.
+*/
+YASFM_API void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,Matrix3d *F);
+
 /// Compute proportion of the best homography inliers in the matches for all pairs.
 /**
 Estimate homography for every camera pair and save the proportion numInliers/numPoints 
