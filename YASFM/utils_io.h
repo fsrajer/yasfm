@@ -20,6 +20,7 @@
 #include "camera.h"
 #include "sfm_data.h"
 
+using Eigen::ArrayXXd;
 using Eigen::Vector2d;
 using std::ifstream;
 using std::istream;
@@ -132,7 +133,7 @@ YASFM_API double findFocalLengthInEXIF(const string& ccdDBFilename,
 \param[in,out] data Dataset with directory set.
 */
 YASFM_API void readCMPSFMFormat(double focalConstraintWeight,double radConstraint,
-  double radConstraintWeight,Dataset *data);
+  double radConstraintWeight,Dataset *data,ArrayXXd *homographyProportion = nullptr);
 
 /// Initialize cameras from CMPSFM image list.
 /**
@@ -169,6 +170,14 @@ format).
 */
 YASFM_API void readCMPSFMMatches(const string& matchesFn,
   bool isMatchesEG,pair_umap<CameraPair> *pairs);
+
+/// Read CMPSFM transforms.
+/**
+\param[in] transformsFn Transforms filename.
+\param[out] homographyProportion Percentage of inliers to homography (in [0,1]).
+*/
+YASFM_API void readCMPSFMTransforms(const string& transformsFn,
+  ArrayXXd *homographyProportion);
 
 /// Writes data into Bundler's Bundle format
 /**

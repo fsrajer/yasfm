@@ -217,19 +217,21 @@ double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilena
 }
 
 void readCMPSFMFormat(double focalConstraintWeight,double radConstraint,
-  double radConstraintWeight,Dataset *pdata)
+  double radConstraintWeight,Dataset *pdata,ArrayXXd *homographyProportion)
 {
   auto& data = *pdata;
   string listImgs = joinPaths(data.dir(),"list_imgs.txt");
   string focalEstimates = joinPaths(data.dir(),"focal_estimates.txt");
   string listKeys = joinPaths(data.dir(),"list_keys.txt");
   string matchesInit = joinPaths(data.dir(),"matches.init.txt");
-  /*string matchesEG = joinPaths(data.dir(),"matches.eg.txt");
-  string transforms = joinPaths(data->dir(),"transforms.txt");*/
+  string matchesEG = joinPaths(data.dir(),"matches.eg.txt");
+  string transforms = joinPaths(data.dir(),"transforms.txt");
   readCMPSFMImageList(listImgs,radConstraint,radConstraintWeight,&data);
   readCMPSFMFocalEstimates(focalEstimates,focalConstraintWeight,&data);
   readCMPSFMKeys(listKeys,&data);
-  readCMPSFMMatches(matchesInit,false,&data.pairs());
+  //readCMPSFMMatches(matchesInit,false,&data.pairs());
+  readCMPSFMMatches(matchesEG,true,&data.pairs());
+  readCMPSFMTransforms(transforms,homographyProportion);
 }
 
 void readCMPSFMImageList(const string& imgListFn,double radConstraint,
@@ -347,6 +349,40 @@ void readCMPSFMMatches(const string& matchesFn,
     
     if(isMatchesEG)
       getline(file,line);
+    getline(file,line);
+  }
+  file.close();
+}
+
+void readCMPSFMTransforms(const string& transformsFn,
+  ArrayXXd *phomographyProportion)
+{
+  auto& prop = *phomographyProportion;
+  ifstream file(transformsFn);
+  if(!file.is_open())
+  {
+    cerr << "ERROR: readCMPSFMTransforms: unable to open: " << transformsFn << "\n";
+    return;
+  }
+  int nImgs;
+  file >> nImgs;
+  prop.resize(nImgs,nImgs);
+  string line;
+  while(!file.eof())
+  {
+    getline(file,line);
+    if(line.empty())
+      continue;
+
+    istringstream ss(line);
+    int i,j;
+    ss >> i >> j;
+
+    getline(file,line);
+    getline(file,line);
+    file >> prop(i,j);
+    prop(j,i) = prop(i,j);
+    getline(file,line);
     getline(file,line);
   }
   file.close();
