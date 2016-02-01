@@ -298,14 +298,6 @@ double readCCDWidthFromDBEntry(const string& entry);
 
 
 /*
-YASFM_API void writeFeaturesBinary(const IDataset& dts);
-YASFM_API void writeFeaturesBinary(const ptr_vector<ICamera>& cams,const string& dir);
-YASFM_API void writeFeaturesBinary(const string& dir,const ICamera& cam);
-YASFM_API void readFeaturesBinary(IDataset& dts);
-YASFM_API void readFeaturesBinary(ptr_vector<ICamera>& cams,const string& dir);
-YASFM_API void readFeaturesBinary(const string& dir,ICamera& cam);
-
-
 YASFM_API void writeSFMPLYFormat(const string& filename,const unordered_set<int>& addedCams,
 const ptr_vector<ICamera>& cams,const vector<Vector3d>& points,const vector<bool>& pointsMask,
 const vector<Vector3uc> *pointColors = nullptr);
