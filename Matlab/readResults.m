@@ -214,6 +214,7 @@ for i=1:nPairs
     end
     if nFields >= 3 && strcmp(fields{3},'supportSizes')
         nSuppSz = fscanf(fid,'%i',1);
+        fgetl(fid);
         pairs(im1,im2).supportSizes = fscanf(fid,'%i',[1 nSuppSz]);
         fgetl(fid);
     end
