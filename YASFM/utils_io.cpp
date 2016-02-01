@@ -92,7 +92,7 @@ void listFilenames(const string& dir,
     closedir(dirReadable);
   } else
   {
-    cerr << "ERROR: listFilenames: Could not open dir: " << dir << "\n";
+    YASFM_PRINT_ERROR("Could not open dir:\n" << dir);
   }
 }
 
@@ -136,7 +136,7 @@ void readColors(const string& filename,const vector<Vector2d>& coord,
   } else
   {
     colors.clear();
-    cerr << "ERROR: readColors: could not load image: " << filename << "\n";
+    YASFM_PRINT_ERROR("Could not load image:\n" << filename);
   }
   ilDeleteImages(1,&imId);
 }
@@ -254,7 +254,7 @@ void readCMPSFMImageList(const string& imgListFn,const string& dataDir,
   ifstream file(imgListFn);
   if(!file.is_open())
   {
-    cerr << "ERROR: readCMPSFMImageList: unable to open: " << imgListFn << "\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(imgListFn);
     return;
   }
   cams.clear();
@@ -282,7 +282,7 @@ void readCMPSFMFocalEstimates(const string& focalsFn,double focalConstraintWeigh
   ifstream file(focalsFn);
   if(!file.is_open())
   {
-    cerr << "ERROR: readCMPSFMFocalEstimates: unable to open: " << focalsFn << "\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(focalsFn);
     return;
   }
   string endline;
@@ -314,7 +314,7 @@ void readCMPSFMKeys(const string& keysListFn,const string& dataDir,
   ifstream file(keysListFn);
   if(!file.is_open())
   {
-    cerr << "ERROR: readCMPSFMKeys: unable to open: " << keysListFn << "\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(keysListFn);
     return;
   }
   string fn;
@@ -340,7 +340,7 @@ void readCMPSFMMatches(const string& matchesFn,
   ifstream file(matchesFn);
   if(!file.is_open())
   {
-    cerr << "ERROR: readCMPSFMMatches: unable to open: " << matchesFn << "\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(matchesFn);
     return;
   }
   int version;
@@ -378,7 +378,7 @@ void readCMPSFMTransforms(const string& transformsFn,
   ifstream file(transformsFn);
   if(!file.is_open())
   {
-    cerr << "ERROR: readCMPSFMTransforms: unable to open: " << transformsFn << "\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(transformsFn);
     return;
   }
   int nImgs;
@@ -414,7 +414,7 @@ void readCMPSFMTracks(const string& tracksFn,
   ifstream file(tracksFn);
   if(!file.is_open())
   {
-    cerr << "ERROR: readCMPSFMTransforms: unable to open: " << tracksFn << "\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(tracksFn);
     return;
   }
   string line;
@@ -447,7 +447,7 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
   ofstream out(filename);
   if(!out.is_open())
   {
-    cerr << "ERROR: writeSFMBundlerFormat: unable to open: " << filename << " for writing\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(filename);
     return;
   }
   out << "# Bundle file v0.3\n";
@@ -610,7 +610,7 @@ void getImgDimsAny(const string& filename,int *width,int *height)
       *height = ilGetInteger(IL_IMAGE_HEIGHT);
   } else
   {
-    cerr << "ERROR: getImgDimsAny: Could not load image: " << filename << "\n";
+    YASFM_PRINT_ERROR("Could not load image:\n" << filename);
   }
   ilDeleteImages(1,&imId);
 }
@@ -620,7 +620,7 @@ double findCCDWidthInDB(const string& dbFilename,const string& cameraMake,const 
   ifstream file(dbFilename);
   if(!file.is_open())
   {
-    cerr << "ERROR: could not open file: " << dbFilename << "\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(dbFilename);
     return 0.;
   }
   string makeModel = cameraMake + " " + cameraModel;

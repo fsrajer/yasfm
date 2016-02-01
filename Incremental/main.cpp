@@ -327,7 +327,7 @@ void runSFM(const IncrementalOptions& opt,const string& outDir,
 
   if(initPair.first < 0 || initPair.second < 0)
   {
-    cerr << "runSFM: No good pairs for initialization\n";
+    cout << __func__ << ": No good pairs for initialization\n";
     return;
   }
 
@@ -438,7 +438,10 @@ void IncrementalOptions::write(const string& filename) const
 {
   ofstream file(filename);
   if(!file.is_open())
-    cerr << "Options::write: error: could not open " << filename << " for writing\n";
+  {
+    YASFM_PRINT_ERROR_FILE_OPEN(filename);
+    return;
+  }
   OptionsWrapper::write(file);
   file.close();
 }

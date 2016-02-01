@@ -244,8 +244,8 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   auto& M = *pM;
   if(nMatches < minMatches)
   {
-    cerr << "ERROR: estimateTransformRANSAC: " 
-      << "cannot estimate transformation (too few points)\n";
+    YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
+      << nMatches << " given but " << minMatches << " needed.");
     M.setZero();
     inliers->clear();
     return -1;
@@ -311,8 +311,8 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   auto& M = *pM;
   if(nMatches < minMatches)
   {
-    cerr << "ERROR: estimateTransformPROSAC: "
-      << "cannot estimate transformation (too few points)\n";
+    YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
+      << nMatches << " given but " << minMatches << " needed.");
     M.setZero();
     inliers->clear();
     return -1;

@@ -175,8 +175,7 @@ void Camera::writeFeatures() const
 
   if(!file)
   {
-    cerr << "ERROR: Camera::writeFeatures: unable to open: " << featsFilename_
-      << " for writing\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(featsFilename_);
     return;
   }
 
@@ -228,8 +227,7 @@ void Camera::readFeatures(int mode)
     readFeaturesKey(mode);
   } else
   {
-    cerr << "ERROR: Camera::readFeatures: unsupported features file format: "
-      << featsFilename_ << ".\n";
+    YASFM_PRINT_ERROR("Unsupported features file format:\n" << featsFilename_);
   }
 }
 
@@ -251,8 +249,7 @@ void Camera::readFeaturesFeatGz(int mode)
 
   if(!file)
   {
-    cerr << "ERROR: Camera::readFeaturesFeatGz: unable to open: " 
-      << featsFilename_ << " for reading\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(featsFilename_);
     return;
   }
 
@@ -309,8 +306,7 @@ void Camera::readFeaturesSft(int mode)
   ifstream featuresFile(featsFilename_,std::ios::binary);
   if(!featuresFile.is_open())
   {
-    cerr << "ERROR: Camera::readFeaturesSft: unable to open: " << featsFilename_
-      << " for reading\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(featsFilename_);
     return;
   }
 
@@ -358,8 +354,7 @@ void Camera::readFeaturesKey(int mode)
   ifstream file(featsFilename_);
   if(!file.is_open())
   {
-    cerr << "ERROR: Camera::readFeaturesKey: unable to open: " << featsFilename_
-      << " for reading\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(featsFilename_);
     return;
   }
 

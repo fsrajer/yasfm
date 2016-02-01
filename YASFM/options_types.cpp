@@ -91,7 +91,7 @@ void OptionsWrapper::write(ostream& file,const string& prefix) const
       get<OptionsWrapperPtr>(field)->write(file," ");
       break;
     default:
-      file << "unknown type";
+      YASFM_PRINT_ERROR("Unknown type.");
       break;
     }
   }
