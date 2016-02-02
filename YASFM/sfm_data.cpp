@@ -22,7 +22,7 @@ namespace yasfm
 Dataset::Dataset(const string& dir)
   : dir_(dir)
 {
-  _mkdir(featsDir().c_str());
+  makeDirRecursive(featsDir());
 }
 
 Dataset::Dataset(const Dataset& o)

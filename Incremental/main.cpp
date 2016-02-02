@@ -186,9 +186,9 @@ int main(int argc,const char* argv[])
 
   string dir(argv[1]);
   string imgsSubdir(argv[2]);
-  _mkdir(dir.c_str());
+  makeDirRecursive(dir);
   string outDir = joinPaths(dir,"models");
-  _mkdir(outDir.c_str());
+  makeDirRecursive(outDir);
 
   opt.write(joinPaths(dir,"options.txt"));
 
@@ -279,7 +279,7 @@ int main(int argc,const char* argv[])
     size_t nExploredPrev = exploredCams.size();
     string appendix = "model" + std::to_string(modelId);
     string currOutDir = joinPaths(outDir,appendix);
-    _mkdir(currOutDir.c_str());
+    makeDirRecursive(currOutDir);
 
     Dataset currData = data;
     uset<int> exploredCamsCurr;

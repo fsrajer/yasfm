@@ -1,5 +1,8 @@
 #include "utils_io.h"
 
+#include <direct.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <climits>
 #include <algorithm>
 #include <memory>
@@ -35,6 +38,46 @@ using std::istringstream;
 
 namespace yasfm
 {
+
+bool dirExists(const string& dir)
+{
+  struct stat info;
+
+  if(stat(dir.c_str(),&info) != 0)
+    return false; // does not exist
+  else if(info.st_mode & S_IFDIR)
+    return true;
+  else
+  {
+    YASFM_PRINT_ERROR("Not a directory:\n" << dir);
+    return false;
+  }
+}
+
+void makeDirRecursive(const string& dirIn)
+{
+  const string separators("\\/");
+
+  // Put a separator to the end if it is not there.
+  string dir = dirIn;
+  size_t idx = dir.find_last_of(separators);
+  if(idx != dir.size()-1)
+    dir = dir + "/";
+
+  if(dirExists(dir.substr(0,dir.size()-1)))
+    return; // early out
+
+  idx = dir.find_first_of(separators);
+  while(idx < dir.length())
+  {
+    string subdir = dir.substr(0,idx);
+    if(!subdir.empty() && subdir[idx-1] == ':')
+      subdir = subdir + "/";
+    if(!dirExists(subdir))
+      _mkdir(subdir.c_str());
+    idx = dir.find_first_of(separators,idx+1);
+  }
+}
 
 bool hasExtension(const string& filename,const string& extension)
 {

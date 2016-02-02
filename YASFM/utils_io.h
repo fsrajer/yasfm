@@ -36,6 +36,15 @@ namespace yasfm
 struct CameraPair;
 class Dataset;
 
+/// \param[in] dir Path to a directory.
+/// \return True if a directory exists. False if it does not or the the path points to
+/// a file and not a directory.
+YASFM_API bool dirExists(const string& dir);
+
+/// Create a directory.
+/// \param[in] dir Path to a directory.
+YASFM_API void makeDirRecursive(const string& dir);
+
 /// Check if the filename has the extension.
 YASFM_API bool hasExtension(const string& filename,const string& extension);
 
