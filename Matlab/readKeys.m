@@ -1,4 +1,8 @@
-function keys = readKeys(filename)
+function keys = readKeys(filename,readDesc)
+
+if nargin < 2
+    readDesc = false;
+end
 
 if ~strcmp(filename(end-1:end),'gz')
     error('readKeys: unsupported format');
@@ -17,6 +21,14 @@ else
         keys(i).scale = fread(fid,1,'float');
         keys(i).orientation = fread(fid,1,'float');
     end
+    
+    if readDesc
+        for i=1:nKeys
+            desc = double(fread(fid,dim,'unsigned char'));
+            keys(i).desc = desc / norm(desc);
+        end
+    end
+    
     fclose(fid);
     
     delete(decompFn);
