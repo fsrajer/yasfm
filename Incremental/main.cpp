@@ -167,6 +167,32 @@ void runSFM(const IncrementalOptions& opt,const string& outDir,
   const uset<int>& camsToIgnoreForInitialization,uset<int> *pexploredCams,
   Dataset *pdata);
 
+void readPairsGV(const string& fn,Dataset *pdata)
+{
+  auto& data = *pdata;
+  ifstream file(fn);
+  if(!file.is_open())
+  {
+    return;
+  }
+  string fn1,fn2;
+  int iCam = 0;
+  while(!file.eof())
+  {
+    file >> fn1 >> fn2;
+    string dummy;
+    std::getline(file,dummy);
+    std::getline(file,dummy);
+    data.addCamera<StandardCameraRadial>(fn1);
+    data.addCamera<StandardCameraRadial>(fn2);
+    data.queries().emplace_back();
+    data.queries().emplace_back();
+    data.queries().back().insert(iCam);
+    iCam += 2;
+  }
+  file.close();
+}
+
 int main(int argc,const char* argv[])
 {
   // ======================================
