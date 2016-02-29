@@ -1,5 +1,7 @@
 %% setup
-pairsToLabel = [29 30; 59 60; 1 2; 51 52; 61 62; 55 56; 57 58; 53 54]';
+addpath ..
+% pairsToLabel = [29 30; 59 60; 1 2; 51 52; 61 62; 55 56; 57 58; 53 54]';
+pairsToLabel = [29 30; 61 62; 1 2; 45 46; 47 48; 51 52; 55 56; 59 60]';
 
 dataDir = 'C:\Users\Filip\Workspace\Data\pairs';
 inFn = 'tentatively_matched_all.txt';
@@ -10,21 +12,21 @@ outFn = fullfile(dataDir,outFn);
 separatorWidthScale = 0.03125;
 
 %% read results
-ignoreFeats = false;
-data = readResults(inFn,ignoreFeats);
-nImgs = numel(data.cams);
-
-% load(outFn);
-labels = cell(nImgs,nImgs);
+% ignoreFeats = false;
+% data = readResults(inFn,ignoreFeats);
+% nImgs = numel(data.cams);
+% 
+% % load(outFn);
+% labels = cell(nImgs,nImgs);
 
 %% do labelling
 
 waitfor(msgbox({'press buttons to label:','spacebar - dont know',...
     '0 - outlier','1,2,... - motion groups'}));
 
-for pair=pairsToLabel
-    i = pair(1);
-    j = pair(2);
+for pairIdx=6:size(pairsToLabel,2)
+    i = pairsToLabel(1,pairIdx);
+    j = pairsToLabel(2,pairIdx);
     matches = data.pairs(i,j).matches;
     dists = data.pairs(i,j).dists;
     n = numel(dists);
