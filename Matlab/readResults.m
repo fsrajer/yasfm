@@ -199,7 +199,7 @@ fields = cell(nFields,1);
 for i=1:nFields
     fields{i} = fgetl(fid);
 end
-pairs = repmat(struct('matches',[]),nCams,nCams);
+pairs = repmat(struct('matches',zeros(2,0)),nCams,nCams);
 for i=1:nPairs
     line = fgetl(fid);
     tokens = str2double(strsplit(line));
