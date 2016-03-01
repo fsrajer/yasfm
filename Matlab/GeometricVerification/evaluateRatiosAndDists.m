@@ -2,7 +2,7 @@
 addpath ..
 run('../vlfeat-0.9.20/toolbox/vl_setup');
 
-dataDir = 'C:\Users\Filip\Workspace\Data\pairs';
+dataDir = 'C:\Users\Filip\Dropbox\pairs';
 allFn = 'tentatively_matched_all.txt';
 outFn = [allFn(1:end-4) '_ground_truth.mat'];
 

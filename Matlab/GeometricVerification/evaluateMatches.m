@@ -2,10 +2,10 @@
 addpath ..
 
 % to be set by the user
-dataDir = 'C:\Users\Filip\Workspace\Data\pairs';
+dataDir = 'C:\Users\Filip\Dropbox\pairs';
 allFn = 'tentatively_matched_all.txt';
 gtFn = [allFn(1:end-4) '_ground_truth.mat'];
-names = {'ratio','ratio'};
+names = {'ratio','ratio-unique','ratio-unique-gv','ratio-unique-eg'};
 
 allFn = fullfile(dataDir,allFn);
 gtFn = fullfile(dataDir,gtFn);
@@ -56,12 +56,12 @@ for i=1:nImgs
             all = allPairs(i,j).matches(:,toUse);
             figure;
             hold on
-            for in=1:nNames
-                nFns = numel(fns{i});
+            for iname=1:nNames
+                nFns = numel(fns{iname});
                 precision = zeros(1,nFns);
                 recall = zeros(1,nFns);
                 for k=1:nFns
-                    curr = filteredPairs{i}{k}(i,j).matches;
+                    curr = filteredPairs{iname}{k}(i,j).matches;
                     est = ismember(all',curr','rows')';
                     truePositive = sum(gt==1 & est==1);
                     falsePositive = sum(gt==0 & est==1);
@@ -72,7 +72,7 @@ for i=1:nImgs
                 plot(recall,precision,'x-','linewidth',1.5);
             end
             legend(names);
-            title('precision-recall')
+            title(['precision-recall for pair ' num2str(i) '-' num2str(j)])
             xlabel('recall');
             ylabel('precision');
             xlim([0 1]);
@@ -80,3 +80,6 @@ for i=1:nImgs
         end
     end
 end
+
+%% show images
+% figure; imshow(data.cams(61).fn);

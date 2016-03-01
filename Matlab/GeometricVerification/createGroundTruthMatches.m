@@ -3,7 +3,7 @@ addpath ..
 % pairsToLabel = [29 30; 59 60; 1 2; 51 52; 61 62; 55 56; 57 58; 53 54]';
 pairsToLabel = [29 30; 61 62; 1 2; 45 46; 47 48; 51 52; 55 56; 59 60]';
 
-dataDir = 'C:\Users\Filip\Workspace\Data\pairs';
+dataDir = 'C:\Users\Filip\Dropbox\pairs';
 inFn = 'tentatively_matched_all.txt';
 outFn = [inFn(1:end-4) '_ground_truth.mat'];
 
