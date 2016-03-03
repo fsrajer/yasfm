@@ -162,7 +162,7 @@ one feature from the first image.
 \param[in] numFeats2 Total number of features in the second camera.
 \param[out] unique Which matches are unique.
 */
-void findUniqueMatches(const vector<IntPair>& matches,size_t numFeats2,
+YASFM_API void findUniqueMatches(const vector<IntPair>& matches,size_t numFeats2,
   vector<bool> *unique);
 
 } // namespace yasfm

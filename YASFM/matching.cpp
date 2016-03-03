@@ -130,7 +130,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const flann::Index<flann::L2<float>>
       if(ratio < sqThresh)
       {
         outMatches.emplace_back(i,static_cast<int>(nearestNeighbors.data[i][0]));
-        outDists.push_back(dists.data[i][0]);
+        outDists.push_back(sqrt(ratio)); // Do not use actual distance of descriptors
       }
     }
   } else

@@ -1,4 +1,8 @@
-function res = readResults(fn,ignoreFeats)
+function res = readResults(fn,ignoreFeats,readDesc)
+
+if nargin < 3
+    readDesc = false;
+end 
 
 fid = fopen(fn,'r');
 
@@ -24,7 +28,7 @@ while ~feof(fid)
                 fgetl(fid);
             elseif strcmp(name,'cams_')
                 nCams = str2double(tokens{2});
-                res.cams = readCams(fid,nCams,ignoreFeats);
+                res.cams = readCams(fid,nCams,ignoreFeats,readDesc);
             elseif strcmp(name,'queries_')
                 nQueries = str2double(tokens{2});
                 res.queries = readQueries(fid,nQueries);
@@ -48,7 +52,7 @@ end
 fclose(fid);
 end
 
-function cams = readCams(fid,nCams,ignoreFeats)
+function cams = readCams(fid,nCams,ignoreFeats,readDesc)
 cams = {};
 for iCam = 1:nCams
     line = fgetl(fid);
@@ -69,7 +73,7 @@ for iCam = 1:nCams
     end
     
     if ~ignoreFeats
-        cams(iCam).keys = readKeys(cams(iCam).featFn);
+        cams(iCam).keys = readKeys(cams(iCam).featFn,readDesc);
     end
 end
 end
@@ -195,7 +199,7 @@ fields = cell(nFields,1);
 for i=1:nFields
     fields{i} = fgetl(fid);
 end
-pairs = repmat(struct('matches',[]),nCams,nCams);
+pairs = repmat(struct('matches',zeros(2,0)),nCams,nCams);
 for i=1:nPairs
     line = fgetl(fid);
     tokens = str2double(strsplit(line));

@@ -167,6 +167,32 @@ void runSFM(const IncrementalOptions& opt,const string& outDir,
   const uset<int>& camsToIgnoreForInitialization,uset<int> *pexploredCams,
   Dataset *pdata);
 
+void readPairsGV(const string& fn,Dataset *pdata)
+{
+  auto& data = *pdata;
+  ifstream file(fn);
+  if(!file.is_open())
+  {
+    return;
+  }
+  string fn1,fn2;
+  int iCam = 0;
+  while(!file.eof())
+  {
+    file >> fn1 >> fn2;
+    string dummy;
+    std::getline(file,dummy);
+    std::getline(file,dummy);
+    data.addCamera<StandardCameraRadial>(fn1);
+    data.addCamera<StandardCameraRadial>(fn2);
+    data.queries().emplace_back();
+    data.queries().emplace_back();
+    data.queries().back().insert(iCam);
+    iCam += 2;
+  }
+  file.close();
+}
+
 int main(int argc,const char* argv[])
 {
   // ======================================
@@ -190,10 +216,10 @@ int main(int argc,const char* argv[])
   string outDir = joinPaths(dir,"models");
   _mkdir(outDir.c_str());
 
-  opt.write(joinPaths(dir,"options.txt"));
+  //opt.write(joinPaths(dir,"options.txt"));
 
   Dataset data(dir);
-
+  /*readPairsGV(joinPaths(dir,"pairs.txt"),&data);
   data.addCameras<StandardCameraRadial>(imgsSubdir);
   // -> the principal point is always set to the
   // image center in StandardCamera
@@ -233,18 +259,54 @@ int main(int argc,const char* argv[])
   removePoorlyMatchedPairs(opt.get<int>("minNumPairwiseMatches"),&data.pairs());
   data.clearDescriptors();
 
-  data.writeASCII("tentatively_matched.txt");
-  //data.readASCII("tentatively_matched.txt");
+  data.writeASCII("tentatively_matched_all.txt");*/
+  data.readASCII("tentatively_matched_all_with_gt.txt");
   
-  //verifyMatchesGeometrically(opt.getOpt<OptionsGeometricVerification>("geometricVerification"),
-  //  data.cams(),&data.pairs());
-  verifyMatchesEpipolar(opt.getOpt<OptionsRANSAC>("epipolarVerification"),
+  float& ratioThresh = opt.getOpt<OptionsFLANN>("matchingFLANN").get<float>("ratioThresh");
+  ratioThresh = 0.0f;
+  int nSteps = 40;
+  string name = "ratio";
+  _mkdir(joinPaths(dir,name).c_str());
+  pair_umap<CameraPair> allPairs = data.pairs();
+  for(int i = 0; i < nSteps; i++,ratioThresh += 0.025f)
+  {
+    cout << "Processing " << i << "-th out of " << nSteps << "\n";
+    for(auto& entry : data.pairs())
+    {
+      auto& pair = entry.second;
+      vector<bool> keep(pair.matches.size());
+      for(size_t i = 0; i < pair.dists.size(); i++)
+      {
+        keep[i] = pair.dists[i] < ratioThresh;
+      }
+      filterVector(keep,&pair.matches);
+      filterVector(keep,&pair.dists);
+
+      /*keep.clear();
+      size_t numKeys2 = data.cam(entry.first.second).keys().size();
+      findUniqueMatches(pair.matches,numKeys2,&keep);
+      filterVector(keep,&pair.matches);
+      filterVector(keep,&pair.dists);*/
+    }
+    //verifyMatchesGeometrically(opt.getOpt<OptionsGeometricVerification>("geometricVerification"),
+    //  data.cams(),&data.pairs());
+    //verifyMatchesEpipolar(opt.getOpt<OptionsRANSAC>("epipolarVerification"),
+    //  data.cams(),&data.pairs());
+
+    data.writeASCII(name + "/matched_" + name + std::to_string(i+1) + ".txt");
+    opt.write(joinPaths(dir,name + "/options_" + name + std::to_string(i+1) + ".txt"));
+    data.pairs() = allPairs;
+  }
+
+  /*verifyMatchesGeometrically(opt.getOpt<OptionsGeometricVerification>("geometricVerification"),
     data.cams(),&data.pairs());
+  //verifyMatchesEpipolar(opt.getOpt<OptionsRANSAC>("epipolarVerification"),
+  //  data.cams(),&data.pairs());
   
-  data.writeASCII("matched.txt");
+  data.writeASCII("matched.txt");*/
   //data.readASCII("matched.txt");
 
-  cout << "Computing homographies of verified pairs.\n";
+  /*cout << "Computing homographies of verified pairs.\n";
   ArrayXXd homographyProportion;
   computeHomographyInliersProportion(opt.getOpt<OptionsRANSAC>("homography"),
     data.cams(),data.pairs(),
@@ -308,7 +370,7 @@ int main(int argc,const char* argv[])
     << "Final report:\n"
     << "  " << modelId << " models reconstructed.\n"
     << "  " << data.cams().size() - exploredCams.size()
-    << " out of " << data.cams().size() << " cameras left unexplored.\n";
+    << " out of " << data.cams().size() << " cameras left unexplored.\n";*/
 }
 
 void runSFM(const IncrementalOptions& opt,const string& outDir,

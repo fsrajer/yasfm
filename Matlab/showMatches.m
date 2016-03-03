@@ -84,6 +84,7 @@ for pair=pairsToShow
     
     axis off
     hold off
+    drawnow;
 end
 
 end
