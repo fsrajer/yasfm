@@ -60,17 +60,45 @@ for pairIdx=1:size(pairsToLabel,2)
     save(outFn,'labels');
 end
 
-%%
-% cams=data.cams;
-% keys2 = cams(j).keys;
-% for k=1:numel(keys2)
-%     keys2(k).coord(1) = keys2(k).coord(1)+offset;
-% end
-% hold off;
-% image(img);
-% hold on;
-% set(gca,'YDir','reverse');
-% axis equal;
-% axis([0 size(img,2) 0 size(img,1)]);
-% plotMatches(cams(i).keys,keys2,matches(:,labels{i,j}==1),1,[0 1 1],[0 1 1])
-% % plotMatches(cams(i).keys,keys2,matches(:,labels{i,j}==2),false,[0 1 1],[0 1 1])
+%% show labelled
+figure;
+for pairIdx=1:size(pairsToLabel,2)
+    i = pairsToLabel(1,pairIdx);
+    j = pairsToLabel(2,pairIdx);
+    matches = data.pairs(i,j).matches;
+    
+    im1 = imread(data.cams(i).fn);
+    im2 = imread(data.cams(j).fn);
+    
+    w1 = size(im1,2);
+    h1 = size(im1,1);
+    w2 = size(im2,2);
+    h2 = size(im2,1);
+    offset = w1+ceil(separatorWidthScale*w1);
+    
+    img = uint8(zeros(max(h1,h2),offset+w2,size(im1,3)));
+    img(1:h1,1:w1,:) = im1;
+    img(1:h2,(offset+1):(offset+w2),:) = im2;
+    
+    cams=data.cams;
+    keys2 = cams(j).keys;
+    for k=1:numel(keys2)
+        keys2(k).coord(1) = keys2(k).coord(1)+offset;
+    end
+    
+    gt = labels{i,j};
+    for label=unique(gt)
+        hold off;
+        image(img);
+        hold on;
+        set(gca,'YDir','reverse');
+        axis equal;
+        axis([0 size(img,2) 0 size(img,1)]);
+        
+        plotMatches(cams(i).keys,keys2,matches(:,gt==label),0,[0 1 0],[0 1 0])
+        title(['label: ' num2str(label)]);
+        waitforbuttonpress;
+        plotMatches(cams(i).keys,keys2,matches(:,gt==label),1,[0 1 0],[0 1 0])
+        waitforbuttonpress;
+    end
+end
