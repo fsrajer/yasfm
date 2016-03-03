@@ -43,6 +43,7 @@ for i=1:nNames
 end
 
 %% show curves
+usedImgs = [];
 for i=1:nImgs
     for j=(i+1):nImgs
         gt = labels{i,j};
@@ -53,6 +54,7 @@ for i=1:nImgs
         gt(gt>0) = 1; % unite groups
         
         if n>0
+            usedImgs = [usedImgs i j];
             all = allPairs(i,j).matches(:,toUse);
             figure;
             hold on
@@ -70,6 +72,9 @@ for i=1:nImgs
                     recall(k) = truePositive/(truePositive+falseNegative);
                 end
                 plot(recall,precision,'x-','linewidth',1.5);
+                for k=1:nFns
+                    text(recall(k),precision(k),num2str(k));
+                end
             end
             legend(names);
             title(['precision-recall for pair ' num2str(i) '-' num2str(j)])
@@ -79,6 +84,15 @@ for i=1:nImgs
             ylim([0 1]);
         end
     end
+end
+%% show used images
+usedImgs = unique(usedImgs);
+n = ceil(sqrt(numel(usedImgs)));
+figure;
+for i=1:numel(usedImgs)
+    subplot(n,n,i);
+    imshow(data.cams(usedImgs(i)).fn);
+    title(num2str(usedImgs(i)));
 end
 
 %% show images
