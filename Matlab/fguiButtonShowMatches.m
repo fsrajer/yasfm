@@ -19,6 +19,10 @@ end
 
 function pairs = divideMatchesBySupport(pairsIn)
 maxTrans = max(cellfun(@numel,{pairsIn.supportSizes}));
+if maxTrans == 0
+    pairs = {pairsIn};
+    return;
+end
 pairs = cell(maxTrans,1);
 for iT=1:maxTrans
     pairs{iT} = repmat(struct('matches',[]),size(pairsIn));
