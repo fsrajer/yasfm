@@ -1,7 +1,6 @@
 %% setup
 addpath ..
-% pairsToLabel = [29 30; 59 60; 1 2; 51 52; 61 62; 55 56; 57 58; 53 54]';
-pairsToLabel = [29 30; 61 62; 1 2; 45 46; 47 48; 51 52; 55 56; 59 60]';
+pairsToLabel = [29 30; 61 62; 1 2; 45 46; 47 48; 59 60; 11 12; 5 6; 55 56; 57 58]';
 
 dataDir = 'C:\Users\Filip\Dropbox\pairs';
 inFn = 'tentatively_matched_all.txt';
@@ -16,15 +15,15 @@ separatorWidthScale = 0.03125;
 % data = readResults(inFn,ignoreFeats);
 % nImgs = numel(data.cams);
 % 
-% % load(outFn);
-% labels = cell(nImgs,nImgs);
+% load(outFn);
+% % labels = cell(nImgs,nImgs);
 
 %% do labelling
 
 waitfor(msgbox({'press buttons to label:','spacebar - dont know',...
     '0 - outlier','1,2,... - motion groups'}));
 
-for pairIdx=6:size(pairsToLabel,2)
+for pairIdx=1:size(pairsToLabel,2)
     i = pairsToLabel(1,pairIdx);
     j = pairsToLabel(2,pairIdx);
     matches = data.pairs(i,j).matches;
@@ -60,3 +59,18 @@ for pairIdx=6:size(pairsToLabel,2)
     end
     save(outFn,'labels');
 end
+
+%%
+% cams=data.cams;
+% keys2 = cams(j).keys;
+% for k=1:numel(keys2)
+%     keys2(k).coord(1) = keys2(k).coord(1)+offset;
+% end
+% hold off;
+% image(img);
+% hold on;
+% set(gca,'YDir','reverse');
+% axis equal;
+% axis([0 size(img,2) 0 size(img,1)]);
+% plotMatches(cams(i).keys,keys2,matches(:,labels{i,j}==1),1,[0 1 1],[0 1 1])
+% % plotMatches(cams(i).keys,keys2,matches(:,labels{i,j}==2),false,[0 1 1],[0 1 1])
