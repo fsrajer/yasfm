@@ -19,7 +19,7 @@ for i=1:nNames
     
     % sort based on numbers
     r = regexp(fns{i},'\d+','match'); %find numbers
-    [~, ind] = sort(cellfun(@(c) str2double(c{1}), r)); % convert to numbers and sort
+    [~, ind] = sort(cellfun(@(c) str2double(c{end}), r)); % convert to numbers and sort
     fns{i} = fns{i}(ind); %// use index to build result
 end
 cd(matlabDir);
