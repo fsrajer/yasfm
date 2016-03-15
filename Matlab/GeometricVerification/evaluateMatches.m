@@ -5,15 +5,16 @@ addpath ..
 dataDir = 'C:\Users\Filip\Dropbox\pairs';
 allFn = 'tentatively_matched_all.txt';
 gtFn = [allFn(1:end-4) '_ground_truth.mat'];
-names = {'ratio','ratio-unique','ratio-unique-gv','ratio-unique-eg'};
+methods = {'ratio','ratio-unique','ratio-unique-gv','ratio-unique-eg','ratio-unique-eg4x'};
+% methods = {'ratio','ratio-unique','ratio-unique-gv','ratio-unique-eg4x'};
 
 allFn = fullfile(dataDir,allFn);
 gtFn = fullfile(dataDir,gtFn);
-nNames = numel(names);
-fns = cell(1,nNames);
+nMethods = numel(methods);
+fns = cell(1,nMethods);
 matlabDir = pwd;
-for i=1:nNames
-    d = fullfile(dataDir,names{i});
+for i=1:nMethods
+    d = fullfile(dataDir,methods{i});
     cd(d);
     fns{i} = cellstr(ls('matched*'));
     
@@ -33,55 +34,79 @@ nImgs = numel(data.cams);
 ld = load(gtFn);
 labels = ld.labels;
 
-filteredPairs = cell(1,nNames);
-for i=1:nNames
-    filteredPairs{i} = cell(1,numel(fns{i}));
+estPairs = cell(1,nMethods);
+for i=1:nMethods
+    estPairs{i} = cell(1,numel(fns{i}));
     for j=1:numel(fns{i})
-        data = readResults(fullfile(dataDir,names{i},fns{i}{j}),ignoreFeats);
-        filteredPairs{i}{j} = data.pairs;
+        data = readResults(fullfile(dataDir,methods{i},fns{i}{j}),ignoreFeats);
+        estPairs{i}{j} = data.pairs;
     end
 end
 
 %% show curves
 usedImgs = [];
+figIdx = 1;
 for i=1:nImgs
     for j=(i+1):nImgs
         gt = labels{i,j};
+        
         toUse = (gt ~= -1);
         n = sum(toUse);
-        
         gt(~toUse) = [];
-        gt(gt>0) = 1; % unite groups
+        
+        groups = unique(gt);
+        groups(groups<=0) = [];
         
         if n>0
             usedImgs = [usedImgs i j];
+            titleBase = ['precision-recall for pair ' num2str(i) '-' num2str(j)];
             all = allPairs(i,j).matches(:,toUse);
-            figure;
-            hold on
-            for iname=1:nNames
-                nFns = numel(fns{iname});
-                precision = zeros(1,nFns);
-                recall = zeros(1,nFns);
+            
+            gtCurr = gt;
+            gtCurr(gtCurr>0) = 1; % unite groups
+  
+            figure(figIdx); hold on;
+            for im=1:nMethods
+                nFns = numel(fns{im});
+                pr = zeros(1,nFns);
+                rc = zeros(1,nFns);
                 for k=1:nFns
-                    curr = filteredPairs{iname}{k}(i,j).matches;
+                    curr = estPairs{im}{k}(i,j).matches;
                     est = ismember(all',curr','rows')';
-                    truePositive = sum(gt==1 & est==1);
-                    falsePositive = sum(gt==0 & est==1);
-                    falseNegative = sum(gt==1 & est==0);
-                    precision(k) = truePositive/(truePositive+falsePositive);
-                    recall(k) = truePositive/(truePositive+falseNegative);
+                    [pr(k),rc(k)] = computePrecisionRecall(gtCurr,est);
                 end
-                plot(recall,precision,'x-','linewidth',1.5);
-                for k=1:nFns
-                    text(recall(k),precision(k),num2str(k));
-                end
+                plotPrecisionRecall(pr,rc);
             end
-            legend(names);
-            title(['precision-recall for pair ' num2str(i) '-' num2str(j)])
-            xlabel('recall');
-            ylabel('precision');
-            xlim([0 1]);
-            ylim([0 1]);
+            legend(methods);
+            title([titleBase '; all groups']);
+            
+            for ig=groups
+                gtCurr = gt;
+                gtCurr(gtCurr~=ig) = 0;
+                gtCurr(gtCurr>0) = 1;
+                allCurr = all(:,gtCurr==1);
+                
+                figure(figIdx+ig); hold on;
+                for im=1:nMethods
+                    nFns = numel(fns{im});
+                    pr = zeros(1,nFns);
+                    rc = zeros(1,nFns);
+                    for k=1:nFns
+                        curr = splitMatchesToGroups(estPairs{im}{k}(i,j));
+                        
+                        % which group has the most matches in common wit GT
+                        [~,currIdx] = max(cellfun(@(m)(sum(ismember(allCurr',m','rows'))),curr));
+                        curr = curr{currIdx};
+                        
+                        est = ismember(all',curr','rows')';
+                        [pr(k),rc(k)] = computePrecisionRecall(gtCurr,est);
+                    end
+                    plotPrecisionRecall(pr,rc);
+                end
+                legend(methods);
+                title([titleBase '; group ' num2str(ig)]);
+            end
+            figIdx = figIdx + numel(groups) + 1;
         end
     end
 end
