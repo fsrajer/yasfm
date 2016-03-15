@@ -340,11 +340,12 @@ MIND THE ORDER of the input points.
 \param[in] matches Points matches.
 \param[in] matchesToUse Matches which should be used.
 \param[in] tolerance Tolerance for refine optimization termination.
+\param[in] doRefine Apply non-linear refinement.
 \param[out] F Fundamental matrix.
 */
 YASFM_API void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,
-  const vector<int>& matchesToUse,double tolerance,Matrix3d *F);
+  const vector<int>& matchesToUse,double tolerance,bool doRefine,Matrix3d *F);
 
 /// Refines fundamental matrix using least squares.
 /**

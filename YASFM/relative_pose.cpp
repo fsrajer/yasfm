@@ -531,7 +531,7 @@ void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
 
 void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,
-  const vector<int>& matchesToUse,double tolerance,Matrix3d *pF)
+  const vector<int>& matchesToUse,double tolerance,bool doRefine,Matrix3d *pF)
 {
   auto& F = *pF;
   int nUseful = static_cast<int>(matchesToUse.size());
@@ -581,7 +581,8 @@ void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
   // Un-normalize
   F = C2.transpose() * F * C1;
 
-  refineFundamentalMatrixNonLinear(pts1,pts2,matches,matchesToUse,tolerance,&F);
+  if(doRefine)
+    refineFundamentalMatrixNonLinear(pts1,pts2,matches,matchesToUse,tolerance,&F);
 }
 
 void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
@@ -743,7 +744,7 @@ bool canBeMerged(const OptionsGeometricVerification& opt,
 
   Matrix3d F;
   estimateFundamentalMatrix(cam1.keys(),cam2.keys(),matches,bothGroups,
-    opt.get<double>("fundMatRefineTolerance"),&F);
+    opt.get<double>("fundMatRefineTolerance"),false,&F);
 
   vector<IntPair> relevantMatches(bothGroups.size());
   for(size_t i = 0; i < relevantMatches.size(); i++)
@@ -766,7 +767,7 @@ void enrichInliersWithEG(const OptionsGeometricVerification& opt,
 
   Matrix3d F;
   estimateFundamentalMatrix(cam1.keys(),cam2.keys(),matches,inliers,
-    opt.get<double>("fundMatRefineTolerance"),&F);
+    opt.get<double>("fundMatRefineTolerance"),true,&F);
 
   vector<int> newInliers;
   findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
