@@ -5,8 +5,9 @@ addpath ..
 dataDir = 'C:\Users\Filip\Dropbox\pairs';
 allFn = 'tentatively_matched_all.txt';
 gtFn = [allFn(1:end-4) '_ground_truth.mat'];
-methods = {'ratio','ratio-unique','ratio-unique-gv','ratio-unique-eg','ratio-unique-eg4x'};
-% methods = {'ratio','ratio-unique','ratio-unique-gv','ratio-unique-eg4x'};
+methods = {'ratio','ratio-unique','ratio-unique-gv','ratio-unique-eg'};
+% methods = {'ratio','ratio-unique','ratio-unique-gv','ratio-unique-eg',...
+%     'ratio-unique-eg4x','gv-greedy-group'};
 
 allFn = fullfile(dataDir,allFn);
 gtFn = fullfile(dataDir,gtFn);
@@ -66,6 +67,7 @@ for i=1:nImgs
             gtCurr(gtCurr>0) = 1; % unite groups
   
             figure(figIdx); hold on;
+            plotHandles = zeros(1,nMethods);
             for im=1:nMethods
                 nFns = numel(fns{im});
                 pr = zeros(1,nFns);
@@ -75,9 +77,9 @@ for i=1:nImgs
                     est = ismember(all',curr','rows')';
                     [pr(k),rc(k)] = computePrecisionRecall(gtCurr,est);
                 end
-                plotPrecisionRecall(pr,rc);
+                plotHandles(im) = plotPrecisionRecall(pr,rc);
             end
-            legend(methods);
+            legend(plotHandles,methods);
             title([titleBase '; all groups']);
             
             for ig=groups
@@ -101,11 +103,12 @@ for i=1:nImgs
                         est = ismember(all',curr','rows')';
                         [pr(k),rc(k)] = computePrecisionRecall(gtCurr,est);
                     end
-                    plotPrecisionRecall(pr,rc);
+                    plotHandles(im) = plotPrecisionRecall(pr,rc);
                 end
-                legend(methods);
+                legend(plotHandles,methods);
                 title([titleBase '; group ' num2str(ig)]);
             end
+            drawnow;
             figIdx = figIdx + numel(groups) + 1;
         end
     end
