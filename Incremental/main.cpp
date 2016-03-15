@@ -265,7 +265,7 @@ int main(int argc,const char* argv[])
   float& ratioThresh = opt.getOpt<OptionsFLANN>("matchingFLANN").get<float>("ratioThresh");
   ratioThresh = 0.0f;
   int nSteps = 40;
-  string name = "ratio";
+  string name = "gv-greedy-group";
   _mkdir(joinPaths(dir,name).c_str());
   pair_umap<CameraPair> allPairs = data.pairs();
   for(int i = 0; i < nSteps; i++,ratioThresh += 0.025f)
@@ -282,14 +282,14 @@ int main(int argc,const char* argv[])
       filterVector(keep,&pair.matches);
       filterVector(keep,&pair.dists);
 
-      /*keep.clear();
+      keep.clear();
       size_t numKeys2 = data.cam(entry.first.second).keys().size();
       findUniqueMatches(pair.matches,numKeys2,&keep);
       filterVector(keep,&pair.matches);
-      filterVector(keep,&pair.dists);*/
+      filterVector(keep,&pair.dists);
     }
-    //verifyMatchesGeometrically(opt.getOpt<OptionsGeometricVerification>("geometricVerification"),
-    //  data.cams(),&data.pairs());
+    verifyMatchesGeometrically(opt.getOpt<OptionsGeometricVerification>("geometricVerification"),
+      data.cams(),&data.pairs());
     //verifyMatchesEpipolar(opt.getOpt<OptionsRANSAC>("epipolarVerification"),
     //  data.cams(),&data.pairs());
 

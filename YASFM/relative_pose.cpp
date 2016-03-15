@@ -732,7 +732,57 @@ void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   }
 }
 
-YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+bool canBeMerged(const OptionsGeometricVerification& opt,
+  const vector<int>& group1,const vector<int>& group2,
+  const Camera& cam1,const Camera& cam2,const vector<IntPair>& matches)
+{
+  vector<int> bothGroups;
+  bothGroups.reserve(group1.size() + group2.size());
+  bothGroups.insert(bothGroups.begin(),group1.begin(),group1.end());
+  bothGroups.insert(bothGroups.end(),group2.begin(),group2.end());
+
+  Matrix3d F;
+  estimateFundamentalMatrix(cam1.keys(),cam2.keys(),matches,bothGroups,
+    opt.get<double>("fundMatRefineTolerance"),&F);
+
+  vector<IntPair> relevantMatches(bothGroups.size());
+  for(size_t i = 0; i < relevantMatches.size(); i++)
+    relevantMatches[i] = matches[bothGroups[i]];
+
+  vector<int> inliers;
+  findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
+    cam1.keys(),cam2.keys(),relevantMatches,F,&inliers);
+
+  return (inliers.size() >= (size_t)(0.95*relevantMatches.size()));
+}
+
+void enrichInliersWithEG(const OptionsGeometricVerification& opt,
+  const Camera& cam1,const Camera& cam2,
+  const vector<IntPair>& matches,vector<bool> *punassigned,
+  vector<int> *pinliers)
+{
+  auto& unassigned = *punassigned;
+  auto& inliers = *pinliers;
+
+  Matrix3d F;
+  estimateFundamentalMatrix(cam1.keys(),cam2.keys(),matches,inliers,
+    opt.get<double>("fundMatRefineTolerance"),&F);
+
+  vector<int> newInliers;
+  findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
+    cam1.keys(),cam2.keys(),matches,F,&newInliers);
+
+  for(int idx : newInliers)
+  {
+    if(unassigned[idx])
+    {
+      unassigned[idx] = false;
+      inliers.push_back(idx);
+    }
+  }
+}
+
+int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   const Camera& cam1,const Camera& cam2,const vector<IntPair>& allMatches,
   vector<int> *poutInliers,vector<int> *pinlierSetSizes)
 {
@@ -812,33 +862,51 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
 
   if(inlierSetSizes.size() > 1)
   {
-    Matrix3d F;
-
-    currInliers = outInliers;
-    for(size_t i = 0; i < 4; i++)
+    vector<vector<int>> groups(inlierSetSizes.size());
+    vector<bool> isGroupEG(groups.size(),false);
+    int idx = 0;
+    for(size_t i = 0; i < inlierSetSizes.size(); i++)
     {
-      estimateFundamentalMatrix(cam1.keys(),cam2.keys(),allMatches,currInliers,
-        opt.get<double>("fundMatRefineTolerance"),&F);
-
-      size_t inliersPrev = currInliers.size();
-      currInliers.clear();
-      findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
-        cam1.keys(),cam2.keys(),allMatches,F,&currInliers);
-
-      if(currInliers.size() <= inliersPrev)
-        break;
+      groups[i].reserve(inlierSetSizes[i]);
+      for(int j = 0; j < inlierSetSizes[i]; j++, idx++)
+      {
+        groups[i].push_back(outInliers[idx]);
+      }
     }
 
-    vector<bool> isIncluded(allMatches.size(),false);
+    for(int i = 0; i < (int)groups.size(); i++)
+    {
+      for(int j = i+1; j < (int)groups.size(); j++)
+      {
+        if(canBeMerged(opt,groups[i],groups[j],cam1,cam2,allMatches))
+        {
+          groups[i].insert(groups[i].end(),groups[j].begin(),groups[j].end());
+          groups.erase(groups.begin() + j);
+          isGroupEG[i] = true;
+          isGroupEG.erase(isGroupEG.begin() + j);
+          j--;
+        }
+      }
+    }
+
+    vector<bool> unassigned(allMatches.size(),true);
     for(int idx : outInliers)
-      isIncluded[idx] = true;
+      unassigned[idx] = false;
 
-    size_t inliersPrev = outInliers.size();
-    for(int idx : currInliers)
-      if(!isIncluded[idx])
-        outInliers.push_back(idx);
+    for(size_t ig = 0; ig < groups.size(); ig++)
+    {
+      if(isGroupEG[ig])
+        enrichInliersWithEG(opt,cam1,cam2,allMatches,&unassigned,&groups[ig]);
+    }
 
-    inlierSetSizes.push_back(static_cast<int>(outInliers.size() - inliersPrev));
+    outInliers.clear();
+    inlierSetSizes.clear();
+    for(const auto& g : groups)
+    {
+      outInliers.insert(outInliers.end(),g.begin(),g.end());
+      inlierSetSizes.push_back(static_cast<int>(g.size()));
+    }
+
   } else
   {
     inlierSetSizes.push_back(0);
