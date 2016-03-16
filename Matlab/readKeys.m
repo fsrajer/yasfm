@@ -15,11 +15,12 @@ else
     dim = fread(fid,1,'int');
     
     keys = repmat(struct('coord',[0;0],'scale',0,'orientation',0),nKeys,1);
+    tmp = reshape(fread(fid,nKeys*4,'float'),[4 nKeys]);
     for i=1:nKeys
-        keys(i).coord(2) = fread(fid,1,'float');
-        keys(i).coord(1) = fread(fid,1,'float');
-        keys(i).scale = fread(fid,1,'float');
-        keys(i).orientation = fread(fid,1,'float');
+        keys(i).coord(2) = tmp(1,i);
+        keys(i).coord(1) = tmp(2,i);
+        keys(i).scale = tmp(3,i);
+        keys(i).orientation = tmp(4,i);
     end
     
     if readDesc
