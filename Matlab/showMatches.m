@@ -37,7 +37,12 @@ imgsToRead = unique(pairsToShow(:))';
 for i=imgsToRead
    imgs{i} = imread(cams(i).fn); 
 end
-
+% %=== ground truth
+% ignoreFeats = true;
+% data = readResults('C:\Users\Filip\Dropbox\pairs\tentatively_matched_all.txt',ignoreFeats);
+% allPairs = data.pairs;
+% load('C:\Users\Filip\Dropbox\pairs\tentatively_matched_all_ground_truth.mat');
+% %=== 
 subfigIdx = 1;
 for pair=pairsToShow
     i=pair(1);
@@ -77,8 +82,27 @@ for pair=pairsToShow
         matches = pairs{iData}(i,j).matches;
         plotMatches(cams(i).keys,keys2,matches,showLines,...
             cols{1,iData},cols{2,iData});
+        
+%         %=== ground truth
+%         if ~isempty(matches)
+%             gtCurr = labels{i,j}';
+%             all = allPairs(i,j).matches;
+%             [est,all2curr] = ismember(all',matches','rows');
+%             bad = all2curr(gtCurr==0 & est>0);
+%             bad(bad==0) = [];
+%             if ~isempty(bad)
+%                 keys1 = cams(i).keys;
+%                 coord1 = cell2mat({keys1(matches(1,bad)).coord});
+%                 coord2 = cell2mat({keys2(matches(2,bad)).coord});
+%                 plot(coord1(1,:),coord1(2,:),'ro');
+%                 plot(coord2(1,:),coord2(2,:),'ro');
+%             end
+%         end
+%         %===
+        
         tit = [tit num2str(size(matches,2)) '/'];
     end
+    
     tit(end) = [];
     title(tit);
     
