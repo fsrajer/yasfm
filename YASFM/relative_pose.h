@@ -346,7 +346,7 @@ YASFM_API void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,
   const vector<int>& matchesToUse,double tolerance,Matrix3d *F);
 
-/// Refines fundamental matrix using least squares.
+/// Refines fundamental matrix using levenberg-marquardt.
 /**
 Finds a solution for pts2'*F*pts1 = 0.
 MIND THE ORDER of the input points.
@@ -757,10 +757,9 @@ MIND THE ORDER of the input points.
 double computeSymmetricEpipolarSquaredDistanceFundMat(const Vector2d& pt2,const Matrix3d& F,
   const Vector2d& pt1);
 
-// Data are pointer to 
 /// Function for cminpack call which computes symmetric epipolar distance.
 /**
-\param[in] data Pointer to Mediator7ptRANSAC::RefineData.
+\param[in] data Pointer to FundamentalMatrixRefineData.
 \param[in] nPoints Number of matches/residuals.
 \param[in] nParams Number of F parameters (9).
 \param[in] params F parameters column wise.
