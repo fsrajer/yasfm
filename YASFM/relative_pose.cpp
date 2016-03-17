@@ -322,15 +322,16 @@ void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
   }
 }
 
-void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
+void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,bool allCamerasCalibrated,
 	const ptr_vector<Camera>& cams, pair_umap<CameraPair> *pairs, 
 	GeomVerifyCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
-	verifyMatchesEpipolar(solverOpt, true, cams, pairs, callbackFunction, callbackObjectPtr);
+  verifyMatchesEpipolar(solverOpt,true,allCamerasCalibrated,cams,pairs,callbackFunction,callbackObjectPtr);
 }
 
 void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
-  bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs,
+  bool verbose,bool allCamerasCalibrated,const ptr_vector<Camera>& cams,
+  pair_umap<CameraPair> *pairs,
   GeomVerifyCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
   clock_t start,end;
@@ -348,10 +349,19 @@ void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
       start = clock();
     }
 
-    Matrix3d F;
+    bool success;
     vector<int> inliers;
-    bool success = estimateRelativePose7ptPROSAC(solverOpt,
-      cams[camsIdx.first]->keys(),cams[camsIdx.second]->keys(),pair,&F,&inliers);
+    if(allCamerasCalibrated)
+    {
+      Matrix3d E;
+      success = estimateRelativePose5ptPROSAC(solverOpt,
+        *cams[camsIdx.first],*cams[camsIdx.second],pair,&E,&inliers);
+    } else
+    {
+      Matrix3d F;
+      success = estimateRelativePose7ptPROSAC(solverOpt,
+        cams[camsIdx.first]->keys(),cams[camsIdx.second]->keys(),pair,&F,&inliers);
+    }
     if(success)
     {
       nPrevMatches = static_cast<int>(pair.matches.size());
@@ -489,6 +499,20 @@ bool estimateRelativePose5ptRANSAC(const OptionsRANSAC& opt,
   Matrix3d F;
   Mediator5ptRANSAC m(cam1,cam2,matches);
   int nInliers = estimateTransformRANSAC(m,opt,&F,inliers);
+  *E = cam2.K().transpose() * F * cam1.K();
+  return (nInliers > 0);
+}
+
+
+bool estimateRelativePose5ptPROSAC(const OptionsRANSAC& opt,
+  const Camera& cam1,const Camera& cam2,const CameraPair& pair,Matrix3d *E,
+  vector<int> *inliers)
+{
+  Matrix3d F;
+  Mediator5ptRANSAC m(cam1,cam2,pair.matches);
+  vector<int> matchesOrder;
+  yasfm::quicksort(pair.dists,&matchesOrder);
+  int nInliers = estimateTransformPROSAC(m,opt,matchesOrder,&F,inliers);
   *E = cam2.K().transpose() * F * cam1.K();
   return (nInliers > 0);
 }

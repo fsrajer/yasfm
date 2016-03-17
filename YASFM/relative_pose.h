@@ -231,7 +231,9 @@ kept (as well as corresponding dists). The empty pairs get removed.
 \param[in] pointer to an object whose callback function should be called.
 */
 YASFM_API void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
-	bool verbose, const ptr_vector<Camera>& cams, pair_umap<CameraPair> *pairs, GeomVerifyCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
+  bool verbose,bool allCamerasCalibrated,const ptr_vector<Camera>& cams,
+  pair_umap<CameraPair> *pairs, 
+  GeomVerifyCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Sets verbosity to true and calls overloaded function.
 /**
@@ -242,7 +244,9 @@ YASFM_API void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
 \param[in] pointer to an object whose callback function should be called.
 */
 YASFM_API void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
-	const ptr_vector<Camera>& cams, pair_umap<CameraPair> *pairs, GeomVerifyCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
+  bool allCamerasCalibrated,const ptr_vector<Camera>& cams, 
+  pair_umap<CameraPair> *pairs, 
+  GeomVerifyCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Estimate fundamental matrix using PROSAC.
 /**
@@ -312,6 +316,24 @@ MIND THE ORDER of the input points.
 */
 YASFM_API bool estimateRelativePose5ptRANSAC(const OptionsRANSAC& opt,
   const Camera& cam1,const Camera& cam2,const vector<IntPair>& matches,Matrix3d *E,
+  vector<int> *inliers = nullptr);
+
+/// Estimate essential matrix using PROSAC.
+/**
+Robust estimator, which finds such an essential matrix that
+(inv(K1)*pts2)'*E*(inv(K2)*pts1) = 0 using 5 point algorithm.
+MIND THE ORDER of the input points.
+
+\param[in] opt Options.
+\param[in] cam1 First camera with set keys and calibration.
+\param[in] cam2 Second camera with set keys and calibration.
+\param[in] matches Keys matches.
+\param[out] E Essential matrix.
+\param[out] inliers Inliers to the best matrix.
+\return False if the estimated hypothesis was not supported by enough inliers.
+*/
+YASFM_API bool estimateRelativePose5ptPROSAC(const OptionsRANSAC& opt,
+  const Camera& cam1,const Camera& cam2,const CameraPair& pair,Matrix3d *E,
   vector<int> *inliers = nullptr);
 
 /// Estimate essential matrix (minimal solver).
