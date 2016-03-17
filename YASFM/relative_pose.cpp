@@ -1204,8 +1204,11 @@ int Mediator5ptRANSAC::minMatches() const
 void Mediator5ptRANSAC::refine(double tolerance,const vector<int>& inliers,
   Matrix3d *F) const
 {
-  // TODO: Find LM lib for non-linear minimization
-  // change F to E before optimization.
+  Matrix3d E = cam2_.K().transpose() * (*F) * cam1_.K();
+  refineEssentialMatrixNonLinear(cam1_.keys(),cam2_.keys(),
+    invK1_,invK2_,matches_,inliers,
+    tolerance,&E);
+  F->noalias() = invK2_.transpose() * E * invK1_;
 }
 
 MediatorHomographyRANSAC::MediatorHomographyRANSAC(const vector<Vector2d>& keys1,
