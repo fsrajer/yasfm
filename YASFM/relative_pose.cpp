@@ -815,9 +815,12 @@ bool canBeMerged(const OptionsGeometricVerification& opt,
   bothGroups.insert(bothGroups.begin(),group1.begin(),group1.end());
   bothGroups.insert(bothGroups.end(),group2.begin(),group2.end());
 
-  Matrix3d F;
-  estimateFundamentalMatrix(cam1.keys(),cam2.keys(),matches,bothGroups,
-    opt.get<double>("fundMatRefineTolerance"),&F);
+  Matrix3d invK1 = cam1.K().inverse();
+  Matrix3d invK2 = cam2.K().inverse();
+  Matrix3d E;
+  estimateEssentialMatrix(cam1.keys(),cam2.keys(),invK1,invK2,matches,bothGroups,
+    opt.get<double>("fundMatRefineTolerance"),&E);
+  Matrix3d F = invK2.transpose() * E * invK1;
 
   vector<IntPair> relevantMatches(bothGroups.size());
   for(size_t i = 0; i < relevantMatches.size(); i++)
@@ -838,9 +841,12 @@ void enrichInliersWithEG(const OptionsGeometricVerification& opt,
   auto& unassigned = *punassigned;
   auto& inliers = *pinliers;
 
-  Matrix3d F;
-  estimateFundamentalMatrix(cam1.keys(),cam2.keys(),matches,inliers,
-    opt.get<double>("fundMatRefineTolerance"),&F);
+  Matrix3d invK1 = cam1.K().inverse();
+  Matrix3d invK2 = cam2.K().inverse();
+  Matrix3d E;
+  estimateEssentialMatrix(cam1.keys(),cam2.keys(),invK1,invK2,matches,inliers,
+    opt.get<double>("fundMatRefineTolerance"),&E);
+  Matrix3d F = invK2.transpose() * E * invK1;
 
   vector<int> newInliers;
   findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),

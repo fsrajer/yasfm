@@ -262,6 +262,14 @@ int main(int argc,const char* argv[])
   data.writeASCII("tentatively_matched_all.txt");*/
   data.readASCII("tentatively_matched_all_with_gt.txt");
   
+  for(int i = 0; i < data.numCams(); i++)
+  {
+    auto& cam = data.cam(i);
+    double maxDim = std::max(cam.imgWidth(),cam.imgHeight());
+    double focalPx = opt.get<double>("defaultFocalDividedBySensorSize") * maxDim;
+    cam.setFocal(focalPx);
+  }
+
   float& ratioThresh = opt.getOpt<OptionsFLANN>("matchingFLANN").get<float>("ratioThresh");
   ratioThresh = 0.0f;
   int nSteps = 40;
