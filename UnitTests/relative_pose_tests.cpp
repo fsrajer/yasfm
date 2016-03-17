@@ -375,6 +375,61 @@ namespace yasfm_tests
       Assert::IsTrue(F.isApprox(_F,1e-5));
     }
 
+    TEST_METHOD(estimateEssentialMatrixTest)
+    {
+      double tolerance = 1e-12;
+      Matrix3d E;
+      closestEssentialMatrix(Matrix3d::Random(),&E);
+      Matrix3d K1 = generateRandomCalibration(),
+        K2 = generateRandomCalibration();
+
+      int n = 15;
+      vector<Vector2d> keys1(n),keys2(n);
+      vector<IntPair> matches;
+      vector<int> matchesToUse;
+      for(int i = 0; i < n; i++)
+      {
+        Vector3d pt2 = Vector3d::Random();
+        keys2[i] = (K2 * pt2).hnormalized();
+
+        Vector3d pt1 = Vector3d::Random();
+        Vector3d tmp = pt2.transpose() * E;
+        pt1(0) = -(tmp(1)*pt1(1) + tmp(2)*pt1(2))/tmp(0);
+
+        keys1[i] = (K1 * pt1).hnormalized();
+
+        matches.emplace_back(i,i);
+        matchesToUse.push_back(i);
+
+        // add noise
+        keys1[i] += 1e-9 * Vector2d::Random();
+        keys2[i] += 1e-9 * Vector2d::Random();
+      }
+
+      Matrix3d _E;
+      estimateEssentialMatrix(keys1,keys2,K1.inverse(),K2.inverse(),
+        matches,matchesToUse,tolerance,&_E);
+      _E /= _E(2,2);
+      E /= E(2,2);
+
+      Assert::IsTrue(E.isApprox(_E,1e-8));
+
+      _E += 1e-4 * Matrix3d::Random();
+      double cumErr = 0;
+      for(int i = 0; i < n; i++)
+        cumErr += abs((K2.inverse()*keys2[i].homogeneous()).transpose() * _E *
+        (K1.inverse() * keys1[i].homogeneous()));
+      
+      refineEssentialMatrixNonLinear(keys1,keys2,K1.inverse(),K2.inverse(),
+        matches,matchesToUse,tolerance,&_E);
+      double _cumErr = 0;
+      for(int i = 0; i < n; i++)
+        _cumErr += abs((K2.inverse()*keys2[i].homogeneous()).transpose() * _E *
+        (K1.inverse() * keys1[i].homogeneous()));
+      
+      Assert::IsTrue(cumErr > _cumErr);
+    }
+
     TEST_METHOD(computeSimilarityFromMatchTest)
     {
       const double cPrecision = 1e-8;

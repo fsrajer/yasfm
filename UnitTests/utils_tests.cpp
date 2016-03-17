@@ -9,6 +9,7 @@
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using Eigen::Vector4d;
+using Eigen::JacobiSVD;
 using namespace yasfm;
 using std::array;
 
@@ -195,6 +196,23 @@ Matrix34d generateRandomProjection()
       Vector3d res1 = x.cross(a);
       Vector3d res2 = X*a;
       Assert::IsTrue(res1 == res2);
+    }
+
+    TEST_METHOD(closestEssentialMatrixTest)
+    {
+      Matrix3d A(Matrix3d::Random()),E;
+      closestEssentialMatrix(A,&E);
+
+      JacobiSVD<Matrix3d> svd(E);
+      Assert::IsTrue(abs(svd.singularValues()(0) - svd.singularValues()(1)) < 1e-12);
+      Assert::IsTrue(abs(svd.singularValues()(2)) < 1e-12);
+
+      E.setZero();
+      closestEssentialMatrix(A.data(),E.data());
+
+      svd = JacobiSVD<Matrix3d>(E);
+      Assert::IsTrue(abs(svd.singularValues()(0) - svd.singularValues()(1)) < 1e-12);
+      Assert::IsTrue(abs(svd.singularValues()(2)) < 1e-12);
     }
 
     TEST_METHOD(RQDecompositionTest)
