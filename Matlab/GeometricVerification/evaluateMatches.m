@@ -5,9 +5,11 @@ addpath ..
 dataDir = 'C:\Users\Filip\Dropbox\pairs';
 allFn = 'tentatively_matched_all.txt';
 gtFn = [allFn(1:end-4) '_ground_truth.mat'];
-methods = {'ratio','ratio-unique','ratio-unique-gv','ratio-unique-eg'};
-% methods = {'ratio','ratio-unique','ratio-unique-gv','ratio-unique-eg',...
-%     'ratio-unique-eg4x','gv-greedy-group'};
+% methods = {'ratio','ratio-unique','ratio-unique-gv','ratio-unique-eg'};
+% methods = {'ratio','ratio-unique','ratio-unique-eg',...
+%     'ratio-unique-eg4x','gv-greedy-group','gv-merge-E'};
+methods = {'ratio','ratio-unique','ratio-unique-eg',...
+    'eg-E','gv-merge-E'};
 
 allFn = fullfile(dataDir,allFn);
 gtFn = fullfile(dataDir,gtFn);
