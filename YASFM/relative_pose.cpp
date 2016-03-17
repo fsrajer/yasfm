@@ -629,6 +629,80 @@ int findFundamentalMatrixInliers(double thresh,const vector<Vector2d>& pts1,
   return static_cast<int>(inliers.size());
 }
 
+void estimateEssentialMatrix(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const Matrix3d& invK1,const Matrix3d& invK2,
+  const vector<IntPair>& matches,const vector<int>& matchesToUse,
+  double tolerance,Matrix3d *pE)
+{
+  auto& E = *pE;
+  int nUseful = static_cast<int>(matchesToUse.size());
+
+  if(nUseful < 8)
+  {
+    cerr << "ERROR: estimateEssentialMatrix: Too few matches handed."
+      << " At least 8 needed and " << nUseful << " was given.\n";
+    E.setZero();
+    return;
+  }
+
+  MatrixXd A(nUseful,8);
+  VectorXd b(nUseful);
+  for(int i = 0; i < nUseful; i++)
+  {
+    Vector3d pt1 = invK1 * pts1[matches[matchesToUse[i]].first].homogeneous();
+    Vector3d pt2 = invK2 * pts2[matches[matchesToUse[i]].second].homogeneous();
+
+    A.row(i) <<
+      pt1(0) * pt2(0),
+      pt1(0) * pt2(1),
+      pt1(0) * pt2(2),
+      pt1(1) * pt2(0),
+      pt1(1) * pt2(1),
+      pt1(1) * pt2(2),
+      pt1(2) * pt2(0),
+      pt1(2) * pt2(1);
+
+    b(i) = -(pt1(2)*pt2(2));
+  }
+
+  VectorXd e = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+
+  // Not rank 2 yet. Nor has it the same 1st and 2nd singular values.
+  Matrix3d E_;
+  E_.col(0) = e.topRows(3);
+  E_.col(1) = e.middleRows(3,3);
+  E_(0,2) = e(6); E_(1,2) = e(7); E_(2,2) = 1.;
+
+  closestEssentialMatrix(E_,&E);
+
+  refineEssentialMatrixNonLinear(pts1,pts2,invK1,invK2,matches,matchesToUse,tolerance,&E);
+}
+
+void refineEssentialMatrixNonLinear(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const Matrix3d& invK1,const Matrix3d& invK2,
+  const vector<IntPair>& matches,const vector<int>& matchesToUse,
+  double tolerance,Matrix3d *E)
+{
+  int numPoints = static_cast<int>(matchesToUse.size());
+  const int numParams = 9;
+
+  EssentialMatrixRefineData data;
+  data.invK1 = &invK1;
+  data.invK2 = &invK2;
+  data.keys1 = &pts1;
+  data.keys2 = &pts2;
+  data.matches = &matches;
+  data.matchesToUse = &matchesToUse;
+
+  vector<double> residuals(numPoints);
+
+  Matrix3d tmp = *E;
+  nonLinearOptimLMCMINPACK(computeSymmetricEpipolarDistanceEssenMatCMINPACK,
+    &data,numPoints,numParams,tolerance,tmp.data(),&residuals[0]);
+
+  closestEssentialMatrix(tmp,E);
+}
+
 void computeHomographyInliersProportion(const OptionsRANSAC& opt,
   const ptr_vector<Camera>& cams,const pair_umap<CameraPair>& pairs,
   ArrayXXd *pproportion, HomographyInliersCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
@@ -1163,6 +1237,25 @@ int computeSymmetricEpipolarDistanceFundMatCMINPACK(void *pdata,
   closestRank2Matrix(params,F.data());
 
   const auto& data = *static_cast<FundamentalMatrixRefineData *>(pdata);
+  for(int iInlier = 0; iInlier < nPoints; iInlier++)
+  {
+    IntPair match = (*data.matches)[(*data.matchesToUse)[iInlier]];
+    residuals[iInlier] = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(
+      (*data.keys2)[match.second],F,(*data.keys1)[match.first]));
+  }
+  return 0; // Negative value would terminate the optimization.
+}
+
+int computeSymmetricEpipolarDistanceEssenMatCMINPACK(void *pdata,
+  int nPoints,int nParams,const double* params,double* residuals,int iflag)
+{
+  const auto& data = *static_cast<EssentialMatrixRefineData *>(pdata);
+
+  Matrix3d E;
+  closestEssentialMatrix(params,E.data());
+  
+  Matrix3d F = (*data.invK2).transpose() * E * (*data.invK1);
+
   for(int iInlier = 0; iInlier < nPoints; iInlier++)
   {
     IntPair match = (*data.matches)[(*data.matchesToUse)[iInlier]];

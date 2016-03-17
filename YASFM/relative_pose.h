@@ -378,6 +378,45 @@ YASFM_API int findFundamentalMatrixInliers(double thresh,const vector<Vector2d>&
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,const Matrix3d& F,
   vector<int> *inliers);
 
+/// Compute essential matrix from an all-inlier sample.
+/**
+Does least squares, closest essential matrix using svd (and non-linear refinement - not yet).
+Finds a solution for (inv(K2)*pts2)'*E*(inv(K1)*pts1) = 0.
+MIND THE ORDER of the input points.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] invK1 Inverse calibration matrix corresponding to pts1.
+\param[in] invK2 Inverse calibration matrix corresponding to pts2.
+\param[in] matches Points matches.
+\param[in] matchesToUse Matches which should be used.
+\param[in] tolerance Tolerance for refine optimization termination.
+\param[out] E Essential matrix.
+*/
+YASFM_API void estimateEssentialMatrix(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const Matrix3d& invK1,const Matrix3d& invK2,
+  const vector<IntPair>& matches,const vector<int>& matchesToUse,
+  double tolerance,Matrix3d *E);
+
+/// Refines essential matrix using levenberg-marquardt.
+/**
+Finds a solution for (inv(K2)*pts2)'*E*(inv(K1)*pts1) = 0.
+MIND THE ORDER of the input points.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] invK1 Inverse calibration matrix corresponding to pts1.
+\param[in] invK2 Inverse calibration matrix corresponding to pts2.
+\param[in] matches Points matches.
+\param[in] matchesToUse Matches which should be used.
+\param[in] tolerance Tolerance for optimization termination (try e.g. 1e-12).
+\param[in,out] E Essential matrix.
+*/
+YASFM_API void refineEssentialMatrixNonLinear(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const Matrix3d& invK1,const Matrix3d& invK2,
+  const vector<IntPair>& matches,const vector<int>& matchesToUse,
+  double tolerance,Matrix3d *E);
+
 /// Compute proportion of the best homography inliers in the matches for all pairs.
 /**
 Estimate homography for every camera pair and save the proportion numInliers/numPoints 
@@ -773,6 +812,30 @@ int computeSymmetricEpipolarDistanceFundMatCMINPACK(void *data,int nPoints,
 /// Structure for passing data into cminpack for refining.
 struct FundamentalMatrixRefineData
 {
+  const vector<Vector2d> *keys1;
+  const vector<Vector2d> *keys2;
+  const vector<IntPair> *matches; ///< Keys matches.
+  const vector<int> *matchesToUse;     ///< Indices of inlier matches.
+};
+
+/// Function for cminpack call which computes symmetric epipolar distance.
+/**
+\param[in] data Pointer to EssentialMatrixRefineData.
+\param[in] nPoints Number of matches/residuals.
+\param[in] nParams Number of E parameters (9).
+\param[in] params E parameters column wise.
+\param[out] residuals Errors.
+\param[in] iflag Is this call residual or Jacobian computation.
+\return Flag. Negative value would terminate the optimization.
+*/
+int computeSymmetricEpipolarDistanceEssenMatCMINPACK(void *data,int nPoints,
+  int nParams,const double* params,double* residuals,int iflag);
+
+/// Structure for passing data into cminpack for refining.
+struct EssentialMatrixRefineData
+{
+  const Matrix3d *invK1;
+  const Matrix3d *invK2;
   const vector<Vector2d> *keys1;
   const vector<Vector2d> *keys2;
   const vector<IntPair> *matches; ///< Keys matches.

@@ -265,7 +265,7 @@ int main(int argc,const char* argv[])
   float& ratioThresh = opt.getOpt<OptionsFLANN>("matchingFLANN").get<float>("ratioThresh");
   ratioThresh = 0.0f;
   int nSteps = 40;
-  string name = "gv-greedy-group";
+  string name = "gv-merge-E";
   _mkdir(joinPaths(dir,name).c_str());
   pair_umap<CameraPair> allPairs = data.pairs();
   for(int i = 0; i < nSteps; i++,ratioThresh += 0.025f)

@@ -132,6 +132,20 @@ YASFM_API void closestRank2Matrix(const double* const A,double* B);
 */
 YASFM_API void closestRank2Matrix(const Matrix3d& A,Matrix3d *B);
 
+/// Find closest essential matrix using svd decomposition.
+/**
+\param[in] A 3x3 matrix.
+\param[out] E Essential matrix (rank 2 + 1st and 2nd singular values the same).
+*/
+YASFM_API void closestEssentialMatrix(const double* const A,double* E);
+
+/// Find closest essential matrix using svd decomposition.
+/**
+\param[in] A 3x3 matrix.
+\param[out] E Essential matrix (rank 2 + 1st and 2nd singular values the same).
+*/
+YASFM_API void closestEssentialMatrix(const Matrix3d& A,Matrix3d *E);
+
 /// RQ decomposition
 /**
 Decomposes A so that A = R*Q, where R is upper triangular and Q is orthogonal. 
