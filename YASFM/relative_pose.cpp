@@ -4,6 +4,7 @@
 #include <iostream>
 
 #include "5point/5point.h"
+#include "ceres/ceres.h"
 
 #include "points.h"
 
@@ -632,12 +633,59 @@ void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   }
 }
 
-YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+struct GeomVerifCostFunctor
+{
+  GeomVerifCostFunctor(int nTrans,const Vector2d& x1,const Vector2d& x2)
+    : nTrans_(nTrans),x1_(x1),x2_(x2)
+  {
+  }
+
+  template<typename T>
+  bool operator()(T const* const* parameters,T* residuals) const
+  {
+    const T *Hs = parameters[0];
+    const T *alpha = parameters[1];
+
+    residuals[0] = T(0.);
+    T alphaSqSum = T(0.);
+    for(int iH = 0; iH < nTrans_; iH++)
+    {
+      const T *H = &Hs[iH*9];
+      
+      T pt[3];
+      pt[0] = H[0] * T(x1_(0)) + H[3] * T(x1_(1)) + H[6];
+      pt[1] = H[1] * T(x1_(0)) + H[4] * T(x1_(1)) + H[7];
+      pt[2] = H[2] * T(x1_(0)) + H[5] * T(x1_(1)) + H[8];
+
+      T diff[2];
+      diff[0] = T(x2_(0)) - (pt[0] / pt[2]);
+      diff[1] = T(x2_(1)) - (pt[1] / pt[2]);
+
+      T err = sqrt(diff[0]*diff[0] + diff[1]*diff[1]);
+      
+      T aSq = alpha[iH]*alpha[iH];
+
+      alphaSqSum += aSq;
+      residuals[0] += aSq * err;
+    }
+    
+    if(alphaSqSum != T(0.))
+      residuals[0] /= alphaSqSum;
+    
+    return true;
+  }
+
+  int nTrans_;
+  const Vector2d& x1_,x2_;
+};
+
+int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   const Camera& cam1,const Camera& cam2,const vector<IntPair>& allMatches,
   vector<int> *poutInliers,vector<int> *pinlierSetSizes)
 {
   auto& outInliers = *poutInliers;
   auto& inlierSetSizes = *pinlierSetSizes;
+  vector<Matrix3d> Hs;
 
   int nAllMatches = static_cast<int>(allMatches.size());
   vector<IntPair> remainingMatches = allMatches;
@@ -645,6 +693,7 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
   for(int i = 0; i < nAllMatches; i++)
     remainingToAll[i] = i;
 
+  Matrix3d bestH;
   vector<int> bestInliers,currInliers;
   bestInliers.reserve(nAllMatches);
   currInliers.reserve(nAllMatches);
@@ -658,32 +707,32 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
       int k1 = remainingMatches[iMatch].first;
       int k2 = remainingMatches[iMatch].second;
       currInliers.clear();
+      Matrix3d currH;
 
       for(int iRefine = 0; iRefine < opt.get<int>("nRefineIterations"); iRefine++)
       {
-        Matrix3d H;
         double thresh;
         if(iRefine == 0)
         {
           computeSimilarityFromMatch(cam1.key(k1),cam1.keysScales()[k1],
             cam1.keysOrientations()[k1],cam2.key(k2),cam2.keysScales()[k2],
-            cam2.keysOrientations()[k2],&H);
+            cam2.keysOrientations()[k2],&currH);
           thresh = opt.get<double>("similarityThresh");
         } else if(iRefine <= 4)
         {
           estimateAffinity(cam1.keys(),cam2.keys(),remainingMatches,
-            currInliers,&H);
+            currInliers,&currH);
           thresh = opt.get<double>("affinityThresh");
         } else
         {
           estimateHomography(cam1.keys(),cam2.keys(),remainingMatches,
-            currInliers,&H);
+            currInliers,&currH);
           thresh = opt.get<double>("homographyThresh");
         }
 
         currInliers.clear();
         findHomographyInliers(thresh,cam1.keys(),cam2.keys(),
-          remainingMatches,H,&currInliers);
+          remainingMatches,currH,&currInliers);
         
         if(currInliers.size() < opt.get<int>("minInliersToRefine"))
           break;
@@ -694,12 +743,16 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
       }
 
       if(currInliers.size() > bestInliers.size())
+      {
         bestInliers = currInliers;
+        bestH = currH;
+      }
     }
 
     if(bestInliers.size() < opt.get<int>("minInliersPerTransform"))
       break;
 
+    Hs.push_back(bestH);
     inlierSetSizes.push_back(static_cast<int>(bestInliers.size()));
     for(int remainingMatchesInlier : bestInliers)
       outInliers.push_back(remainingToAll[remainingMatchesInlier]);
@@ -708,6 +761,81 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
 
     if(remainingMatches.size() < opt.get<int>("minInliersPerTransform"))
       break;
+  }
+
+  int nTrans = (int)Hs.size();
+  size_t nInliers = outInliers.size();
+  vector<double> alpha(nTrans*nInliers);
+  
+  // Initialize weights
+  for(size_t ii = 0; ii < nInliers; ii++)
+  {
+    IntPair match = allMatches[outInliers[ii]];
+    for(int iH = 0; iH < nTrans; iH++)
+    {
+      Vector3d pt = Hs[iH] * cam1.key(match.first).homogeneous();
+      double err = (pt.hnormalized() - cam2.key(match.second)).norm();
+      alpha[ii*nTrans + iH] = sqrt(1. / err);
+    }
+  }
+
+  // Set-up the problem
+  ceres::Problem problem;
+  for(size_t ii = 0; ii < nInliers; ii++)
+  {
+    IntPair match = allMatches[outInliers[ii]];
+    const auto& pt1 = cam1.key(match.first);
+    const auto& pt2 = cam2.key(match.second);
+
+    auto costFun =
+      new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctor>(
+      new GeomVerifCostFunctor(nTrans,pt1,pt2));
+    
+    costFun->AddParameterBlock(nTrans*9);
+    costFun->AddParameterBlock(nTrans);
+    costFun->SetNumResiduals(1);
+
+    // NULL specifies squared loss
+    ceres::LossFunction *lossFun = NULL;
+
+    problem.AddResidualBlock(costFun,lossFun,
+      &Hs[0](0,0),&alpha[ii*nTrans]);
+  }
+
+  ceres::Solver::Summary summary;
+  ceres::Solver::Options solverOpt;
+  ceres::Solve(solverOpt,&problem,&summary);
+  //std::cout << summary.FullReport() << "\n";
+
+  // Compute weights in [0,1] from alpha
+  vector<double> weights(nTrans*nInliers);
+  for(size_t ii = 0; ii < nInliers; ii++)
+  {
+    double sum = 0.;
+    for(size_t iH = 0; iH < nTrans; iH++)
+      sum += alpha[ii*nTrans + iH] * alpha[ii*nTrans + iH];
+    for(size_t iH = 0; iH < nTrans; iH++)
+      weights[ii*nTrans + iH] = (alpha[ii*nTrans + iH] * alpha[ii*nTrans + iH]) / sum;
+  }
+
+  // Re-assign matches
+  vector<vector<int>> finalInliers(Hs.size());
+  for(size_t ii = 0; ii < nInliers; ii++)
+  {
+    int max = 0;
+    for(int iH = 1; iH < nTrans; iH++)
+    {
+      if(weights[ii*nTrans + iH] > weights[ii*nTrans + max])
+        max = iH;
+    }
+    finalInliers[max].push_back(outInliers[ii]);
+  }
+  outInliers.clear();
+  for(int iH = 0; iH < nTrans; iH++)
+  {
+    inlierSetSizes[iH] = (int)finalInliers[iH].size();
+    outInliers.insert(outInliers.end(),finalInliers[iH].begin(),
+      finalInliers[iH].end());
   }
 
   return static_cast<int>(outInliers.size());
