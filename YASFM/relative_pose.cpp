@@ -636,7 +636,7 @@ void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
 struct GeomVerifCostFunctor
 {
   GeomVerifCostFunctor(int nTrans,const Vector2d& x1,const Vector2d& x2)
-    : nTrans_(nTrans),x1_(x1),x2_(x2)
+    : nTrans(nTrans),x1(x1),x2(x2)
   {
   }
 
@@ -648,18 +648,18 @@ struct GeomVerifCostFunctor
 
     residuals[0] = T(0.);
     T alphaSqSum = T(0.);
-    for(int iH = 0; iH < nTrans_; iH++)
+    for(int iH = 0; iH < nTrans; iH++)
     {
       const T *H = &Hs[iH*9];
       
       T pt[3];
-      pt[0] = H[0] * T(x1_(0)) + H[3] * T(x1_(1)) + H[6];
-      pt[1] = H[1] * T(x1_(0)) + H[4] * T(x1_(1)) + H[7];
-      pt[2] = H[2] * T(x1_(0)) + H[5] * T(x1_(1)) + H[8];
+      pt[0] = H[0] * T(x1(0)) + H[3] * T(x1(1)) + H[6];
+      pt[1] = H[1] * T(x1(0)) + H[4] * T(x1(1)) + H[7];
+      pt[2] = H[2] * T(x1(0)) + H[5] * T(x1(1)) + H[8];
 
       T diff[2];
-      diff[0] = T(x2_(0)) - (pt[0] / pt[2]);
-      diff[1] = T(x2_(1)) - (pt[1] / pt[2]);
+      diff[0] = T(x2(0)) - (pt[0] / pt[2]);
+      diff[1] = T(x2(1)) - (pt[1] / pt[2]);
 
       T err = sqrt(diff[0]*diff[0] + diff[1]*diff[1]);
       
@@ -675,8 +675,8 @@ struct GeomVerifCostFunctor
     return true;
   }
 
-  int nTrans_;
-  const Vector2d& x1_,x2_;
+  int nTrans;
+  const Vector2d& x1,x2;
 };
 
 int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
@@ -764,11 +764,11 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   }
 
   int nTrans = (int)Hs.size();
-  size_t nInliers = outInliers.size();
+  int nInliers = (int)outInliers.size();
   vector<double> alpha(nTrans*nInliers);
   
   // Initialize weights
-  for(size_t ii = 0; ii < nInliers; ii++)
+  for(int ii = 0; ii < nInliers; ii++)
   {
     IntPair match = allMatches[outInliers[ii]];
     for(int iH = 0; iH < nTrans; iH++)
@@ -781,7 +781,7 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
 
   // Set-up the problem
   ceres::Problem problem;
-  for(size_t ii = 0; ii < nInliers; ii++)
+  for(int ii = 0; ii < nInliers; ii++)
   {
     IntPair match = allMatches[outInliers[ii]];
     const auto& pt1 = cam1.key(match.first);
@@ -809,7 +809,7 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
 
   // Compute weights in [0,1] from alpha
   vector<double> weights(nTrans*nInliers);
-  for(size_t ii = 0; ii < nInliers; ii++)
+  for(int ii = 0; ii < nInliers; ii++)
   {
     double sum = 0.;
     for(size_t iH = 0; iH < nTrans; iH++)
@@ -820,7 +820,7 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
 
   // Re-assign matches
   vector<vector<int>> finalInliers(Hs.size());
-  for(size_t ii = 0; ii < nInliers; ii++)
+  for(int ii = 0; ii < nInliers; ii++)
   {
     int max = 0;
     for(int iH = 1; iH < nTrans; iH++)
