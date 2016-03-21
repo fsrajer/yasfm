@@ -271,9 +271,9 @@ int main(int argc,const char* argv[])
   }
 
   float& ratioThresh = opt.getOpt<OptionsFLANN>("matchingFLANN").get<float>("ratioThresh");
-  ratioThresh = 0.0f;
+  ratioThresh = 0.f;
   int nSteps = 40;
-  string name = "gv-merge-E";
+  string name = "gv-merge-E-opt";
   _mkdir(joinPaths(dir,name).c_str());
   pair_umap<CameraPair> allPairs = data.pairs();
   for(int i = 0; i < nSteps; i++,ratioThresh += 0.025f)
@@ -301,8 +301,8 @@ int main(int argc,const char* argv[])
     //verifyMatchesEpipolar(opt.getOpt<OptionsRANSAC>("epipolarVerification"),
     //  data.cams(),&data.pairs());
 
-    data.writeASCII(name + "/matched_" + name + std::to_string(i+1) + ".txt");
-    opt.write(joinPaths(dir,name + "/options_" + name + std::to_string(i+1) + ".txt"));
+    data.writeASCII(name + "/matched_" + std::to_string(i+1) + ".txt");
+    opt.write(joinPaths(dir,name + "/options_" + std::to_string(i+1) + ".txt"));
     data.pairs() = allPairs;
   }
 
