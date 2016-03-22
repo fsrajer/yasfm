@@ -854,18 +854,13 @@ struct GeomVerifCostFunctor
           T(1.) / FTx2.topRows(2).squaredNorm()) );
       } else
       {
-        const T *H = parameters[iT+1];
+        Map<const Matrix<T,3,3>> H(parameters[iT+1]);
 
-        T pt[3];
-        pt[0] = H[0] * T(x1(0)) + H[3] * T(x1(1)) + H[6];
-        pt[1] = H[1] * T(x1(0)) + H[4] * T(x1(1)) + H[7];
-        pt[2] = H[2] * T(x1(0)) + H[5] * T(x1(1)) + H[8];
+        Matrix<T,3,1> pt = H * x1.homogeneous().cast<T>();
 
-        T diff[2];
-        diff[0] = T(x2(0)) - (pt[0] / pt[2]);
-        diff[1] = T(x2(1)) - (pt[1] / pt[2]);
+        Matrix<T,2,1> diff = x2.cast<T>() - (pt.topRows(2) / pt(2));
 
-        err = sqrt(diff[0]*diff[0] + diff[1]*diff[1]);
+        err = diff.norm();
       }
 
       T aSq = alpha[iT]*alpha[iT];
