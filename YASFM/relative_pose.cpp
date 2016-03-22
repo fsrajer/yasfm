@@ -1098,16 +1098,35 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
     }
 
     // Initialize weights
+    for(int ii = 0; ii < nInliers; ii++)
+    {
+      IntPair match = allMatches[outInliers[ii]];
+      const auto& x1 = cam1.key(match.first);
+      const auto& x2 = cam2.key(match.second);
+
+      for(int iT = 0; iT < nTrans; iT++)
+      {
+        double err = 0.;
+        if(isGroupEG[iT])
+        {
+          Matrix3d F = cam2.K().inverse().transpose() * Ts[iT] * cam1.K().inverse();
+          err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(x2,F,x1));
+        } else
+        {
+          const auto& H = Ts[iT];
+          Vector3d pt = H * x1.homogeneous();
+          Vector2d diff = x2 - (pt.topRows(2) / pt(2));
+          err = diff.norm();
+        }
+        alpha[ii*nTrans + iT] = sqrt(1. / err);
+      }
+    }
+
     int ii = 0;
     vector<double *> alphas(nInliers);
     for(int iT = 0; iT < nTrans; iT++)
-    {
       for(int i = 0; i < inlierSetSizes[iT]; i++,ii++)
-      {
-        alpha[ii*nTrans + iT] = 1.;
         alphas[ii] = &alpha[ii*nTrans];
-      }
-    }
 
     // Set-up the problem
     ceres::Problem problem;
