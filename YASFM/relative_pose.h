@@ -512,6 +512,7 @@ public:
 
     opt.emplace("fundMatRefineTolerance",make_unique<OptTypeWithVal<double>>(1e-12));
     opt.emplace("fundMatThresh",make_unique<OptTypeWithVal<double>>(sqrt(5.)));
+    opt.emplace("relevantMatchesRatio",make_unique<OptTypeWithVal<double>>(0.95));
   }
 };
 

@@ -883,8 +883,11 @@ struct GeomVerifCostFunctor
 
 bool canBeMerged(const OptionsGeometricVerification& opt,
   const vector<int>& group1,const vector<int>& group2,
-  const Camera& cam1,const Camera& cam2,const vector<IntPair>& matches)
+  const Camera& cam1,const Camera& cam2,const vector<IntPair>& matches,
+  Matrix3d *pE)
 {
+  auto& E = *pE;
+
   vector<int> bothGroups;
   bothGroups.reserve(group1.size() + group2.size());
   bothGroups.insert(bothGroups.begin(),group1.begin(),group1.end());
@@ -892,7 +895,6 @@ bool canBeMerged(const OptionsGeometricVerification& opt,
 
   Matrix3d invK1 = cam1.K().inverse();
   Matrix3d invK2 = cam2.K().inverse();
-  Matrix3d E;
   estimateEssentialMatrix(cam1.keys(),cam2.keys(),invK1,invK2,matches,bothGroups,
     opt.get<double>("fundMatRefineTolerance"),&E);
   Matrix3d F = invK2.transpose() * E * invK1;
@@ -905,34 +907,54 @@ bool canBeMerged(const OptionsGeometricVerification& opt,
   findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
     cam1.keys(),cam2.keys(),relevantMatches,F,&inliers);
 
-  return (inliers.size() >= (size_t)(0.95*relevantMatches.size()));
+  return (inliers.size() >= 
+    (size_t)(opt.get<double>("relevantMatchesRatio")*relevantMatches.size()));
 }
 
-void enrichInliersWithEG(const OptionsGeometricVerification& opt,
-  const Camera& cam1,const Camera& cam2,
-  const vector<IntPair>& matches,vector<bool> *punassigned,
-  vector<int> *pinliers,Matrix3d *pE)
+void mergeGroups(const OptionsGeometricVerification& opt,
+  const Camera& cam1,const Camera& cam2,const vector<IntPair>& allMatches,
+  vector<IntPair> *premainingMatches,vector<int> *premainingToAll,
+  vector<vector<int>> *pgroups,vector<Matrix3d> *pTs,vector<bool> *pisGroupEG)
 {
-  auto& unassigned = *punassigned;
-  auto& inliers = *pinliers;
-  auto& E = *pE;
+  auto& remainingMatches = *premainingMatches;
+  auto& remainingToAll = *premainingToAll;
+  auto& groups = *pgroups;
+  auto& Ts = *pTs;
+  auto& isGroupEG = *pisGroupEG;
 
-  Matrix3d invK1 = cam1.K().inverse();
-  Matrix3d invK2 = cam2.K().inverse();
-  estimateEssentialMatrix(cam1.keys(),cam2.keys(),invK1,invK2,matches,inliers,
-    opt.get<double>("fundMatRefineTolerance"),&E);
-  Matrix3d F = invK2.transpose() * E * invK1;
-
-  vector<int> newInliers;
-  findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
-    cam1.keys(),cam2.keys(),matches,F,&newInliers);
-
-  for(int idx : newInliers)
+  for(int i = 0; i < (int)groups.size(); i++)
   {
-    if(unassigned[idx])
+    for(int j = i+1; j < (int)groups.size(); j++)
     {
-      unassigned[idx] = false;
-      inliers.push_back(idx);
+      Matrix3d E;
+      if(canBeMerged(opt,groups[i],groups[j],cam1,cam2,allMatches,&E))
+      {
+        groups[i].insert(groups[i].end(),groups[j].begin(),groups[j].end());
+        groups.erase(groups.begin() + j);
+        isGroupEG[i] = true;
+        isGroupEG.erase(isGroupEG.begin() + j);
+        Ts[i] = E;
+        Ts.erase(Ts.begin() + j);
+        j--;
+      }
+    }
+  }
+
+  // Enrich by inliers to the new EGs
+  for(size_t ig = 0; ig < groups.size(); ig++)
+  {
+    if(isGroupEG[ig])
+    {
+      Matrix3d F = cam2.K().inverse().transpose() * Ts[ig] * cam1.K().inverse();
+
+      vector<int> currInliers;
+      findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
+        cam1.keys(),cam2.keys(),remainingMatches,F,&currInliers);
+
+      for(int remainingIdx : currInliers)
+        groups[ig].push_back(remainingToAll[remainingIdx]);
+      filterOutOutliers(currInliers,&remainingMatches);
+      filterOutOutliers(currInliers,&remainingToAll);
     }
   }
 }
@@ -955,6 +977,7 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   vector<int> bestInliers,currInliers;
   bestInliers.reserve(nAllMatches);
   currInliers.reserve(nAllMatches);
+  vector<vector<int>> groups;
 
   for(int iTransform = 0; iTransform < opt.get<int>("maxTransforms"); iTransform++)
   {
@@ -1011,9 +1034,10 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
       break;
 
     Ts.push_back(bestH);
-    inlierSetSizes.push_back(static_cast<int>(bestInliers.size()));
+    groups.emplace_back();
     for(int remainingMatchesInlier : bestInliers)
-      outInliers.push_back(remainingToAll[remainingMatchesInlier]);
+      groups.back().push_back(remainingToAll[remainingMatchesInlier]);
+
     filterOutOutliers(bestInliers,&remainingMatches);
     filterOutOutliers(bestInliers,&remainingToAll);
 
@@ -1021,57 +1045,19 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
       break;
   }
 
-  if(inlierSetSizes.size() > 1)
+  if(groups.size() > 1)
   {
-    vector<vector<int>> groups(inlierSetSizes.size());
     vector<bool> isGroupEG(groups.size(),false);
-    int idx = 0;
-    for(size_t i = 0; i < inlierSetSizes.size(); i++)
-    {
-      groups[i].reserve(inlierSetSizes[i]);
-      for(int j = 0; j < inlierSetSizes[i]; j++, idx++)
-      {
-        groups[i].push_back(outInliers[idx]);
-      }
-    }
 
-    for(int i = 0; i < (int)groups.size(); i++)
-    {
-      for(int j = i+1; j < (int)groups.size(); j++)
-      {
-        if(canBeMerged(opt,groups[i],groups[j],cam1,cam2,allMatches))
-        {
-          groups[i].insert(groups[i].end(),groups[j].begin(),groups[j].end());
-          groups.erase(groups.begin() + j);
-          isGroupEG[i] = true;
-          isGroupEG.erase(isGroupEG.begin() + j);
-          Ts.erase(Ts.begin() + j);
-          j--;
-        }
-      }
-    }
-
-    vector<bool> unassigned(allMatches.size(),true);
-    for(int idx : outInliers)
-      unassigned[idx] = false;
-
-    for(size_t ig = 0; ig < groups.size(); ig++)
-    {
-      if(isGroupEG[ig])
-        enrichInliersWithEG(opt,cam1,cam2,allMatches,&unassigned,&groups[ig],&Ts[ig]);
-    }
+    mergeGroups(opt,cam1,cam2,allMatches,&remainingMatches,&remainingToAll,
+      &groups,&Ts,&isGroupEG);
 
     outInliers.clear();
-    inlierSetSizes.clear();
     for(const auto& g : groups)
-    {
       outInliers.insert(outInliers.end(),g.begin(),g.end());
-      inlierSetSizes.push_back(static_cast<int>(g.size()));
-    }
 
     int nTrans = (int)Ts.size();
     int nInliers = (int)outInliers.size();
-    vector<double> alpha(nTrans*nInliers,0.);
 
     vector<VectorXd> EsParams(nTrans);
     for(int iT = 0; iT < nTrans; iT++)
@@ -1098,6 +1084,7 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
     }
 
     // Initialize weights
+    vector<double> alpha(nTrans*nInliers,0.);
     for(int ii = 0; ii < nInliers; ii++)
     {
       IntPair match = allMatches[outInliers[ii]];
@@ -1122,12 +1109,6 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
       }
     }
 
-    int ii = 0;
-    vector<double *> alphas(nInliers);
-    for(int iT = 0; iT < nTrans; iT++)
-      for(int i = 0; i < inlierSetSizes[iT]; i++,ii++)
-        alphas[ii] = &alpha[ii*nTrans];
-
     // Set-up the problem
     ceres::Problem problem;
     Matrix3d invK1 = cam1.K().inverse(),
@@ -1149,7 +1130,7 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
       costFun->AddParameterBlock(nTrans);
       
       vector<double *> parameterBlocks(1+nTrans);
-      parameterBlocks[0] = alphas[ii];
+      parameterBlocks[0] = &alpha[ii*nTrans];
       for(int iT = 0; iT < nTrans; iT++)
       {
         if(isGroupEG[iT])
@@ -1182,24 +1163,29 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
     }
 
     // Re-assign matches
-    vector<vector<int>> finalInliers(Ts.size());
+    groups.clear();
+    groups.resize(Ts.size());
     for(int ii = 0; ii < nInliers; ii++)
     {
       int max = 0;
+      //cout << " " << weights[ii*nTrans + 0];
       for(int iT = 1; iT < nTrans; iT++)
       {
         if(weights[ii*nTrans + iT] > weights[ii*nTrans + max])
           max = iT;
+        //cout << " " << weights[ii*nTrans + iT];
       }
-      finalInliers[max].push_back(outInliers[ii]);
+      //cout << "\n";
+      groups[max].push_back(outInliers[ii]);
     }
-    outInliers.clear();
-    for(int iT = 0; iT < nTrans; iT++)
-    {
-      inlierSetSizes[iT] = (int)finalInliers[iT].size();
-      outInliers.insert(outInliers.end(),finalInliers[iT].begin(),
-        finalInliers[iT].end());
-    }
+  }
+
+  outInliers.clear();
+  inlierSetSizes.resize(groups.size());
+  for(size_t ig = 0; ig < groups.size(); ig++)
+  {
+    outInliers.insert(outInliers.end(),groups[ig].begin(),groups[ig].end());
+    inlierSetSizes[ig] = (int)groups[ig].size();
   }
 
   return static_cast<int>(outInliers.size());
