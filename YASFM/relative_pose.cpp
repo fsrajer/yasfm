@@ -849,7 +849,8 @@ struct GeomVerifCostFunctor
 
         T x2Fx1 = x2.homogeneous().cast<T>().dot(Fx1);
 
-        err = sqrt( (x2Fx1*x2Fx1) *
+        // 0.5 because this is the symmetric distance
+        err = T(0.5) * sqrt( (x2Fx1*x2Fx1) *
           (T(1.) / Fx1.topRows(2).squaredNorm() + 
           T(1.) / FTx2.topRows(2).squaredNorm()) );
       } else
