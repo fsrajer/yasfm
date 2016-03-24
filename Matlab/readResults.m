@@ -8,6 +8,7 @@ fid = fopen(fn,'r');
 
 if fid == -1
     disp(['ERROR: Could not read: ' fn]);
+    res = [];
     return;
 end
 
