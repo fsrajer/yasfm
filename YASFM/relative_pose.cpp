@@ -923,10 +923,16 @@ void mergeGroups(const OptionsGeometricVerification& opt,
   auto& Ts = *pTs;
   auto& isGroupEG = *pisGroupEG;
 
-  for(int i = 0; i < (int)groups.size(); i++)
+  for(int i = 0; i < int(groups.size()); i++)
   {
+    vector<int> couldBeMergable;
     for(int j = i+1; j < (int)groups.size(); j++)
+      couldBeMergable.push_back(j);
+
+    while(!couldBeMergable.empty())
     {
+      int j = couldBeMergable.back();
+      couldBeMergable.pop_back();
       Matrix3d E;
       if(canBeMerged(opt,groups[i],groups[j],cam1,cam2,allMatches,&E))
       {
@@ -936,7 +942,14 @@ void mergeGroups(const OptionsGeometricVerification& opt,
         isGroupEG.erase(isGroupEG.begin() + j);
         Ts[i] = E;
         Ts.erase(Ts.begin() + j);
-        j--;
+        if(j < i)
+          i--;
+        couldBeMergable.clear();
+        for(int k = 0; k < (int)groups.size(); k++)
+        {
+          if(i != k)
+            couldBeMergable.push_back(k);
+        }
       }
     }
   }
