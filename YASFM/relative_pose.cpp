@@ -1059,13 +1059,13 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
       break;
   }
 
+  vector<bool> isGroupEG(groups.size(),false);
   if(groups.size() > 1)
-  {
-    vector<bool> isGroupEG(groups.size(),false);
-
     mergeGroups(opt,cam1,cam2,allMatches,&remainingMatches,&remainingToAll,
       &groups,&Ts,&isGroupEG);
-
+    
+  if(groups.size() > 1)
+  {
     outInliers.clear();
     for(const auto& g : groups)
       outInliers.insert(outInliers.end(),g.begin(),g.end());
