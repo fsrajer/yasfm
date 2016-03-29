@@ -897,35 +897,40 @@ bool canBeMerged(const OptionsGeometricVerification& opt,
   if(eigVals.imag().any())
   {
     double imag;
+    int k;
     if(eigVals(0).imag() != 0)
+    {
       imag = eigVals(0).imag() / eigVals(0).real();
-
-    else if(eigVals(1).imag() != 0)
+      if(eigVals(2).imag() == 0)
+        k = 2;
+      else
+        k = 1;
+    } else
+    {
+      k = 0;
       imag = eigVals(1).imag() / eigVals(1).real();
-    
-    else
-      imag = eigVals(2).imag() / eigVals(2).real();
+    }
 
-    return (imag*imag < threshSq);
+    return (imag*imag < threshSq && eigVals(k).real() > 0.);
 
   } else
   {
-    int i = 0,j = 1;
+    int i = 0,j = 1,k = 2;
     eigVals = eigVals/eigVals(i).real();
     double diff = eigVals(i).real() - eigVals(j).real();
-    if(diff*diff < threshSq)
+    if(diff*diff < threshSq && eigVals(k).real() > 0.)
       return true;
 
-    i = 1; j = 2;
+    i = 1; j = 2; k = 0;
     eigVals = eigVals/eigVals(i).real();
     diff = eigVals(i).real() - eigVals(j).real();
-    if(diff*diff < threshSq)
+    if(diff*diff < threshSq && eigVals(k).real() > 0.)
       return true;
 
-    i = 0; j = 2;
+    i = 0; j = 2; k = 1;
     eigVals = eigVals/eigVals(i).real();
     diff = eigVals(i).real() - eigVals(j).real();
-    if(diff*diff < threshSq)
+    if(diff*diff < threshSq && eigVals(k).real() > 0.)
       return true;
   }
 
