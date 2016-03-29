@@ -2,6 +2,7 @@
 
 #include <ctime>
 #include <iostream>
+#include <list>
 
 #include "5point/5point.h"
 #include "ceres/ceres.h"
@@ -12,8 +13,10 @@ using Eigen::JacobiSVD;
 using Eigen::MatrixXd;
 using Eigen::Map;
 using Eigen::Matrix;
+using Eigen::Vector3cd;
 using std::cerr;
 using std::cout;
+using std::list;
 
 namespace yasfm
 {
@@ -883,33 +886,50 @@ struct GeomVerifCostFunctor
 };
 
 bool canBeMerged(const OptionsGeometricVerification& opt,
-  const vector<int>& group1,const vector<int>& group2,
-  const Camera& cam1,const Camera& cam2,const vector<IntPair>& matches,
-  Matrix3d *pE)
+  const Matrix3d& H1,const Matrix3d& H2)
 {
-  auto& E = *pE;
+  Matrix3d H = H2.inverse() * H1;
+  Vector3cd eigVals = H.eigenvalues();
 
-  vector<int> bothGroups;
-  bothGroups.reserve(group1.size() + group2.size());
-  bothGroups.insert(bothGroups.begin(),group1.begin(),group1.end());
-  bothGroups.insert(bothGroups.end(),group2.begin(),group2.end());
+  double threshSq = opt.get<double>("eigThresh");
+  threshSq = threshSq*threshSq;
 
-  Matrix3d invK1 = cam1.K().inverse();
-  Matrix3d invK2 = cam2.K().inverse();
-  estimateEssentialMatrix(cam1.keys(),cam2.keys(),invK1,invK2,matches,bothGroups,
-    opt.get<double>("fundMatRefineTolerance"),&E);
-  Matrix3d F = invK2.transpose() * E * invK1;
+  if(eigVals.imag().any())
+  {
+    double imag;
+    if(eigVals(0).imag() != 0)
+      imag = eigVals(0).imag() / eigVals(0).real();
 
-  vector<IntPair> relevantMatches(bothGroups.size());
-  for(size_t i = 0; i < relevantMatches.size(); i++)
-    relevantMatches[i] = matches[bothGroups[i]];
+    else if(eigVals(1).imag() != 0)
+      imag = eigVals(1).imag() / eigVals(1).real();
+    
+    else
+      imag = eigVals(2).imag() / eigVals(2).real();
 
-  vector<int> inliers;
-  findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
-    cam1.keys(),cam2.keys(),relevantMatches,F,&inliers);
+    return (imag*imag < threshSq);
 
-  return (inliers.size() >= 
-    (size_t)(opt.get<double>("relevantMatchesRatio")*relevantMatches.size()));
+  } else
+  {
+    int i = 0,j = 1;
+    eigVals = eigVals/eigVals(i).real();
+    double diff = eigVals(i).real() - eigVals(j).real();
+    if(diff*diff < threshSq)
+      return true;
+
+    i = 1; j = 2;
+    eigVals = eigVals/eigVals(i).real();
+    diff = eigVals(i).real() - eigVals(j).real();
+    if(diff*diff < threshSq)
+      return true;
+
+    i = 0; j = 2;
+    eigVals = eigVals/eigVals(i).real();
+    diff = eigVals(i).real() - eigVals(j).real();
+    if(diff*diff < threshSq)
+      return true;
+  }
+
+  return false;
 }
 
 void mergeGroups(const OptionsGeometricVerification& opt,
@@ -923,36 +943,54 @@ void mergeGroups(const OptionsGeometricVerification& opt,
   auto& Ts = *pTs;
   auto& isGroupEG = *pisGroupEG;
 
-  for(int i = 0; i < int(groups.size()); i++)
+  vector<bool> visited(groups.size(),false);
+  vector<set<int>> toMerge;
+  for(int iStart = 0; iStart < (int)groups.size(); iStart++)
   {
-    vector<int> couldBeMergable;
-    for(int j = i+1; j < (int)groups.size(); j++)
-      couldBeMergable.push_back(j);
+    if(visited[iStart])
+      continue;
 
-    while(!couldBeMergable.empty())
+    list<int> queue;
+    queue.push_back(iStart);
+    visited[iStart] = true;
+    toMerge.emplace_back();
+
+    while(!queue.empty())
     {
-      int j = couldBeMergable.back();
-      couldBeMergable.pop_back();
-      Matrix3d E;
-      if(canBeMerged(opt,groups[i],groups[j],cam1,cam2,allMatches,&E))
+      int i = queue.front();
+      queue.pop_front();
+      toMerge.back().insert(i);
+      for(int j = 0; j < (int)groups.size(); j++)
       {
-        groups[i].insert(groups[i].end(),groups[j].begin(),groups[j].end());
-        groups.erase(groups.begin() + j);
-        isGroupEG[i] = true;
-        isGroupEG.erase(isGroupEG.begin() + j);
-        Ts[i] = E;
-        Ts.erase(Ts.begin() + j);
-        if(j < i)
-          i--;
-        couldBeMergable.clear();
-        for(int k = 0; k < (int)groups.size(); k++)
+        if(!visited[j] && canBeMerged(opt,Ts[i],Ts[j]))
         {
-          if(i != k)
-            couldBeMergable.push_back(k);
+          visited[j] = true;
+          queue.push_back(j);
         }
       }
     }
   }
+
+  vector<vector<int>> tmpGroups;
+  vector<Matrix3d> tmpTs;
+  tmpGroups.resize(toMerge.size());
+  isGroupEG.resize(toMerge.size());
+  tmpTs.resize(toMerge.size());
+  for(size_t im = 0; im < toMerge.size(); im++)
+  {
+    isGroupEG[im] = (toMerge[im].size() > 1);
+    for(int ig : toMerge[im])
+      tmpGroups[im].insert(tmpGroups[im].begin(),
+      groups[ig].begin(),groups[ig].end());
+    if(isGroupEG[im])
+      estimateEssentialMatrix(cam1.keys(),cam2.keys(),cam1.K().inverse(),
+      cam2.K().inverse(),allMatches,tmpGroups[im],
+      opt.get<double>("fundMatRefineTolerance"),&tmpTs[im]);
+    else
+      tmpTs[im] = Ts[*toMerge[im].begin()];
+  }
+  groups = tmpGroups;
+  Ts = tmpTs;
 
   // Enrich by inliers to the new EGs
   for(size_t ig = 0; ig < groups.size(); ig++)
