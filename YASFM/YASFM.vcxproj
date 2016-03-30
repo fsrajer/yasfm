@@ -190,6 +190,7 @@
       <SDLCheck>false</SDLCheck>
       <PreprocessorDefinitions>YASFM_EXPORT;NDEBUG;CMINPACK_NO_DLL;_WINDLL;_CRT_SECURE_NO_WARNINGS;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(SolutionDir)include/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <OpenMPSupport>true</OpenMPSupport>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
