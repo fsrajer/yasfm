@@ -885,56 +885,49 @@ struct GeomVerifCostFunctor
   const Vector2d& x1,x2;
 };
 
-bool canBeMerged(const OptionsGeometricVerification& opt,
-  const Matrix3d& H1,const Matrix3d& H2)
+void estimateFundamentalMatrixParallax(const Camera& cam1,const Camera& cam2,
+  const Matrix3d& H,const vector<IntPair>& matches,
+  const vector<int>& offPlaneMatches,Matrix3d *pF)
 {
-  Matrix3d H = H2.inverse() * H1;
-  Vector3cd eigVals = H.eigenvalues();
+  auto& F = *pF;
 
-  double threshSq = opt.get<double>("eigThresh");
-  threshSq = threshSq*threshSq;
-
-  if(eigVals.imag().any())
+  MatrixXd A(offPlaneMatches.size(),3);
+  for(size_t iOffPlane = 0; iOffPlane < offPlaneMatches.size(); iOffPlane++)
   {
-    double imag;
-    int k;
-    if(eigVals(0).imag() != 0)
-    {
-      imag = eigVals(0).imag() / eigVals(0).real();
-      if(eigVals(2).imag() == 0)
-        k = 2;
-      else
-        k = 1;
-    } else
-    {
-      k = 0;
-      imag = eigVals(1).imag() / eigVals(1).real();
-    }
+    IntPair match = matches[offPlaneMatches[iOffPlane]];
+    const auto& pt1 = cam1.key(match.first);
+    const auto& pt2 = cam2.key(match.second);
 
-    return (imag*imag < threshSq && eigVals(k).real() > 0.);
-
-  } else
-  {
-    int i = 0,j = 1,k = 2;
-    eigVals = eigVals/eigVals(i).real();
-    double diff = eigVals(i).real() - eigVals(j).real();
-    if(diff*diff < threshSq && eigVals(k).real() > 0.)
-      return true;
-
-    i = 1; j = 2; k = 0;
-    eigVals = eigVals/eigVals(i).real();
-    diff = eigVals(i).real() - eigVals(j).real();
-    if(diff*diff < threshSq && eigVals(k).real() > 0.)
-      return true;
-
-    i = 0; j = 2; k = 1;
-    eigVals = eigVals/eigVals(i).real();
-    diff = eigVals(i).real() - eigVals(j).real();
-    if(diff*diff < threshSq && eigVals(k).real() > 0.)
-      return true;
+    Vector3d pt2Hom = pt2.homogeneous();
+    // epipolar line
+    A.row(iOffPlane) = pt2Hom.cross(H * pt1.homogeneous()).transpose();
   }
 
-  return false;
+  JacobiSVD<MatrixXd> svd(A,Eigen::ComputeFullV);
+  Vector3d epipole2 = svd.matrixV().rightCols(1);
+
+  Matrix3d e2x;
+  crossProdMat(epipole2,&e2x);
+  F.noalias() = e2x * H;
+}
+
+bool canBeMerged(const OptionsGeometricVerification& opt,
+  const Camera& cam1,const Camera& cam2,
+  const Matrix3d& H,const vector<IntPair>& matches,
+  const vector<int>& offPlaneMatches)
+{
+  Matrix3d F;
+  estimateFundamentalMatrixParallax(cam1,cam2,H,matches,offPlaneMatches,&F);
+
+  vector<IntPair> relevantMatches;
+  for(int idx : offPlaneMatches)
+    relevantMatches.push_back(matches[idx]);
+
+  vector<int> inliers;
+  findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),cam1.keys(),
+    cam2.keys(),relevantMatches,F,&inliers);
+
+  return ((inliers.size() > (size_t)(0.5 * relevantMatches.size())));
 }
 
 void mergeGroups(const OptionsGeometricVerification& opt,
@@ -967,7 +960,7 @@ void mergeGroups(const OptionsGeometricVerification& opt,
       toMerge.back().insert(i);
       for(int j = 0; j < (int)groups.size(); j++)
       {
-        if(!visited[j] && canBeMerged(opt,Ts[i],Ts[j]))
+        if(!visited[j] && canBeMerged(opt,cam1,cam2,Ts[i],allMatches,groups[j]))
         {
           visited[j] = true;
           queue.push_back(j);
