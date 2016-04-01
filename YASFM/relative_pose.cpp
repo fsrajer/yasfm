@@ -885,8 +885,8 @@ struct GeomVerifCostFunctor
   const Vector2d& x1,x2;
 };
 
-void estimateFundamentalMatrixParallax(const Camera& cam1,const Camera& cam2,
-  const Matrix3d& H,const vector<IntPair>& matches,
+void estimateFundamentalMatrixParallax(const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const Matrix3d& H,const vector<IntPair>& matches,
   const vector<int>& offPlaneMatches,Matrix3d *pF)
 {
   auto& F = *pF;
@@ -895,8 +895,8 @@ void estimateFundamentalMatrixParallax(const Camera& cam1,const Camera& cam2,
   for(size_t iOffPlane = 0; iOffPlane < offPlaneMatches.size(); iOffPlane++)
   {
     IntPair match = matches[offPlaneMatches[iOffPlane]];
-    const auto& pt1 = cam1.key(match.first);
-    const auto& pt2 = cam2.key(match.second);
+    const auto& pt1 = keys1[match.first];
+    const auto& pt2 = keys2[match.second];
 
     Vector3d pt2Hom = pt2.homogeneous();
     // epipolar line
@@ -911,23 +911,116 @@ void estimateFundamentalMatrixParallax(const Camera& cam1,const Camera& cam2,
   F.noalias() = e2x * H;
 }
 
+class MediatorParallaxRANSAC : public MediatorRANSAC<Matrix3d>
+{
+public:
+  /// Constructor. Mind the order of points. We estimate such F that pts2'*F*pts1 = 0.
+  /**
+  \param[in] keys1 Keys in the first camera.
+  \param[in] keys2 Keys in the second camera.
+  \param[in] matches Keys matches.
+  */
+  MediatorParallaxRANSAC(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const vector<IntPair>& matches,const vector<int>& offPlaneMatches,const Matrix3d& H)
+    : minMatches_(2),keys1_(keys1),keys2_(keys2),matches_(matches),
+    offPlaneMatches_(offPlaneMatches),H_(H)
+  {
+  }
+
+  /// \return Total number of matches.
+  virtual int numMatches() const
+  {
+    return static_cast<int>(offPlaneMatches_.size());
+  }
+
+  /// \return Minimum number of matches to compute the transformation.
+  virtual int minMatches() const
+  {
+    return minMatches_;
+  }
+
+  /// Compute transformation from a minimal sample.
+  /**
+  \param[in] idxs Indices of matches from which to compute the transformation.
+  \param[out] Fs Resulting fundamental matrices.
+  */
+  virtual void computeTransformation(const vector<int>& idxs,vector<Matrix3d> *Fs) const
+  {
+    vector<int> selectedMatches;
+    selectedMatches.reserve(minMatches_);
+    for(int idx : idxs)
+      selectedMatches.push_back(offPlaneMatches_[idx]);
+
+    Fs->resize(1);
+    estimateFundamentalMatrixParallax(keys1_,keys2_,H_,matches_,
+      selectedMatches,&(*Fs)[0]);
+  }
+
+  /// Compute symmetric squared distance.
+  /**
+  \param[in] F Fundamental matrix.
+  \param[in] matchIdx Index of the match.
+  \return Squared error.
+  */
+  virtual double computeSquaredError(const Matrix3d& F,int idx) const
+  {
+    IntPair match = matches_[offPlaneMatches_[idx]];
+    return computeSymmetricEpipolarSquaredDistanceFundMat(
+      keys2_[match.second],
+      F,
+      keys1_[match.first]);
+  }
+
+  /// Refine a transformation using its inliers.
+  /**
+  \param[in] tolerance Tolerance for optimization termination.
+  \param[in] inliers Inlier matches.
+  \param[in,out] F The transformation to be refined on input and refined transformation
+  on the output.
+  */
+  virtual void refine(double tolerance,const vector<int>& inliers,Matrix3d *F) const
+  {
+  }
+
+private:
+  const int minMatches_;
+  const vector<Vector2d>& keys1_;
+  const vector<Vector2d>& keys2_;
+  const vector<IntPair>& matches_;
+  const vector<int>& offPlaneMatches_;
+  const Matrix3d& H_;
+};
+
 bool canBeMerged(const OptionsGeometricVerification& opt,
   const Camera& cam1,const Camera& cam2,
   const Matrix3d& H,const vector<IntPair>& matches,
-  const vector<int>& offPlaneMatches)
+  const vector<int>& offPlaneMatches,const vector<int>& g1)
 {
+  MediatorParallaxRANSAC mediator(cam1.keys(),cam2.keys(),matches,
+    offPlaneMatches,H);
+  OptionsRANSAC ransacOpt(500,opt.get<double>("fundMatThresh"),2);
+
   Matrix3d F;
-  estimateFundamentalMatrixParallax(cam1,cam2,H,matches,offPlaneMatches,&F);
+  vector<int> inliers;
+  estimateTransformRANSAC(mediator,ransacOpt,&F,&inliers);
+  //estimateFundamentalMatrixParallax(cam1,cam2,H,matches,offPlaneMatches,&F);
+
+  /*vector<int> bothGroups;
+  bothGroups.insert(bothGroups.begin(),offPlaneMatches.begin(),offPlaneMatches.end());
+  bothGroups.insert(bothGroups.begin(),g1.begin(),g1.end());
+
+  refineFundamentalMatrixNonLinear(cam1.keys(),cam2.keys(),matches,
+    bothGroups,opt.get<double>("fundMatRefineTolerance"),&F);*/
 
   vector<IntPair> relevantMatches;
   for(int idx : offPlaneMatches)
     relevantMatches.push_back(matches[idx]);
 
-  vector<int> inliers;
+  vector<int> inliersCheck;
   findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),cam1.keys(),
-    cam2.keys(),relevantMatches,F,&inliers);
+    cam2.keys(),relevantMatches,F,&inliersCheck);
 
-  return ((inliers.size() > (size_t)(0.5 * relevantMatches.size())));
+  return ((inliers.size() > (size_t)(0.5 * offPlaneMatches.size())));
 }
 
 void mergeGroups(const OptionsGeometricVerification& opt,
@@ -960,7 +1053,7 @@ void mergeGroups(const OptionsGeometricVerification& opt,
       toMerge.back().insert(i);
       for(int j = 0; j < (int)groups.size(); j++)
       {
-        if(!visited[j] && canBeMerged(opt,cam1,cam2,Ts[i],allMatches,groups[j]))
+        if(!visited[j] && canBeMerged(opt,cam1,cam2,Ts[i],allMatches,groups[j],groups[i]))
         {
           visited[j] = true;
           queue.push_back(j);
@@ -984,6 +1077,11 @@ void mergeGroups(const OptionsGeometricVerification& opt,
       estimateEssentialMatrix(cam1.keys(),cam2.keys(),cam1.K().inverse(),
       cam2.K().inverse(),allMatches,tmpGroups[im],
       opt.get<double>("fundMatRefineTolerance"),&tmpTs[im]);
+    {
+      estimateFundamentalMatrix(cam1.keys(),cam2.keys(),allMatches,tmpGroups[im],
+        opt.get<double>("fundMatRefineTolerance"),&tmpTs[im]);
+
+    }
     else
       tmpTs[im] = Ts[*toMerge[im].begin()];
   }
