@@ -991,129 +991,12 @@ private:
   const Matrix3d& H_;
 };
 
-bool canBeMerged(const OptionsGeometricVerification& opt,
-  const Camera& cam1,const Camera& cam2,
-  const Matrix3d& H,const vector<IntPair>& matches,
-  const vector<int>& offPlaneMatches,const vector<int>& g1)
-{
-  MediatorParallaxRANSAC mediator(cam1.keys(),cam2.keys(),matches,
-    offPlaneMatches,H);
-  OptionsRANSAC ransacOpt(500,opt.get<double>("fundMatThresh"),2);
-
-  Matrix3d F;
-  vector<int> inliers;
-  estimateTransformRANSAC(mediator,ransacOpt,&F,&inliers);
-  //estimateFundamentalMatrixParallax(cam1,cam2,H,matches,offPlaneMatches,&F);
-
-  /*vector<int> bothGroups;
-  bothGroups.insert(bothGroups.begin(),offPlaneMatches.begin(),offPlaneMatches.end());
-  bothGroups.insert(bothGroups.begin(),g1.begin(),g1.end());
-
-  refineFundamentalMatrixNonLinear(cam1.keys(),cam2.keys(),matches,
-    bothGroups,opt.get<double>("fundMatRefineTolerance"),&F);*/
-
-  vector<IntPair> relevantMatches;
-  for(int idx : offPlaneMatches)
-    relevantMatches.push_back(matches[idx]);
-
-  vector<int> inliersCheck;
-  findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),cam1.keys(),
-    cam2.keys(),relevantMatches,F,&inliersCheck);
-
-  return ((inliers.size() > (size_t)(0.5 * offPlaneMatches.size())));
-}
-
-void mergeGroups(const OptionsGeometricVerification& opt,
+void growHomographies(const OptionsGeometricVerification& opt,
   const Camera& cam1,const Camera& cam2,const vector<IntPair>& allMatches,
-  vector<IntPair> *premainingMatches,vector<int> *premainingToAll,
-  vector<vector<int>> *pgroups,vector<Matrix3d> *pTs,vector<bool> *pisGroupEG)
+  vector<vector<int>> *pgroups,vector<Matrix3d> *pHs)
 {
-  auto& remainingMatches = *premainingMatches;
-  auto& remainingToAll = *premainingToAll;
   auto& groups = *pgroups;
-  auto& Ts = *pTs;
-  auto& isGroupEG = *pisGroupEG;
-
-  vector<bool> visited(groups.size(),false);
-  vector<set<int>> toMerge;
-  for(int iStart = 0; iStart < (int)groups.size(); iStart++)
-  {
-    if(visited[iStart])
-      continue;
-
-    list<int> queue;
-    queue.push_back(iStart);
-    visited[iStart] = true;
-    toMerge.emplace_back();
-
-    while(!queue.empty())
-    {
-      int i = queue.front();
-      queue.pop_front();
-      toMerge.back().insert(i);
-      for(int j = 0; j < (int)groups.size(); j++)
-      {
-        if(!visited[j] && canBeMerged(opt,cam1,cam2,Ts[i],allMatches,groups[j],groups[i]))
-        {
-          visited[j] = true;
-          queue.push_back(j);
-        }
-      }
-    }
-  }
-
-  vector<vector<int>> tmpGroups;
-  vector<Matrix3d> tmpTs;
-  tmpGroups.resize(toMerge.size());
-  isGroupEG.resize(toMerge.size());
-  tmpTs.resize(toMerge.size());
-  for(size_t im = 0; im < toMerge.size(); im++)
-  {
-    isGroupEG[im] = (toMerge[im].size() > 1);
-    for(int ig : toMerge[im])
-      tmpGroups[im].insert(tmpGroups[im].begin(),
-      groups[ig].begin(),groups[ig].end());
-    if(isGroupEG[im])
-      estimateEssentialMatrix(cam1.keys(),cam2.keys(),cam1.K().inverse(),
-      cam2.K().inverse(),allMatches,tmpGroups[im],
-      opt.get<double>("fundMatRefineTolerance"),&tmpTs[im]);
-    {
-      estimateFundamentalMatrix(cam1.keys(),cam2.keys(),allMatches,tmpGroups[im],
-        opt.get<double>("fundMatRefineTolerance"),&tmpTs[im]);
-
-    }
-    else
-      tmpTs[im] = Ts[*toMerge[im].begin()];
-  }
-  groups = tmpGroups;
-  Ts = tmpTs;
-
-  // Enrich by inliers to the new EGs
-  for(size_t ig = 0; ig < groups.size(); ig++)
-  {
-    if(isGroupEG[ig])
-    {
-      Matrix3d F = cam2.K().inverse().transpose() * Ts[ig] * cam1.K().inverse();
-
-      vector<int> currInliers;
-      findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
-        cam1.keys(),cam2.keys(),remainingMatches,F,&currInliers);
-
-      for(int remainingIdx : currInliers)
-        groups[ig].push_back(remainingToAll[remainingIdx]);
-      filterOutOutliers(currInliers,&remainingMatches);
-      filterOutOutliers(currInliers,&remainingToAll);
-    }
-  }
-}
-
-int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
-  const Camera& cam1,const Camera& cam2,const vector<IntPair>& allMatches,
-  vector<int> *poutInliers,vector<int> *pinlierSetSizes)
-{
-  auto& outInliers = *poutInliers;
-  auto& inlierSetSizes = *pinlierSetSizes;
-  vector<Matrix3d> Ts;
+  auto& Hs = *pHs;
 
   int nAllMatches = static_cast<int>(allMatches.size());
   vector<IntPair> remainingMatches = allMatches;
@@ -1125,7 +1008,6 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   vector<int> bestInliers,currInliers;
   bestInliers.reserve(nAllMatches);
   currInliers.reserve(nAllMatches);
-  vector<vector<int>> groups;
 
   for(int iTransform = 0; iTransform < opt.get<int>("maxTransforms"); iTransform++)
   {
@@ -1162,11 +1044,11 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
         currInliers.clear();
         findHomographyInliers(thresh,cam1.keys(),cam2.keys(),
           remainingMatches,currH,&currInliers);
-        
+
         if(currInliers.size() < opt.get<int>("minInliersToRefine"))
           break;
-        
-        if(currInliers.size() > 
+
+        if(currInliers.size() >
           opt.get<double>("stopInlierFraction")*remainingMatches.size())
           break;
       }
@@ -1181,7 +1063,7 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
     if(bestInliers.size() < opt.get<int>("minInliersPerTransform"))
       break;
 
-    Ts.push_back(bestH);
+    Hs.push_back(bestH);
     groups.emplace_back();
     for(int remainingMatchesInlier : bestInliers)
       groups.back().push_back(remainingToAll[remainingMatchesInlier]);
@@ -1192,13 +1074,131 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
     if(remainingMatches.size() < opt.get<int>("minInliersPerTransform"))
       break;
   }
+}
 
-  vector<bool> isGroupEG(groups.size(),false);
-  if(groups.size() > 1)
-    mergeGroups(opt,cam1,cam2,allMatches,&remainingMatches,&remainingToAll,
-      &groups,&Ts,&isGroupEG);
+class Mediator7ptKnownHsRANSAC : public Mediator7ptRANSAC
+{
+public:
+  /// Constructor. Mind the order of points. We estimate such F that pts2'*F*pts1 = 0.
+  /**
+  \param[in] keys1 Keys in the first camera.
+  \param[in] keys2 Keys in the second camera.
+  \param[in] matches Keys matches.
+  */
+  Mediator7ptKnownHsRANSAC(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const vector<IntPair>& matches,int nGroups,const vector<int>& groupId)
+    : Mediator7ptRANSAC(keys1,keys2,matches),nGroups_(nGroups),groupId_(groupId)
+  {
+  }
+
+  /// Are these indices permitted to be used for computating the transformation?
+  /**
+  \param[in] idxs Indices of matches.
+  \return True if the matches selection is permitted.
+  */
+  virtual bool isPermittedSelection(const vector<int>& idxs) const
+  {
+    // counts[0] corresponds to non-planar matches
+    vector<int> counts(nGroups_+1,0);
+    for(int idx : idxs)
+      counts[groupId_[idx]+1]++;
+    for(int ig = 0; ig < nGroups_; ig++)
+    {
+      // Degenerate selection?
+      if(counts[ig+1] > 4)
+        return false;
+    }
+    return true;
+  }
+
+private:
+  int nGroups_;
+  const vector<int>& groupId_;
+};
+
+bool estimateRelativePose7ptKnownHsRANSAC(const OptionsRANSAC& opt,
+  const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+  const vector<IntPair>& matches,int nGroups,const vector<int>& groupId,
+  Matrix3d *F,vector<int> *inliers)
+{
+  Mediator7ptKnownHsRANSAC m(keys1,keys2,matches,nGroups,groupId);
+  int nInliers = estimateTransformRANSAC(m,opt,F,inliers);
+  return (nInliers > 0);
+}
+
+void estimateFundamentalMatrices(const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const vector<IntPair>& allMatches,
+  const vector<vector<int>>& groupsH,
+  vector<vector<int>> *pgroupsEG,vector<Matrix3d> *pFs)
+{
+  const int MAX_TRANSFORMS = 5;
+  const int MIN_INLIERS_PER_TRANSFORM = 16;
+  const int MAX_RANSAC_ROUNDS = 2000;
+  const double ERROR_THRESH = sqrt(5.);
+  OptionsRANSAC ransacOpt(MAX_RANSAC_ROUNDS,ERROR_THRESH,MIN_INLIERS_PER_TRANSFORM);
+
+  auto& groupsEG = *pgroupsEG;
+  auto& Fs = *pFs;
+
+  int nAllMatches = static_cast<int>(allMatches.size());
+  vector<IntPair> remainingMatches = allMatches;
+  vector<int> remainingToAll(nAllMatches);
+  for(int i = 0; i < nAllMatches; i++)
+    remainingToAll[i] = i;
+
+  int nGroupsH = (int)groupsH.size();
+  vector<int> remainingGroupHId(nAllMatches,-1);
+  for(int ig = 0; ig < nGroupsH; ig++)
+    for(int idx : groupsH[ig])
+      remainingGroupHId[idx] = ig;
+
+  vector<int> inliers;
+  inliers.reserve(nAllMatches);
+
+  for(int iTransform = 0; iTransform < MAX_TRANSFORMS; iTransform++)
+  {
+    inliers.clear();
+
+    Matrix3d F;
+    estimateRelativePose7ptKnownHsRANSAC(ransacOpt,keys1,keys2,
+      remainingMatches,nGroupsH,remainingGroupHId,&F,&inliers);
+
+    if(inliers.size() < MIN_INLIERS_PER_TRANSFORM)
+      break;
+
+    Fs.push_back(F);
+    groupsEG.emplace_back();
+    for(int remainingMatchesInlier : inliers)
+      groupsEG.back().push_back(remainingToAll[remainingMatchesInlier]);
+
+    filterOutOutliers(inliers,&remainingMatches);
+    filterOutOutliers(inliers,&remainingToAll);
+    filterOutOutliers(inliers,&remainingGroupHId);
+
+    if(remainingMatches.size() < MIN_INLIERS_PER_TRANSFORM)
+      break;
+  }
+
+}
+
+int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  const Camera& cam1,const Camera& cam2,const vector<IntPair>& allMatches,
+  vector<int> *poutInliers,vector<int> *pinlierSetSizes)
+{
+  auto& outInliers = *poutInliers;
+  auto& inlierSetSizes = *pinlierSetSizes;
+  
+  vector<vector<int>> groupsH;
+  vector<Matrix3d> Hs;
+  growHomographies(opt,cam1,cam2,allMatches,&groupsH,&Hs);
+
+  vector<vector<int>> groupsEG;
+  vector<Matrix3d> Fs;
+  estimateFundamentalMatrices(cam1.keys(),cam2.keys(),allMatches,groupsH,&groupsEG,&Fs);
+
+  //optimizeEGs();
     
-  if(groups.size() > 1)
+  /*if(groups.size() > 1)
   {
     outInliers.clear();
     for(const auto& g : groups)
@@ -1326,14 +1326,14 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
       //cout << "\n";
       groups[max].push_back(outInliers[ii]);
     }
-  }
+  }*/
 
   outInliers.clear();
-  inlierSetSizes.resize(groups.size());
-  for(size_t ig = 0; ig < groups.size(); ig++)
+  inlierSetSizes.resize(groupsEG.size());
+  for(size_t ig = 0; ig < groupsEG.size(); ig++)
   {
-    outInliers.insert(outInliers.end(),groups[ig].begin(),groups[ig].end());
-    inlierSetSizes[ig] = (int)groups[ig].size();
+    outInliers.insert(outInliers.end(),groupsEG[ig].begin(),groupsEG[ig].end());
+    inlierSetSizes[ig] = (int)groupsEG[ig].size();
   }
 
   return static_cast<int>(outInliers.size());
