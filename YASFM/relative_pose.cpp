@@ -14,6 +14,8 @@ using Eigen::MatrixXd;
 using Eigen::Map;
 using Eigen::Matrix;
 using Eigen::Vector3cd;
+using Eigen::AngleAxisd;
+using Eigen::AngleAxis;
 using std::cerr;
 using std::cout;
 using std::list;
@@ -812,79 +814,6 @@ void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   }
 }
 
-struct GeomVerifCostFunctor
-{
-  GeomVerifCostFunctor(int nTrans,const vector<bool>& isGroupEG,
-    const Matrix3d& invK1,const Matrix3d& invK2T,const Vector2d& x1,const Vector2d& x2)
-    : nTrans(nTrans),isGroupEG(isGroupEG),invK1(invK1),invK2T(invK2T),x1(x1),x2(x2)
-  {
-  }
-
-  template<typename T>
-  bool operator()(T const* const* parameters,T* residuals) const
-  {
-    const T *alpha = parameters[0];
-
-    residuals[0] = T(0.);
-    T alphaSqSum = T(0.);
-    for(int iT = 0; iT < nTrans; iT++)
-    {
-      T err;
-      if(isGroupEG[iT])
-      {
-        const T *t = &parameters[iT+1][0];
-        const T *rot = &parameters[iT+1][3];
-        Matrix<T,3,3> A,R,F;
-
-        A(0) = T(0.); A(3) = t[2];  A(6) = -t[1];
-        A(1) = -t[2]; A(4) = T(0.); A(7) = t[0];
-        A(2) = t[1];  A(5) = -t[0]; A(8) = T(0.);
-
-        Map<const Matrix<T,3,1>> rotMap(rot);
-        T angle = rotMap.norm();
-        Eigen::AngleAxis<T> aa(angle,rotMap/angle);
-        R = aa.toRotationMatrix();
-
-        F = invK2T.cast<T>() * A * R * invK1.cast<T>();
-
-        Matrix<T,3,1> Fx1 = F*x1.homogeneous().cast<T>();
-        Matrix<T,3,1> FTx2 = F.transpose()*x2.homogeneous().cast<T>();
-
-        T x2Fx1 = x2.homogeneous().cast<T>().dot(Fx1);
-
-        // 0.5 because this is the symmetric distance
-        err = T(0.5) * sqrt( (x2Fx1*x2Fx1) *
-          (T(1.) / Fx1.topRows(2).squaredNorm() + 
-          T(1.) / FTx2.topRows(2).squaredNorm()) );
-      } else
-      {
-        Map<const Matrix<T,3,3>> H(parameters[iT+1]);
-
-        Matrix<T,3,1> pt = H * x1.homogeneous().cast<T>();
-
-        Matrix<T,2,1> diff = x2.cast<T>() - (pt.topRows(2) / pt(2));
-
-        err = diff.norm();
-      }
-
-      T aSq = alpha[iT]*alpha[iT];
-
-      alphaSqSum += aSq;
-      residuals[0] += aSq * err;
-    }
-
-    if(alphaSqSum != T(0.))
-      residuals[0] /= alphaSqSum;
-
-    return true;
-  }
-
-  int nTrans;
-  const vector<bool> isGroupEG;
-  const Matrix3d& invK1,invK2T;
-  const Vector2d& x1,x2;
-};
-
 void estimateFundamentalMatrixParallax(const vector<Vector2d>& keys1,
   const vector<Vector2d>& keys2,const Matrix3d& H,const vector<IntPair>& matches,
   const vector<int>& offPlaneMatches,Matrix3d *pF)
@@ -1098,7 +1027,190 @@ void estimateFundamentalMatrices(const vector<Vector2d>& keys1,
     if(remainingMatches.size() < MIN_INLIERS_PER_TRANSFORM)
       break;
   }
+}
 
+struct GeomVerifCostFunctor
+{
+  GeomVerifCostFunctor(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const vector<IntPair>& matches,const vector<int>& inliers,
+    const double *weights)
+    : keys1(keys1),keys2(keys2),matches(matches),inliers(inliers),
+    weights(weights,inliers.size())
+  {
+  }
+
+  template<typename T>
+  bool operator()(T const* const* parameters,T* residuals) const
+  {
+    Map<const Matrix<T,3,1>> aaU_(&parameters[0][0]);
+    T s = parameters[0][3];
+    Map<const Matrix<T,3,1>> aaV_(&parameters[0][4]);
+
+    Matrix<T,3,3> U,S,V;
+    AngleAxis<T> aaU,aaV;
+    aaU.angle() = aaU_.norm();
+    aaU.axis() = aaU_ / aaU.angle();
+    U = aaU.toRotationMatrix();
+    S.setZero();
+    S(0,0) = T(1.);
+    S(1,1) = s;
+    aaV.angle() = aaV_.norm();
+    aaV.axis() = aaV_ / aaV.angle();
+    V = aaV.toRotationMatrix();
+
+    Matrix<T,3,3> F = U * S * V.transpose();
+
+    for(size_t ii = 0; ii < inliers.size(); ii++)
+    {
+      IntPair match = matches[inliers[ii]];
+      const auto& x1 = keys1[match.first];
+      const auto& x2 = keys2[match.second];
+
+      Matrix<T,3,1> Fx1 = F*x1.homogeneous().cast<T>();
+      Matrix<T,3,1> FTx2 = F.transpose()*x2.homogeneous().cast<T>();
+
+      T x2Fx1 = x2.homogeneous().cast<T>().dot(Fx1);
+
+      residuals[ii] = sqrt((x2Fx1*x2Fx1) *
+        (T(1.) / Fx1.topRows(2).squaredNorm() +
+        T(1.) / FTx2.topRows(2).squaredNorm()));
+
+      residuals[ii] *= T(weights(ii));
+    }
+
+    return true;
+  }
+
+  const vector<Vector2d> &keys1,&keys2;
+  const vector<IntPair>& matches;
+  const vector<int>& inliers;
+  Map<const VectorXd> weights;
+};
+
+void initializeWeights(const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const vector<IntPair>& matches,
+  const vector<int>& inliersEG,const vector<Matrix3d>& Fs,MatrixXd *pweights)
+{
+  auto& weights = *pweights;
+
+  int nFs = (int)Fs.size();
+  int nInliers = (int)inliersEG.size();
+  weights.resize(nInliers,nFs);
+  
+  for(int ii = 0; ii < nInliers; ii++)
+  {
+    IntPair match = matches[inliersEG[ii]];
+    const auto& x1 = keys1[match.first];
+    const auto& x2 = keys2[match.second];
+
+    double sum = 0.;
+    for(int iF = 0; iF < nFs; iF++)
+    {
+      double err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(x2,Fs[iF],x1));
+      weights(ii,iF) = (err == 0.) ? 1e100 : 1. / err;
+    }
+    weights.row(ii) /= weights.row(ii).sum();
+  }
+}
+
+void optimizeEGs(const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const vector<IntPair>& matches,
+  const vector<vector<int>>& groupsH,
+  vector<vector<int>> *pgroupsEG,vector<Matrix3d> *pFs)
+{
+  auto& groupsEG = *pgroupsEG;
+  auto& Fs = *pFs;
+
+  vector<int> inliers;
+  vector<bool> isInlier(matches.size());
+  for(const auto& group : groupsH)
+    for(int idx : group)
+      isInlier[idx] = true;
+  for(const auto& group : groupsEG)
+    for(int idx : group)
+      isInlier[idx] = true;
+  
+  for(int iMatch = 0; iMatch < (int)matches.size(); iMatch++)
+    if(isInlier[iMatch])
+      inliers.push_back(iMatch);
+
+  int nFs = (int)Fs.size();
+  int nInliers = (int)inliers.size();
+
+  MatrixXd weights(nInliers,nFs);
+
+  // Convert Fs into a minimal parameterization
+  vector<VectorXd> FsParams(nFs);
+  for(int iF = 0; iF < nFs; iF++)
+  {
+    JacobiSVD<Matrix3d> svd(Fs[iF],Eigen::ComputeFullU | Eigen::ComputeFullV);
+    AngleAxisd aaU,aaV;
+    aaU.fromRotationMatrix(svd.matrixU());
+    aaV.fromRotationMatrix(svd.matrixV());
+    double s = svd.singularValues()(1) / svd.singularValues()(0);
+
+    FsParams[iF].resize(7);
+    FsParams[iF].topRows(3) = aaU.angle() * aaU.axis();
+    FsParams[iF](3) = s;
+    FsParams[iF].bottomRows(3) = aaV.angle() * aaV.axis();
+  }
+
+  // Set-up the problem
+  ceres::Solver::Options solverOpt;
+  ceres::Problem problem;
+  for(int iF = 0; iF < nFs; iF++)
+  {
+    // NULL specifies squared loss
+    ceres::LossFunction *lossFun = NULL;
+
+    auto costFun =
+      new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctor>(
+      new GeomVerifCostFunctor(keys1,keys2,matches,inliers,&weights(0,iF)));
+
+    costFun->SetNumResiduals(nInliers);
+    costFun->AddParameterBlock(7);
+
+    problem.AddResidualBlock(costFun,lossFun,&FsParams[iF](0));
+  }
+
+  for(int i = 0; i < 5; i++)
+  {
+    initializeWeights(keys1,keys2,matches,inliers,Fs,&weights);
+
+    ceres::Solver::Summary summary;
+    ceres::Solve(solverOpt,&problem,&summary);
+    //std::cout << summary.FullReport() << "\n";
+
+    for(int iF = 0; iF < nFs; iF++)
+    {
+      Matrix3d U,S,V;
+      AngleAxisd aaU,aaV;
+      const auto& aaU_ = FsParams[iF].topRows(3);
+      aaU.angle() = aaU_.norm();
+      aaU.axis() = aaU_ / aaU.angle();
+      U = aaU.toRotationMatrix();
+      S.setZero();
+      S(0,0) = 1.;
+      S(1,1) = FsParams[iF](3);
+      const auto& aaV_ = FsParams[iF].bottomRows(3);
+      aaV.angle() = aaV_.norm();
+      aaV.axis() = aaV_ / aaV.angle();
+      V = aaV.toRotationMatrix();
+
+      Fs[iF].noalias() = U * S * V.transpose();
+    }
+  }
+
+  // Re-assign matches
+  initializeWeights(keys1,keys2,matches,inliers,Fs,&weights);
+  groupsEG.clear();
+  groupsEG.resize(nFs);
+  for(int ii = 0; ii < nInliers; ii++)
+  {
+    int max = 0;
+    weights.row(ii).maxCoeff(&max);
+    groupsEG[max].push_back(inliers[ii]);
+  }
 }
 
 int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
@@ -1116,138 +1228,8 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   vector<Matrix3d> Fs;
   estimateFundamentalMatrices(cam1.keys(),cam2.keys(),allMatches,groupsH,&groupsEG,&Fs);
 
-  //optimizeEGs();
-    
-  /*if(groups.size() > 1)
-  {
-    outInliers.clear();
-    for(const auto& g : groups)
-      outInliers.insert(outInliers.end(),g.begin(),g.end());
-
-    int nTrans = (int)Ts.size();
-    int nInliers = (int)outInliers.size();
-
-    vector<VectorXd> EsParams(nTrans);
-    for(int iT = 0; iT < nTrans; iT++)
-    {
-      if(isGroupEG[iT])
-      {
-        vector<IntPair> currMatches(groups[iT].size());
-        for(size_t i = 0; i < currMatches.size(); i++)
-          currMatches[i] = allMatches[groups[iT][i]];
-
-        Matrix3d R;
-        Vector3d t,C;
-        E2RC(Ts[iT],cam1.K(),cam2.K(),currMatches,cam1.keys(),cam2.keys(),
-          &R,&C);
-        t = -R*C;
-
-        Eigen::AngleAxisd aa;
-        aa.fromRotationMatrix(R);
-
-        EsParams[iT].resize(6);
-        EsParams[iT].topRows(3) = t;
-        EsParams[iT].bottomRows(3) = aa.angle() * aa.axis();
-      }
-    }
-
-    // Initialize weights
-    vector<double> alpha(nTrans*nInliers,0.);
-    for(int ii = 0; ii < nInliers; ii++)
-    {
-      IntPair match = allMatches[outInliers[ii]];
-      const auto& x1 = cam1.key(match.first);
-      const auto& x2 = cam2.key(match.second);
-
-      for(int iT = 0; iT < nTrans; iT++)
-      {
-        double err = 0.;
-        if(isGroupEG[iT])
-        {
-          Matrix3d F = cam2.K().inverse().transpose() * Ts[iT] * cam1.K().inverse();
-          err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(x2,F,x1));
-        } else
-        {
-          const auto& H = Ts[iT];
-          Vector3d pt = H * x1.homogeneous();
-          Vector2d diff = x2 - (pt.topRows(2) / pt(2));
-          err = diff.norm();
-        }
-        alpha[ii*nTrans + iT] = sqrt(1. / err);
-      }
-    }
-
-    // Set-up the problem
-    ceres::Problem problem;
-    Matrix3d invK1 = cam1.K().inverse(),
-      invK2T = cam2.K().inverse().transpose();
-    for(int ii = 0; ii < nInliers; ii++)
-    {
-      IntPair match = allMatches[outInliers[ii]];
-      const auto& pt1 = cam1.key(match.first);
-      const auto& pt2 = cam2.key(match.second);
-
-      // NULL specifies squared loss
-      ceres::LossFunction *lossFun = NULL;
-
-      auto costFun =
-        new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctor>(
-        new GeomVerifCostFunctor(nTrans,isGroupEG,invK1,invK2T,pt1,pt2));
-
-      costFun->SetNumResiduals(1);
-      costFun->AddParameterBlock(nTrans);
-      
-      vector<double *> parameterBlocks(1+nTrans);
-      parameterBlocks[0] = &alpha[ii*nTrans];
-      for(int iT = 0; iT < nTrans; iT++)
-      {
-        if(isGroupEG[iT])
-        {
-          costFun->AddParameterBlock(6);
-          parameterBlocks[1+iT] = &EsParams[iT](0);
-        } else
-        {
-          costFun->AddParameterBlock(9);
-          parameterBlocks[1+iT] = &Ts[iT](0,0);
-        }
-      }
-      problem.AddResidualBlock(costFun,lossFun,parameterBlocks);
-    }
-
-    ceres::Solver::Summary summary;
-    ceres::Solver::Options solverOpt;
-    ceres::Solve(solverOpt,&problem,&summary);
-    //std::cout << summary.FullReport() << "\n";
-
-    // Compute weights in [0,1] from alpha
-    vector<double> weights(nTrans*nInliers);
-    for(int ii = 0; ii < nInliers; ii++)
-    {
-      double sum = 0.;
-      for(size_t iH = 0; iH < nTrans; iH++)
-        sum += alpha[ii*nTrans + iH] * alpha[ii*nTrans + iH];
-      for(size_t iH = 0; iH < nTrans; iH++)
-        weights[ii*nTrans + iH] = (alpha[ii*nTrans + iH] * alpha[ii*nTrans + iH]) / sum;
-    }
-
-    // Re-assign matches
-    groups.clear();
-    groups.resize(Ts.size());
-    for(int ii = 0; ii < nInliers; ii++)
-    {
-      int max = 0;
-      //cout << " " << weights[ii*nTrans + 0];
-      for(int iT = 1; iT < nTrans; iT++)
-      {
-        if(weights[ii*nTrans + iT] > weights[ii*nTrans + max])
-          max = iT;
-        //cout << " " << weights[ii*nTrans + iT];
-      }
-      //cout << "\n";
-      groups[max].push_back(outInliers[ii]);
-    }
-  }*/
-
+  optimizeEGs(cam1.keys(),cam2.keys(),allMatches,groupsH,&groupsEG,&Fs);
+  
   outInliers.clear();
   inlierSetSizes.resize(groupsEG.size());
   for(size_t ig = 0; ig < groupsEG.size(); ig++)
