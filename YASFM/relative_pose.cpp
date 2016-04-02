@@ -1256,8 +1256,14 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   {
     JacobiSVD<Matrix3d> svd(Fs[iF],Eigen::ComputeFullU | Eigen::ComputeFullV);
     AngleAxisd aaU,aaV;
-    aaU.fromRotationMatrix(svd.matrixU());
-    aaV.fromRotationMatrix(svd.matrixV());
+    Matrix3d U = svd.matrixU();
+    if(U.determinant() < 0.)
+      U *= -1.;
+    Matrix3d V = svd.matrixV();
+    if(V.determinant() < 0.)
+      V *= -1.;
+    aaU.fromRotationMatrix(U);
+    aaV.fromRotationMatrix(V);
     double s = svd.singularValues()(1) / svd.singularValues()(0);
 
     FsParams[iF].resize(7);
