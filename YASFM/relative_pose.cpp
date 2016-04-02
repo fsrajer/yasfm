@@ -1029,9 +1029,34 @@ void estimateFundamentalMatrices(const vector<Vector2d>& keys1,
   }
 }
 
-struct GeomVerifCostFunctor
+template<typename T>
+void constructF(const T* const params,Matrix<T,3,3> *F)
 {
-  GeomVerifCostFunctor(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+  Map<const Matrix<T,3,1>> aaU_(&params[0]);
+  T s = params[3];
+  Map<const Matrix<T,3,1>> aaV_(&params[4]);
+
+  Matrix<T,3,3> U,S,V;
+  AngleAxis<T> aaU,aaV;
+
+  aaU.angle() = aaU_.norm();
+  aaU.axis() = aaU_ / aaU.angle();
+  U = aaU.toRotationMatrix();
+
+  S.setZero();
+  S(0,0) = T(1.);
+  S(1,1) = s;
+
+  aaV.angle() = aaV_.norm();
+  aaV.axis() = aaV_ / aaV.angle();
+  V = aaV.toRotationMatrix();
+
+  *F = U * S * V.transpose();
+}
+
+struct GeomVerifCostFunctorFs
+{
+  GeomVerifCostFunctorFs(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
     const vector<IntPair>& matches,const vector<int>& inliers,
     const double *weights)
     : keys1(keys1),keys2(keys2),matches(matches),inliers(inliers),
@@ -1042,23 +1067,8 @@ struct GeomVerifCostFunctor
   template<typename T>
   bool operator()(T const* const* parameters,T* residuals) const
   {
-    Map<const Matrix<T,3,1>> aaU_(&parameters[0][0]);
-    T s = parameters[0][3];
-    Map<const Matrix<T,3,1>> aaV_(&parameters[0][4]);
-
-    Matrix<T,3,3> U,S,V;
-    AngleAxis<T> aaU,aaV;
-    aaU.angle() = aaU_.norm();
-    aaU.axis() = aaU_ / aaU.angle();
-    U = aaU.toRotationMatrix();
-    S.setZero();
-    S(0,0) = T(1.);
-    S(1,1) = s;
-    aaV.angle() = aaV_.norm();
-    aaV.axis() = aaV_ / aaV.angle();
-    V = aaV.toRotationMatrix();
-
-    Matrix<T,3,3> F = U * S * V.transpose();
+    Matrix<T,3,3> F;
+    constructF(parameters[0],&F);
 
     for(size_t ii = 0; ii < inliers.size(); ii++)
     {
@@ -1087,6 +1097,78 @@ struct GeomVerifCostFunctor
   Map<const VectorXd> weights;
 };
 
+struct GeomVerifCostFunctorGroupsH
+{
+  GeomVerifCostFunctorGroupsH(int groupSize) : groupSize(groupSize)
+  {
+  }
+
+  template<typename T>
+  bool operator()(T const* const* weights,T* residuals) const
+  {
+    T mean = T(0.);
+    for(int i = 0; i < groupSize; i++)
+      mean += *weights[i];
+
+    if(groupSize != 0)
+      mean /= T(groupSize);
+
+    for(int i = 0; i < groupSize; i++)
+      residuals[i] = mean - *weights[i];
+    
+    return true;
+  }
+
+  int groupSize;
+};
+
+struct GeomVerifCostFunctorWeight2
+{
+  GeomVerifCostFunctorWeight2(int groupSize,double lambda)
+    : groupSize(groupSize),lambda(lambda)
+  {
+  }
+
+  template<typename T>
+  bool operator()(T const* const* weights,T* residuals) const
+  {
+    T sum = T(0.);
+    for(int i = 0; i < groupSize; i++)
+      sum += *weights[i];
+
+    residuals[0] = T(lambda) * (T(1.) - sum);
+    return true;
+  }
+
+  int groupSize;
+  double lambda;
+};
+
+struct GeomVerifCostFunctorWeight
+{
+  GeomVerifCostFunctorWeight(const Vector2d& x1,const Vector2d& x2,const Matrix3d& F)
+  {
+    Vector3d Fx1 = F*x1.homogeneous();
+    Vector3d FTx2 = F.transpose()*x2.homogeneous();
+
+    double x2Fx1 = x2.homogeneous().dot(Fx1);
+
+    err = sqrt((x2Fx1*x2Fx1) *
+      (1. / Fx1.topRows(2).squaredNorm() +
+      1. / FTx2.topRows(2).squaredNorm()));
+  }
+
+  template<typename T>
+  bool operator()(const T* const parameters,T* residuals) const
+  {
+    T weight = parameters[0];
+    residuals[0] = weight * err;
+    return true;
+  }
+
+  double err;
+};
+
 void initializeWeights(const vector<Vector2d>& keys1,
   const vector<Vector2d>& keys2,const vector<IntPair>& matches,
   const vector<int>& inliersEG,const vector<Matrix3d>& Fs,MatrixXd *pweights)
@@ -1109,8 +1191,9 @@ void initializeWeights(const vector<Vector2d>& keys1,
       double err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(x2,Fs[iF],x1));
       weights(ii,iF) = (err == 0.) ? 1e100 : 1. / err;
     }
-    weights.row(ii) /= weights.row(ii).sum();
   }
+
+  weights = (weights.array().colwise() / weights.rowwise().sum().array()).matrix();
 }
 
 void optimizeEGs(const vector<Vector2d>& keys1,
@@ -1118,8 +1201,16 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   const vector<vector<int>>& groupsH,
   vector<vector<int>> *pgroupsEG,vector<Matrix3d> *pFs)
 {
+  const double LAMBDA = 5.;
+
   auto& groupsEG = *pgroupsEG;
   auto& Fs = *pFs;
+
+  if(Fs.empty())
+    return;
+
+  int nFs = (int)Fs.size();
+  int nHs = (int)groupsH.size();
 
   vector<int> inliers;
   vector<bool> isInlier(matches.size());
@@ -1130,13 +1221,25 @@ void optimizeEGs(const vector<Vector2d>& keys1,
     for(int idx : group)
       isInlier[idx] = true;
   
+  vector<int> allToInliers(matches.size(),-1);
   for(int iMatch = 0; iMatch < (int)matches.size(); iMatch++)
+  {
     if(isInlier[iMatch])
+    {
+      allToInliers[iMatch] = (int)inliers.size();
       inliers.push_back(iMatch);
+    }
+  }
 
-  int nFs = (int)Fs.size();
+  vector<vector<int>> groupsHInlierIdxs(nHs);
+  for(int iH = 0; iH < nHs; iH++)
+  {
+    groupsHInlierIdxs[iH].reserve(groupsH[iH].size());
+    for(int allIdx : groupsH[iH])
+      groupsHInlierIdxs[iH].push_back(allToInliers[allIdx]);
+  }
+
   int nInliers = (int)inliers.size();
-
   MatrixXd weights(nInliers,nFs);
 
   // Convert Fs into a minimal parameterization
@@ -1157,57 +1260,86 @@ void optimizeEGs(const vector<Vector2d>& keys1,
 
   // Set-up the problem
   ceres::Solver::Options solverOpt;
-  ceres::Problem problem;
+  ceres::Problem problemWeights,problemFs;
+  ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
+  for(int ii = 0; ii < nInliers; ii++)
+  {
+    IntPair match = matches[inliers[ii]];
+    const auto& x1 = keys1[match.first];
+    const auto& x2 = keys2[match.second];
+
+    for(int iF = 0; iF < nFs; iF++)
+    {
+      auto costFun = 
+        new ceres::AutoDiffCostFunction<GeomVerifCostFunctorWeight,1,1>(
+        new GeomVerifCostFunctorWeight(x1,x2,Fs[iF]));
+      problemWeights.AddResidualBlock(costFun,lossFun,&weights(ii,iF));
+      problemWeights.SetParameterLowerBound(&weights(ii,iF),0,0.);
+    }
+
+    vector<double *> currWeights(nFs);
+    auto costFun =
+      new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorWeight2>(
+      new GeomVerifCostFunctorWeight2(nFs,LAMBDA));
+    for(int iF = 0; iF < nFs; iF++)
+    {
+      costFun->AddParameterBlock(1);
+      currWeights[iF] = &weights(ii,iF);
+    }
+    costFun->SetNumResiduals(1);
+    problemWeights.AddResidualBlock(costFun,lossFun,currWeights);
+  }
+  /*for(int iF = 0; iF < nFs; iF++)
+  {
+    for(int iH = 0; iH < nHs; iH++)
+    {
+      int groupSize = (int)groupsHInlierIdxs[iH].size();
+      auto costFun =
+        new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorGroupsH>(
+        new GeomVerifCostFunctorGroupsH(groupSize));
+
+      vector<double *> currParams(groupSize);
+      for(int iiH = 0; iiH < groupSize; iiH++)
+      {
+        costFun->AddParameterBlock(1);
+        currParams[iiH] = &weights(groupsHInlierIdxs[iH][iiH],iF);
+      }
+      costFun->SetNumResiduals(groupSize);
+      problemWeights.AddResidualBlock(costFun,lossFun,currParams);
+    }
+  }*/
   for(int iF = 0; iF < nFs; iF++)
   {
-    // NULL specifies squared loss
-    ceres::LossFunction *lossFun = NULL;
-
     auto costFun =
-      new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctor>(
-      new GeomVerifCostFunctor(keys1,keys2,matches,inliers,&weights(0,iF)));
+      new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorFs>(
+      new GeomVerifCostFunctorFs(keys1,keys2,matches,inliers,&weights(0,iF)));
 
     costFun->SetNumResiduals(nInliers);
     costFun->AddParameterBlock(7);
 
-    problem.AddResidualBlock(costFun,lossFun,&FsParams[iF](0));
+    problemFs.AddResidualBlock(costFun,lossFun,&FsParams[iF](0));
   }
 
+  initializeWeights(keys1,keys2,matches,inliers,Fs,&weights);
   for(int i = 0; i < 5; i++)
   {
-    initializeWeights(keys1,keys2,matches,inliers,Fs,&weights);
-
     ceres::Solver::Summary summary;
-    ceres::Solve(solverOpt,&problem,&summary);
+    ceres::Solve(solverOpt,&problemFs,&summary);
     //std::cout << summary.FullReport() << "\n";
 
     for(int iF = 0; iF < nFs; iF++)
-    {
-      Matrix3d U,S,V;
-      AngleAxisd aaU,aaV;
-      const auto& aaU_ = FsParams[iF].topRows(3);
-      aaU.angle() = aaU_.norm();
-      aaU.axis() = aaU_ / aaU.angle();
-      U = aaU.toRotationMatrix();
-      S.setZero();
-      S(0,0) = 1.;
-      S(1,1) = FsParams[iF](3);
-      const auto& aaV_ = FsParams[iF].bottomRows(3);
-      aaV.angle() = aaV_.norm();
-      aaV.axis() = aaV_ / aaV.angle();
-      V = aaV.toRotationMatrix();
+      constructF(&FsParams[iF](0),&Fs[iF]);
 
-      Fs[iF].noalias() = U * S * V.transpose();
-    }
+    ceres::Solve(solverOpt,&problemWeights,&summary);
+    //std::cout << summary.FullReport() << "\n";
   }
 
   // Re-assign matches
-  initializeWeights(keys1,keys2,matches,inliers,Fs,&weights);
   groupsEG.clear();
   groupsEG.resize(nFs);
   for(int ii = 0; ii < nInliers; ii++)
   {
-    int max = 0;
+    int max;
     weights.row(ii).maxCoeff(&max);
     groupsEG[max].push_back(inliers[ii]);
   }
