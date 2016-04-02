@@ -1099,13 +1099,19 @@ struct GeomVerifCostFunctorFs
 
 struct GeomVerifCostFunctorGroupsH
 {
-  GeomVerifCostFunctorGroupsH(int groupSize) : groupSize(groupSize)
+  GeomVerifCostFunctorGroupsH(int count) : count(count)
   {
   }
 
   template<typename T>
   bool operator()(T const* const* weights,T* residuals) const
   {
+    T sum = T(0.);
+    for(int i = 0; i < count; i++)
+      sum += *weights[i];
+
+    residuals[0] = T(LAMBDA_2) * pow(sum,BETA);
+    /*
     T mean = T(0.);
     for(int i = 0; i < groupSize; i++)
       mean += *weights[i];
@@ -1115,11 +1121,13 @@ struct GeomVerifCostFunctorGroupsH
 
     for(int i = 0; i < groupSize; i++)
       residuals[i] = mean - *weights[i];
-    
+    */
     return true;
   }
 
-  int groupSize;
+  const double LAMBDA_2 = 10000.;
+  const double BETA = 0.4;
+  int count;
 };
 
 struct GeomVerifCostFunctorWeight2
@@ -1201,7 +1209,7 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   const vector<vector<int>>& groupsH,
   vector<vector<int>> *pgroupsEG,vector<Matrix3d> *pFs)
 {
-  const double LAMBDA = 5.;
+  const double LAMBDA = 50000.;
 
   auto& groupsEG = *pgroupsEG;
   auto& Fs = *pFs;
@@ -1260,6 +1268,7 @@ void optimizeEGs(const vector<Vector2d>& keys1,
 
   // Set-up the problem
   ceres::Solver::Options solverOpt;
+  solverOpt.max_num_iterations = 10;
   ceres::Problem problemWeights,problemFs;
   ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
   for(int ii = 0; ii < nInliers; ii++)
@@ -1289,7 +1298,7 @@ void optimizeEGs(const vector<Vector2d>& keys1,
     costFun->SetNumResiduals(1);
     problemWeights.AddResidualBlock(costFun,lossFun,currWeights);
   }
-  /*for(int iF = 0; iF < nFs; iF++)
+  for(int iF = 0; iF < nFs; iF++)
   {
     for(int iH = 0; iH < nHs; iH++)
     {
@@ -1304,10 +1313,10 @@ void optimizeEGs(const vector<Vector2d>& keys1,
         costFun->AddParameterBlock(1);
         currParams[iiH] = &weights(groupsHInlierIdxs[iH][iiH],iF);
       }
-      costFun->SetNumResiduals(groupSize);
+      costFun->SetNumResiduals(1);
       problemWeights.AddResidualBlock(costFun,lossFun,currParams);
     }
-  }*/
+  }
   for(int iF = 0; iF < nFs; iF++)
   {
     auto costFun =
