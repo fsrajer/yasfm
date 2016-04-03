@@ -16,6 +16,7 @@ using Eigen::Matrix;
 using Eigen::Vector3cd;
 using Eigen::AngleAxisd;
 using Eigen::AngleAxis;
+using Eigen::RowVectorXd;
 using std::cerr;
 using std::cout;
 using std::list;
@@ -1128,7 +1129,7 @@ void initializeWeights(const vector<Vector2d>& keys1,
 
   for(const auto& group : groupsHInlierIdxs)
   {
-    Eigen::RowVectorXd sum(weights.cols());
+    RowVectorXd sum(weights.cols());
     sum.setZero();
     for(int idx : group)
       sum += weights.row(idx);
@@ -1144,13 +1145,30 @@ void initializeWeights(const vector<Vector2d>& keys1,
   weights = (weights.array().colwise() / weights.rowwise().sum().array()).matrix();
 }
 
+void findProportionModellableByOneHomography(const MatrixXd& weights,
+   const vector<vector<int>>& groupsHInlierIdxs,VectorXd *pproportion)
+{
+  auto& proportion = *pproportion;
+  int nFs = int(weights.cols()) - 1;
+  int nHs = (int)groupsHInlierIdxs.size();
+  MatrixXd nInliersH(MatrixXd::Zero(nHs,nFs));
+  for(size_t iH = 0; iH < groupsHInlierIdxs.size(); iH++)
+    for(int idx : groupsHInlierIdxs[iH])
+      nInliersH.row(iH) += weights.row(idx).leftCols(nFs);
+
+  if(nHs != 0)
+    proportion = (nInliersH.colwise().maxCoeff().array()
+    / weights.leftCols(nFs).colwise().sum().array()).matrix().transpose();
+}
+
 void optimizeEGs(const vector<Vector2d>& keys1,
   const vector<Vector2d>& keys2,const vector<IntPair>& matches,
   const vector<vector<int>>& groupsH,
   vector<vector<int>> *pgroupsEG,vector<Matrix3d> *pFs)
 {
   const int MIN_MATCHES_PER_F = 16;
-  const int N_OPTIM_ITERS = 5;
+  const int N_OPTIM_ITERS = 10;
+  const double MAX_H_PROPORTION = 0.95;
 
   auto& groupsEG = *pgroupsEG;
   auto& Fs = *pFs;
@@ -1190,9 +1208,6 @@ void optimizeEGs(const vector<Vector2d>& keys1,
 
   int nInliers = (int)inliers.size();
   MatrixXd weights;
-  double weightsPenalization = 1.;
-  initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
-    weightsPenalization,&weights);
 
   // Convert Fs into a minimal parameterization
   vector<VectorXd> FsParams(nFs);
@@ -1218,28 +1233,34 @@ void optimizeEGs(const vector<Vector2d>& keys1,
 
   // Set-up the problem
   ceres::Solver::Options solverOpt;
-  ceres::Problem problemFs;
   ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
-  for(int iF = 0; iF < nFs; iF++)
-  {
-    auto costFun =
-      new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorFs>(
-      new GeomVerifCostFunctorFs(keys1,keys2,matches,inliers,&weights(0,iF)));
 
-    costFun->SetNumResiduals(nInliers);
-    costFun->AddParameterBlock(7);
-
-    problemFs.AddResidualBlock(costFun,lossFun,&FsParams[iF](0));
-  }
-
+  double weightsPenalization = 1.;
+  initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
+    weightsPenalization,&weights);
 #define PRINT_STATUS
 #ifdef PRINT_STATUS
-  cout << weights << "\n";
-  cout << weights.colwise().sum() << "\n";
+  //cout << weights << "\n";
+  cout << "\n" << weights.colwise().sum() << "\n";
 #endif
   for(int i = 0; i < N_OPTIM_ITERS; i++)
   {
     weightsPenalization -= 1./N_OPTIM_ITERS;
+    //weightsPenalization /= 2.;
+
+    ceres::Problem problemFs;
+    for(int iF = 0; iF < nFs; iF++)
+    {
+      auto costFun =
+        new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorFs>(
+        new GeomVerifCostFunctorFs(keys1,keys2,matches,inliers,&weights(0,iF)));
+
+      costFun->SetNumResiduals(nInliers);
+      costFun->AddParameterBlock(7);
+
+      problemFs.AddResidualBlock(costFun,lossFun,&FsParams[iF](0));
+    }
+
     ceres::Solver::Summary summary;
     ceres::Solve(solverOpt,&problemFs,&summary);
 #ifdef PRINT_STATUS
@@ -1252,10 +1273,62 @@ void optimizeEGs(const vector<Vector2d>& keys1,
     initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
       weightsPenalization,&weights);
 #ifdef PRINT_STATUS
-    cout << weights << "\n";
+    //cout << weights << "\n";
+    cout << weights.colwise().sum() << "\n";
+#endif
+
+    VectorXd homProportion;
+    findProportionModellableByOneHomography(
+      weights,groupsHInlierIdxs,&homProportion);
+    int maxF;
+    if(nHs != 0 && homProportion.maxCoeff(&maxF) > MAX_H_PROPORTION)
+    {
+#ifdef PRINT_STATUS
+      cout << "Removing " << maxF << " because it has " << homProportion.maxCoeff()
+        << " modellable by homography\n";
+#endif
+      nFs--;
+      Fs.erase(Fs.begin() + maxF);
+      FsParams.erase(FsParams.begin() + maxF);
+      initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
+        weightsPenalization,&weights);
+    }
+
+    if(nFs == 0)
+      break;
+    /*RowVectorXd wSum = weights.leftCols(nFs).colwise().sum();
+    int minF;
+    if(wSum.minCoeff(&minF) < MIN_MATCHES_PER_F)
+    {
+      nFs--;
+      Fs.erase(Fs.begin() + minF);
+      FsParams.erase(FsParams.begin() + minF);
+      initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
+        weightsPenalization,&weights);
+    }*/
+#ifdef PRINT_STATUS
+    cout << homProportion.transpose() << "\n";
+    //cout << weights << "\n";
     cout << weights.colwise().sum() << "\n";
 #endif
   }
+
+  RowVectorXd wSum = weights.leftCols(nFs).colwise().sum();
+  for(int iF = nFs-1; iF >= 0; iF--)
+  {
+    if(wSum(iF) < MIN_MATCHES_PER_F)
+    {
+      nFs--;
+      Fs.erase(Fs.begin() + iF);
+      FsParams.erase(FsParams.begin() + iF);
+    }
+  }
+  initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
+    weightsPenalization,&weights);
+
+#ifdef PRINT_STATUS
+  cout << weights.colwise().sum() << "\n";
+#endif
 
   // Re-assign matches
   groupsEG.clear();
