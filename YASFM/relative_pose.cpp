@@ -1097,86 +1097,6 @@ struct GeomVerifCostFunctorFs
   Map<const VectorXd> weights;
 };
 
-struct GeomVerifCostFunctorGroupsH
-{
-  GeomVerifCostFunctorGroupsH(int count) : count(count)
-  {
-  }
-
-  template<typename T>
-  bool operator()(T const* const* weights,T* residuals) const
-  {
-    T sum = T(0.);
-    for(int i = 0; i < count; i++)
-      sum += *weights[i];
-
-    residuals[0] = T(LAMBDA_2) * pow(sum,BETA);
-    /*
-    T mean = T(0.);
-    for(int i = 0; i < groupSize; i++)
-      mean += *weights[i];
-
-    if(groupSize != 0)
-      mean /= T(groupSize);
-
-    for(int i = 0; i < groupSize; i++)
-      residuals[i] = mean - *weights[i];
-    */
-    return true;
-  }
-
-  const double LAMBDA_2 = 10000.;
-  const double BETA = 0.4;
-  int count;
-};
-
-/*struct GeomVerifCostFunctorWeight2
-{
-  GeomVerifCostFunctorWeight2(int groupSize,double lambda)
-    : groupSize(groupSize),lambda(lambda)
-  {
-  }
-
-  template<typename T>
-  bool operator()(T const* const* weights,T* residuals) const
-  {
-    T sum = T(0.);
-    for(int i = 0; i < groupSize; i++)
-      sum += *weights[i];
-
-    residuals[0] = T(lambda) * (T(1.) - sum);
-    return true;
-  }
-
-  int groupSize;
-  double lambda;
-};
-
-struct GeomVerifCostFunctorWeight
-{
-  GeomVerifCostFunctorWeight(const Vector2d& x1,const Vector2d& x2,const Matrix3d& F)
-  {
-    Vector3d Fx1 = F*x1.homogeneous();
-    Vector3d FTx2 = F.transpose()*x2.homogeneous();
-
-    double x2Fx1 = x2.homogeneous().dot(Fx1);
-
-    err = sqrt((x2Fx1*x2Fx1) *
-      (1. / Fx1.topRows(2).squaredNorm() +
-      1. / FTx2.topRows(2).squaredNorm()));
-  }
-
-  template<typename T>
-  bool operator()(const T* const parameters,T* residuals) const
-  {
-    T weight = parameters[0];
-    residuals[0] = weight * err;
-    return true;
-  }
-
-  double err;
-};*/
-
 void initializeWeights(const vector<Vector2d>& keys1,
   const vector<Vector2d>& keys2,const vector<IntPair>& matches,
   const vector<int>& inliersEG,const vector<Matrix3d>& Fs,
@@ -1229,7 +1149,8 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   const vector<vector<int>>& groupsH,
   vector<vector<int>> *pgroupsEG,vector<Matrix3d> *pFs)
 {
-  //const double LAMBDA = 5.;
+  const int MIN_MATCHES_PER_F = 16;
+  const int N_OPTIM_ITERS = 5;
 
   auto& groupsEG = *pgroupsEG;
   auto& Fs = *pFs;
@@ -1297,54 +1218,8 @@ void optimizeEGs(const vector<Vector2d>& keys1,
 
   // Set-up the problem
   ceres::Solver::Options solverOpt;
-  ceres::Problem problemWeights,problemFs;
+  ceres::Problem problemFs;
   ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
-  /*for(int ii = 0; ii < nInliers; ii++)
-  {
-    IntPair match = matches[inliers[ii]];
-    const auto& x1 = keys1[match.first];
-    const auto& x2 = keys2[match.second];
-
-    for(int iF = 0; iF < nFs; iF++)
-    {
-      auto costFun = 
-        new ceres::AutoDiffCostFunction<GeomVerifCostFunctorWeight,1,1>(
-        new GeomVerifCostFunctorWeight(x1,x2,Fs[iF]));
-      problemWeights.AddResidualBlock(costFun,lossFun,&weights(ii,iF));
-      problemWeights.SetParameterLowerBound(&weights(ii,iF),0,0.);
-    }
-
-    vector<double *> currWeights(nFs);
-    auto costFun =
-      new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorWeight2>(
-      new GeomVerifCostFunctorWeight2(nFs,LAMBDA));
-    for(int iF = 0; iF < nFs; iF++)
-    {
-      costFun->AddParameterBlock(1);
-      currWeights[iF] = &weights(ii,iF);
-    }
-    costFun->SetNumResiduals(1);
-    problemWeights.AddResidualBlock(costFun,lossFun,currWeights);
-  }
-  for(int iF = 0; iF < nFs; iF++)
-  {
-    for(int iH = 0; iH < nHs; iH++)
-    {
-      int groupSize = (int)groupsHInlierIdxs[iH].size();
-      auto costFun =
-        new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorGroupsH>(
-        new GeomVerifCostFunctorGroupsH(groupSize));
-
-      vector<double *> currParams(groupSize);
-      for(int iiH = 0; iiH < groupSize; iiH++)
-      {
-        costFun->AddParameterBlock(1);
-        currParams[iiH] = &weights(groupsHInlierIdxs[iH][iiH],iF);
-      }
-      costFun->SetNumResiduals(1);
-      problemWeights.AddResidualBlock(costFun,lossFun,currParams);
-    }
-  }*/
   for(int iF = 0; iF < nFs; iF++)
   {
     auto costFun =
@@ -1362,9 +1237,9 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   cout << weights << "\n";
   cout << weights.colwise().sum() << "\n";
 #endif
-  for(int i = 0; i < 5; i++)
+  for(int i = 0; i < N_OPTIM_ITERS; i++)
   {
-    weightsPenalization -= 1./5.;
+    weightsPenalization -= 1./N_OPTIM_ITERS;
     ceres::Solver::Summary summary;
     ceres::Solve(solverOpt,&problemFs,&summary);
 #ifdef PRINT_STATUS
@@ -1376,9 +1251,7 @@ void optimizeEGs(const vector<Vector2d>& keys1,
 
     initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
       weightsPenalization,&weights);
-    //ceres::Solve(solverOpt,&problemWeights,&summary);
 #ifdef PRINT_STATUS
-    //std::cout << summary.FullReport() << "\n";
     cout << weights << "\n";
     cout << weights.colwise().sum() << "\n";
 #endif
