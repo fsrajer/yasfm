@@ -1179,7 +1179,9 @@ struct GeomVerifCostFunctorWeight
 
 void initializeWeights(const vector<Vector2d>& keys1,
   const vector<Vector2d>& keys2,const vector<IntPair>& matches,
-  const vector<int>& inliersEG,const vector<Matrix3d>& Fs,MatrixXd *pweights)
+  const vector<int>& inliersEG,const vector<Matrix3d>& Fs,
+  const vector<vector<int>>& groupsHInlierIdxs,double weightsPenalization,
+  MatrixXd *pweights)
 {
   const double DEFAULT_OUTLIER_VALUE = 1. / sqrt(5.);
 
@@ -1203,6 +1205,21 @@ void initializeWeights(const vector<Vector2d>& keys1,
     }
   }
   weights.rightCols(1).fill(DEFAULT_OUTLIER_VALUE);
+
+  for(const auto& group : groupsHInlierIdxs)
+  {
+    Eigen::RowVectorXd sum(weights.cols());
+    sum.setZero();
+    for(int idx : group)
+      sum += weights.row(idx);
+    int maxF;
+    sum.maxCoeff(&maxF);
+    for(int idx : group)
+    {
+      weights.row(idx).leftCols(maxF) *= weightsPenalization;
+      weights.row(idx).rightCols(weights.cols() - maxF - 1) *= weightsPenalization;
+    }
+  }
 
   weights = (weights.array().colwise() / weights.rowwise().sum().array()).matrix();
 }
@@ -1252,7 +1269,9 @@ void optimizeEGs(const vector<Vector2d>& keys1,
 
   int nInliers = (int)inliers.size();
   MatrixXd weights;
-  initializeWeights(keys1,keys2,matches,inliers,Fs,&weights);
+  double weightsPenalization = 1.;
+  initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
+    weightsPenalization,&weights);
 
   // Convert Fs into a minimal parameterization
   vector<VectorXd> FsParams(nFs);
@@ -1345,6 +1364,7 @@ void optimizeEGs(const vector<Vector2d>& keys1,
 #endif
   for(int i = 0; i < 5; i++)
   {
+    weightsPenalization -= 1./5.;
     ceres::Solver::Summary summary;
     ceres::Solve(solverOpt,&problemFs,&summary);
 #ifdef PRINT_STATUS
@@ -1354,7 +1374,8 @@ void optimizeEGs(const vector<Vector2d>& keys1,
     for(int iF = 0; iF < nFs; iF++)
       constructF(&FsParams[iF](0),&Fs[iF]);
 
-    initializeWeights(keys1,keys2,matches,inliers,Fs,&weights);
+    initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
+      weightsPenalization,&weights);
     //ceres::Solve(solverOpt,&problemWeights,&summary);
 #ifdef PRINT_STATUS
     //std::cout << summary.FullReport() << "\n";
