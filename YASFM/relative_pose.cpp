@@ -1130,7 +1130,7 @@ struct GeomVerifCostFunctorGroupsH
   int count;
 };
 
-struct GeomVerifCostFunctorWeight2
+/*struct GeomVerifCostFunctorWeight2
 {
   GeomVerifCostFunctorWeight2(int groupSize,double lambda)
     : groupSize(groupSize),lambda(lambda)
@@ -1175,17 +1175,19 @@ struct GeomVerifCostFunctorWeight
   }
 
   double err;
-};
+};*/
 
 void initializeWeights(const vector<Vector2d>& keys1,
   const vector<Vector2d>& keys2,const vector<IntPair>& matches,
   const vector<int>& inliersEG,const vector<Matrix3d>& Fs,MatrixXd *pweights)
 {
+  const double DEFAULT_OUTLIER_VALUE = 1. / sqrt(5.);
+
   auto& weights = *pweights;
 
   int nFs = (int)Fs.size();
   int nInliers = (int)inliersEG.size();
-  weights.resize(nInliers,nFs);
+  weights.resize(nInliers,nFs+1);
   
   for(int ii = 0; ii < nInliers; ii++)
   {
@@ -1200,6 +1202,7 @@ void initializeWeights(const vector<Vector2d>& keys1,
       weights(ii,iF) = (err == 0.) ? 1e100 : 1. / err;
     }
   }
+  weights.rightCols(1).fill(DEFAULT_OUTLIER_VALUE);
 
   weights = (weights.array().colwise() / weights.rowwise().sum().array()).matrix();
 }
@@ -1209,7 +1212,7 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   const vector<vector<int>>& groupsH,
   vector<vector<int>> *pgroupsEG,vector<Matrix3d> *pFs)
 {
-  const double LAMBDA = 50000.;
+  //const double LAMBDA = 5.;
 
   auto& groupsEG = *pgroupsEG;
   auto& Fs = *pFs;
@@ -1248,7 +1251,8 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   }
 
   int nInliers = (int)inliers.size();
-  MatrixXd weights(nInliers,nFs);
+  MatrixXd weights;
+  initializeWeights(keys1,keys2,matches,inliers,Fs,&weights);
 
   // Convert Fs into a minimal parameterization
   vector<VectorXd> FsParams(nFs);
@@ -1274,10 +1278,9 @@ void optimizeEGs(const vector<Vector2d>& keys1,
 
   // Set-up the problem
   ceres::Solver::Options solverOpt;
-  solverOpt.max_num_iterations = 10;
   ceres::Problem problemWeights,problemFs;
   ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
-  for(int ii = 0; ii < nInliers; ii++)
+  /*for(int ii = 0; ii < nInliers; ii++)
   {
     IntPair match = matches[inliers[ii]];
     const auto& x1 = keys1[match.first];
@@ -1322,7 +1325,7 @@ void optimizeEGs(const vector<Vector2d>& keys1,
       costFun->SetNumResiduals(1);
       problemWeights.AddResidualBlock(costFun,lossFun,currParams);
     }
-  }
+  }*/
   for(int iF = 0; iF < nFs; iF++)
   {
     auto costFun =
@@ -1335,18 +1338,29 @@ void optimizeEGs(const vector<Vector2d>& keys1,
     problemFs.AddResidualBlock(costFun,lossFun,&FsParams[iF](0));
   }
 
-  initializeWeights(keys1,keys2,matches,inliers,Fs,&weights);
+#define PRINT_STATUS
+#ifdef PRINT_STATUS
+  cout << weights << "\n";
+  cout << weights.colwise().sum() << "\n";
+#endif
   for(int i = 0; i < 5; i++)
   {
     ceres::Solver::Summary summary;
     ceres::Solve(solverOpt,&problemFs,&summary);
-    //std::cout << summary.FullReport() << "\n";
+#ifdef PRINT_STATUS
+    std::cout << summary.FullReport() << "\n";
+#endif
 
     for(int iF = 0; iF < nFs; iF++)
       constructF(&FsParams[iF](0),&Fs[iF]);
 
-    ceres::Solve(solverOpt,&problemWeights,&summary);
+    initializeWeights(keys1,keys2,matches,inliers,Fs,&weights);
+    //ceres::Solve(solverOpt,&problemWeights,&summary);
+#ifdef PRINT_STATUS
     //std::cout << summary.FullReport() << "\n";
+    cout << weights << "\n";
+    cout << weights.colwise().sum() << "\n";
+#endif
   }
 
   // Re-assign matches
@@ -1356,7 +1370,8 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   {
     int max;
     weights.row(ii).maxCoeff(&max);
-    groupsEG[max].push_back(inliers[ii]);
+    if(max < nFs)
+      groupsEG[max].push_back(inliers[ii]);
   }
 }
 
