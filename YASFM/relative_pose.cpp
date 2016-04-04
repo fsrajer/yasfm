@@ -1104,7 +1104,7 @@ void initializeWeights(const vector<Vector2d>& keys1,
   const vector<vector<int>>& groupsHInlierIdxs,double weightsPenalization,
   MatrixXd *pweights)
 {
-  const double DEFAULT_OUTLIER_VALUE = 1. / sqrt(5.);
+  const double DEFAULT_OUTLIER_VALUE = sqrt(5.);
 
   auto& weights = *pweights;
 
@@ -1118,11 +1118,10 @@ void initializeWeights(const vector<Vector2d>& keys1,
     const auto& x1 = keys1[match.first];
     const auto& x2 = keys2[match.second];
 
-    double sum = 0.;
     for(int iF = 0; iF < nFs; iF++)
     {
       double err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(x2,Fs[iF],x1));
-      weights(ii,iF) = (err == 0.) ? 1e100 : 1. / err;
+      weights(ii,iF) = (err == 0.) ? 1e-15 : err;
     }
   }
   weights.rightCols(1).fill(DEFAULT_OUTLIER_VALUE);
@@ -1133,15 +1132,16 @@ void initializeWeights(const vector<Vector2d>& keys1,
     sum.setZero();
     for(int idx : group)
       sum += weights.row(idx);
-    int maxF;
-    sum.maxCoeff(&maxF);
+    int minF;
+    sum.minCoeff(&minF);
     for(int idx : group)
     {
-      weights.row(idx).leftCols(maxF) *= weightsPenalization;
-      weights.row(idx).rightCols(weights.cols() - maxF - 1) *= weightsPenalization;
+      weights.row(idx).leftCols(minF) /= weightsPenalization;
+      weights.row(idx).rightCols(weights.cols() - minF - 1) /= weightsPenalization;
     }
   }
-
+  
+  weights = weights.cwiseInverse();
   weights = (weights.array().colwise() / weights.rowwise().sum().array()).matrix();
 }
 
