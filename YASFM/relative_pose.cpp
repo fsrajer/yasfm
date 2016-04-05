@@ -1169,6 +1169,7 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   const int N_OPTIM_ITERS = 10;
   const double MAX_H_PROPORTION = 0.95;
   const int MIN_OFF_H_INLIERS = 5;
+  const double F_DIFF_MERGE_THRESH = 0.001;
 
   auto& groupsEG = *pgroupsEG;
   auto& Fs = *pFs;
@@ -1275,6 +1276,44 @@ void optimizeEGs(const vector<Vector2d>& keys1,
     //cout << weights << "\n";
     cout << weights.colwise().sum() << "\n";
 #endif
+
+    int maxIF,maxJF;
+    double maxDiff = 1.;
+    for(int iF = 0; iF < nFs; iF++)
+    {
+      for(int jF = iF+1; jF < nFs; jF++)
+      {
+        double diff = ((Fs[iF] / Fs[iF](2,2)) - (Fs[jF] / Fs[jF](2,2))).norm();
+        //cout << iF << "-" << jF << ": " << diff << "\n";
+        if(diff < maxDiff)
+        {
+          maxDiff = diff;
+          maxIF = iF;
+          maxJF = jF;
+        }
+      }
+    }
+    if(maxDiff < F_DIFF_MERGE_THRESH)
+    {
+      for(int iF = 0; iF < nFs; iF++)
+        problemFs.SetParameterBlockConstant(&FsParams[0](0));
+      problemFs.SetParameterBlockVariable(&FsParams[maxIF](0));
+
+      weights.col(maxIF) += weights.col(maxJF);
+      ceres::Solve(solverOpt,&problemFs,&summary);
+      constructF(&FsParams[maxIF](0),&Fs[maxIF]);
+
+      nFs--;
+      Fs.erase(Fs.begin() + maxJF);
+      FsParams.erase(FsParams.begin() + maxJF);
+      initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
+        weightsPenalization,&weights);
+
+#ifdef PRINT_STATUS
+      //cout << weights << "\n";
+      cout << weights.colwise().sum() << "\n";
+#endif
+    }
 
     VectorXd homProportion,maxHWeightsSum,offHomWeightsSum;
     findProportionModellableByOneHomography(
