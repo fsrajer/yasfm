@@ -1104,7 +1104,7 @@ void initializeWeights(const vector<Vector2d>& keys1,
   const vector<vector<int>>& groupsHInlierIdxs,double weightsPenalization,
   MatrixXd *pweights)
 {
-  const double DEFAULT_OUTLIER_VALUE = sqrt(5.);
+  const double DEFAULT_OUTLIER_VALUE = 2.;
 
   auto& weights = *pweights;
 
