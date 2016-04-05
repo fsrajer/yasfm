@@ -1146,9 +1146,9 @@ void initializeWeights(const vector<Vector2d>& keys1,
 }
 
 void findProportionModellableByOneHomography(const MatrixXd& weights,
-   const vector<vector<int>>& groupsHInlierIdxs,VectorXd *pproportion)
+   const vector<vector<int>>& groupsHInlierIdxs,VectorXd *pmaxHWeightsSum)
 {
-  auto& proportion = *pproportion;
+  auto& maxHWeightsSum = *pmaxHWeightsSum;
   int nFs = int(weights.cols()) - 1;
   int nHs = (int)groupsHInlierIdxs.size();
   MatrixXd nInliersH(MatrixXd::Zero(nHs,nFs));
@@ -1157,8 +1157,7 @@ void findProportionModellableByOneHomography(const MatrixXd& weights,
       nInliersH.row(iH) += weights.row(idx).leftCols(nFs);
 
   if(nHs != 0)
-    proportion = (nInliersH.colwise().maxCoeff().array()
-    / weights.leftCols(nFs).colwise().sum().array()).matrix().transpose();
+    maxHWeightsSum = nInliersH.colwise().maxCoeff();
 }
 
 void optimizeEGs(const vector<Vector2d>& keys1,
@@ -1169,6 +1168,7 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   const int MIN_MATCHES_PER_F = 16;
   const int N_OPTIM_ITERS = 10;
   const double MAX_H_PROPORTION = 0.95;
+  const int MIN_OFF_H_INLIERS = 5;
 
   auto& groupsEG = *pgroupsEG;
   auto& Fs = *pFs;
@@ -1246,7 +1246,6 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   for(int i = 0; i < N_OPTIM_ITERS; i++)
   {
     weightsPenalization -= 1./N_OPTIM_ITERS;
-    //weightsPenalization /= 2.;
 
     ceres::Problem problemFs;
     for(int iF = 0; iF < nFs; iF++)
@@ -1277,21 +1276,49 @@ void optimizeEGs(const vector<Vector2d>& keys1,
     cout << weights.colwise().sum() << "\n";
 #endif
 
-    VectorXd homProportion;
+    VectorXd homProportion,maxHWeightsSum,offHomWeightsSum;
     findProportionModellableByOneHomography(
-      weights,groupsHInlierIdxs,&homProportion);
-    int maxF;
-    if(nHs != 0 && homProportion.maxCoeff(&maxF) > MAX_H_PROPORTION)
+      weights,groupsHInlierIdxs,&maxHWeightsSum);
+    if(nHs != 0)
     {
+      homProportion = (maxHWeightsSum.array()
+        / weights.leftCols(nFs).colwise().sum().transpose().array()).matrix();
+      offHomWeightsSum =
+        weights.leftCols(nFs).colwise().sum().transpose() - maxHWeightsSum;
+    }
 #ifdef PRINT_STATUS
-      cout << "Removing " << maxF << " because it has " << homProportion.maxCoeff()
-        << " modellable by homography\n";
+    cout << homProportion.transpose() << "\n";
+    cout << offHomWeightsSum.transpose() << "\n";
 #endif
-      nFs--;
-      Fs.erase(Fs.begin() + maxF);
-      FsParams.erase(FsParams.begin() + maxF);
+    /*if(nHs != 0 && i == N_OPTIM_ITERS-1)
+    {
+      for(int iF = nFs-1; iF >= 0; iF--)
+      {
+        if(homProportion(iF) > MAX_H_PROPORTION)
+        {
+          nFs--;
+          Fs.erase(Fs.begin() + iF);
+          FsParams.erase(FsParams.begin() + iF);
+        }
+      }
       initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
         weightsPenalization,&weights);
+    }else
+    {*/
+      int iF;
+      if(nHs != 0 && (homProportion.maxCoeff(&iF) > MAX_H_PROPORTION
+        || offHomWeightsSum.minCoeff(&iF) < MIN_OFF_H_INLIERS))
+      {
+#ifdef PRINT_STATUS
+        cout << "Removing " << iF << " because it has " << homProportion.maxCoeff()
+          << " modellable by homography\n";
+#endif
+        nFs--;
+        Fs.erase(Fs.begin() + iF);
+        FsParams.erase(FsParams.begin() + iF);
+        initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
+          weightsPenalization,&weights);
+     // }
     }
 
     if(nFs == 0)
@@ -1307,7 +1334,6 @@ void optimizeEGs(const vector<Vector2d>& keys1,
         weightsPenalization,&weights);
     }*/
 #ifdef PRINT_STATUS
-    cout << homProportion.transpose() << "\n";
     //cout << weights << "\n";
     cout << weights.colwise().sum() << "\n";
 #endif
