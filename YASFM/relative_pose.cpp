@@ -1329,35 +1329,19 @@ void optimizeEGs(const vector<Vector2d>& keys1,
     cout << homProportion.transpose() << "\n";
     cout << offHomWeightsSum.transpose() << "\n";
 #endif
-    /*if(nHs != 0 && i == N_OPTIM_ITERS-1)
+    int iF;
+    if(nHs != 0 && (homProportion.maxCoeff(&iF) > MAX_H_PROPORTION
+      || offHomWeightsSum.minCoeff(&iF) < MIN_OFF_H_INLIERS))
     {
-      for(int iF = nFs-1; iF >= 0; iF--)
-      {
-        if(homProportion(iF) > MAX_H_PROPORTION)
-        {
-          nFs--;
-          Fs.erase(Fs.begin() + iF);
-          FsParams.erase(FsParams.begin() + iF);
-        }
-      }
+#ifdef PRINT_STATUS
+      cout << "Removing " << iF << " because it has " << homProportion.maxCoeff()
+        << " modellable by homography\n";
+#endif
+      nFs--;
+      Fs.erase(Fs.begin() + iF);
+      FsParams.erase(FsParams.begin() + iF);
       initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
         weightsPenalization,&weights);
-    }else
-    {*/
-      int iF;
-      if(nHs != 0 && (homProportion.maxCoeff(&iF) > MAX_H_PROPORTION
-        || offHomWeightsSum.minCoeff(&iF) < MIN_OFF_H_INLIERS))
-      {
-#ifdef PRINT_STATUS
-        cout << "Removing " << iF << " because it has " << homProportion.maxCoeff()
-          << " modellable by homography\n";
-#endif
-        nFs--;
-        Fs.erase(Fs.begin() + iF);
-        FsParams.erase(FsParams.begin() + iF);
-        initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
-          weightsPenalization,&weights);
-     // }
     }
 
     if(nFs == 0)
