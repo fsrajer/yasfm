@@ -260,7 +260,8 @@ int main(int argc,const char* argv[])
   data.clearDescriptors();
 
   data.writeASCII("tentatively_matched_all.txt");*/
-  data.readASCII("tentatively_matched_all_with_gt.txt");
+  data.readASCII("tentatively_matched_all.txt");
+  //data.readASCII("tentatively_matched_all_with_gt.txt");
   
   for(int i = 0; i < data.numCams(); i++)
   {
@@ -271,12 +272,18 @@ int main(int argc,const char* argv[])
   }
 
   float& ratioThresh = opt.getOpt<OptionsFLANN>("matchingFLANN").get<float>("ratioThresh");
-  ratioThresh = 0.f;
-  int nSteps = 40;
-  string name = "gv-merge-E-opt";
+  ratioThresh = 0.6f;
+  int nSteps = 3;
+  string name = "H-EG-greedy";
   _mkdir(joinPaths(dir,name).c_str());
   pair_umap<CameraPair> allPairs = data.pairs();
-  for(int i = 0; i < nSteps; i++,ratioThresh += 0.025f)
+  
+  /*IntPair curr(6,7);
+  allPairs.clear();
+  allPairs[curr] = data.pairs()[curr];
+  data.pairs() = allPairs;*/
+  
+  for(int i = 0; i < nSteps; i++,ratioThresh += 0.1f)
   {
     cout << "Processing " << i << "-th out of " << nSteps << "\n";
     for(auto& entry : data.pairs())

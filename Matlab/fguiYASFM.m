@@ -2,7 +2,7 @@ clear fs;
 closeall
 
 % Dataset path
-fs.DataDirectory      = 'C:\Users\Filip\Workspace\Data\';
+fs.DataDirectory      = 'C:\Users\Filip\Dropbox\';
 fs.DatasetSubdirectory      = 'pairs';
 fs.imgsSubdir        = 'imgs';
 
@@ -14,8 +14,8 @@ fs.RunYASFM           = @fguiButtonRunYASFM;
 
 fs.ResultsFn1           = 'init.txt';
 fs.ResultsFn2           = 'tentatively_matched.txt';
-fs.ResultsFn3           = 'matched.txt';
-fs.ResultsToReadIdxs     = '2 3';
+fs.ResultsFn3           = 'matched_1.txt';
+fs.ResultsToReadIdxs     = '3';
 fs.ReadResults          = @fguiButtonReadResults;
 
 % Visualization
