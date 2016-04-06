@@ -976,60 +976,6 @@ bool estimateRelativePose7ptKnownHsRANSAC(const OptionsRANSAC& opt,
   return (nInliers > 0);
 }
 
-void estimateFundamentalMatrices(const vector<Vector2d>& keys1,
-  const vector<Vector2d>& keys2,const vector<IntPair>& allMatches,
-  const vector<vector<int>>& groupsH,
-  vector<vector<int>> *pgroupsEG,vector<Matrix3d> *pFs)
-{
-  const int MAX_TRANSFORMS = 5;
-  const int MIN_INLIERS_PER_TRANSFORM = 16;
-  const int MAX_RANSAC_ROUNDS = 2000;
-  const double ERROR_THRESH = sqrt(5.);
-  OptionsRANSAC ransacOpt(MAX_RANSAC_ROUNDS,ERROR_THRESH,MIN_INLIERS_PER_TRANSFORM);
-
-  auto& groupsEG = *pgroupsEG;
-  auto& Fs = *pFs;
-
-  int nAllMatches = static_cast<int>(allMatches.size());
-  vector<IntPair> remainingMatches = allMatches;
-  vector<int> remainingToAll(nAllMatches);
-  for(int i = 0; i < nAllMatches; i++)
-    remainingToAll[i] = i;
-
-  int nGroupsH = (int)groupsH.size();
-  vector<int> remainingGroupHId(nAllMatches,-1);
-  for(int ig = 0; ig < nGroupsH; ig++)
-    for(int idx : groupsH[ig])
-      remainingGroupHId[idx] = ig;
-
-  vector<int> inliers;
-  inliers.reserve(nAllMatches);
-
-  for(int iTransform = 0; iTransform < MAX_TRANSFORMS; iTransform++)
-  {
-    inliers.clear();
-
-    Matrix3d F;
-    estimateRelativePose7ptKnownHsRANSAC(ransacOpt,keys1,keys2,
-      remainingMatches,nGroupsH,remainingGroupHId,&F,&inliers);
-
-    if(inliers.size() < MIN_INLIERS_PER_TRANSFORM)
-      break;
-
-    Fs.push_back(F);
-    groupsEG.emplace_back();
-    for(int remainingMatchesInlier : inliers)
-      groupsEG.back().push_back(remainingToAll[remainingMatchesInlier]);
-
-    filterOutOutliers(inliers,&remainingMatches);
-    filterOutOutliers(inliers,&remainingToAll);
-    filterOutOutliers(inliers,&remainingGroupHId);
-
-    if(remainingMatches.size() < MIN_INLIERS_PER_TRANSFORM)
-      break;
-  }
-}
-
 template<typename T>
 void constructF(const T* const params,Matrix<T,3,3> *F)
 {
@@ -1053,6 +999,308 @@ void constructF(const T* const params,Matrix<T,3,3> *F)
   V = aaV.toRotationMatrix();
 
   *F = U * S * V.transpose();
+}
+
+template<typename T>
+T computeSymmetricEpipolarSquaredDistanceFundMatTemplated(const Vector2d& pt2,
+  const Matrix<T,3,3>& F,const Vector2d& pt1)
+{
+  Matrix<T,3,1> Fpt1 = F*pt1.homogeneous().cast<T>();
+  Matrix<T,3,1> FTpt2 = F.transpose()*pt2.homogeneous().cast<T>();
+
+  T pt2Fpt1 = pt2.homogeneous().cast<T>().dot(Fpt1);
+
+  return (pt2Fpt1*pt2Fpt1) *
+    (T(1.) / Fpt1.topRows(2).squaredNorm() + 
+    T(1.) / FTpt2.topRows(2).squaredNorm());
+}
+
+template<typename T>
+T robustify(double softThresh,T x)
+{
+  x /= T(softThresh);
+  if(x < T(1))
+    return T(-0.25)*(T(3.)*x*x*x - T(6.)*x*x);
+  else if(x < T(2))
+  {
+    T tmp = T(2.) - x;
+    return T(-0.25)*(tmp*tmp*tmp - T(4.));
+  } else
+    return T(1.);
+}
+
+struct GeomVerifCostFunctorFw
+{
+  GeomVerifCostFunctorFw(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const vector<IntPair>& matches,const vector<vector<int>>& groupsH,
+    const vector<int>& others,double errThresh)
+    : keys1(keys1),keys2(keys2),matches(matches),groupsH(groupsH),others(others),
+    errThresh(errThresh)
+  {
+  }
+
+  template<typename T>
+  bool operator()(T const* const* parameters,T* residuals) const
+  {
+    Matrix<T,3,3> F;
+    constructF(parameters[0],&F);
+
+    int iResidual = 0;
+    for(size_t iH = 0; iH < groupsH.size(); iH++)
+    {
+      T avgErr = T(0.);
+      for(int iMatch : groupsH[iH])
+      {
+        IntPair match = matches[iMatch];
+        const auto& x1 = keys1[match.first];
+        const auto& x2 = keys2[match.second];
+
+        T err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMatTemplated(x2,F,x1));
+        
+        avgErr += err;
+        iResidual++;
+      }
+      avgErr /= T(double(groupsH[iH].size()));
+      T robAvgErr = robustify(errThresh,avgErr);
+
+      iResidual -= (int)groupsH[iH].size();
+      for(int iMatch : groupsH[iH])
+        residuals[iResidual++] = robAvgErr;
+    }
+
+    for(size_t io = 0; io < others.size(); io++)
+    {
+      IntPair match = matches[others[io]];
+      const auto& x1 = keys1[match.first];
+      const auto& x2 = keys2[match.second];
+
+      residuals[iResidual] = robustify(errThresh,
+        sqrt(computeSymmetricEpipolarSquaredDistanceFundMatTemplated(x2,F,x1)));
+
+      iResidual++;
+    }
+
+    return true;
+  }
+
+  const vector<Vector2d> &keys1,&keys2;
+  const vector<IntPair>& matches;
+  const vector<vector<int>> groupsH;
+  const vector<int>& others;
+  double errThresh;
+};
+
+//#define PRINT_STATUS
+
+void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const vector<IntPair>& matches,
+  vector<vector<int>> *pgroupsH,
+  Matrix3d *pF,vector<int> *pinliersEG)
+{
+  const double MAX_H_PROPORTION = 0.95;
+
+  auto& groupsH = *pgroupsH;
+  auto& F = *pF;
+  auto& inliersEG = *pinliersEG;
+
+  if(errThresh == 0.)
+    errThresh = 1e-12; // We will divide by the errThresh
+
+  vector<bool> isInlierH(matches.size(),false);
+  for(const auto& group : groupsH)
+    for(int idx : group)
+      isInlierH[idx] = true;
+
+  /// === Set-up the problem ===
+  ceres::Problem problem;
+  ceres::Solver::Options solverOpt;
+  ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
+  
+  //VectorXd weights(matches.size());
+  //VectorXd weightsH(groupsH.size());
+
+  vector<int> others;
+  for(int iMatch = 0; iMatch < (int)matches.size(); iMatch++)
+  {
+    if(!isInlierH[iMatch])
+      others.push_back(iMatch);
+    
+    /*IntPair match = matches[iMatch];
+    const auto& x1 = keys1[match.first];
+    const auto& x2 = keys2[match.second];
+
+    double err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(x2,F,x1));
+    weights(iMatch) = 1. - std::max(1.,err/errThresh);*/
+  }
+
+  /*weightsH.setZero();
+  for(size_t iH = 0; iH < groupsH.size(); iH++)
+  {
+    for(int idx : groupsH[iH])
+      weightsH(iH) += weights(idx);
+    weightsH(iH) /= groupsH[iH].size();
+  }*/
+
+  /// === Convert F into a minimal parameterization ===
+  JacobiSVD<Matrix3d> svd(F,Eigen::ComputeFullU | Eigen::ComputeFullV);
+  AngleAxisd aaU,aaV;
+  Matrix3d U = svd.matrixU();
+  if(U.determinant() < 0.)
+    U *= -1.;
+  Matrix3d V = svd.matrixV();
+  if(V.determinant() < 0.)
+    V *= -1.;
+  aaU.fromRotationMatrix(U);
+  aaV.fromRotationMatrix(V);
+  double s = svd.singularValues()(1) / svd.singularValues()(0);
+  
+  VectorXd FParams(7);
+  FParams.topRows(3) = aaU.angle() * aaU.axis();
+  FParams(3) = s;
+  FParams.bottomRows(3) = aaV.angle() * aaV.axis();
+  
+  auto costFun =
+        new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorFw>(
+        new GeomVerifCostFunctorFw(keys1,keys2,matches,groupsH,others,errThresh));
+
+  costFun->SetNumResiduals((int)matches.size());
+  costFun->AddParameterBlock(7);
+  problem.AddResidualBlock(costFun,lossFun,FParams.data());
+
+  ceres::Solver::Summary summary;
+  ceres::Solve(solverOpt,&problem,&summary);
+#ifdef PRINT_STATUS
+  std::cout << summary.FullReport() << "\n";
+#endif
+  constructF(FParams.data(),&F);
+
+  inliersEG.clear();
+  size_t largestHSz = 0;
+  list<size_t> HsToRemove;
+  for(size_t iH = 0; iH < groupsH.size(); iH++)
+  {
+    double avgErr = 0.;
+    for(int iMatch : groupsH[iH])
+    {
+      IntPair match = matches[iMatch];
+      const auto& x1 = keys1[match.first];
+      const auto& x2 = keys2[match.second];
+
+      avgErr += sqrt(computeSymmetricEpipolarSquaredDistanceFundMatTemplated(x2,F,x1));
+    }
+    avgErr /= double(groupsH[iH].size());
+    cout << "; avgErr: " << iH << ":" << avgErr;
+    if(avgErr < errThresh)
+    {
+      for(int iMatch : groupsH[iH])
+        inliersEG.push_back(iMatch);
+      HsToRemove.push_front(iH);
+      if(largestHSz < groupsH[iH].size())
+        largestHSz = groupsH[iH].size();
+    }
+  }
+  for(size_t iH : HsToRemove)
+    groupsH.erase(groupsH.begin() + iH);
+
+  for(size_t io = 0; io < others.size(); io++)
+  {
+    IntPair match = matches[others[io]];
+    const auto& x1 = keys1[match.first];
+    const auto& x2 = keys2[match.second];
+
+    double err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMatTemplated(x2,F,x1));
+
+    if(err < errThresh)
+      inliersEG.push_back(others[io]);
+  }
+
+  if(HsToRemove.size() < 2 &&
+    double(largestHSz)/inliersEG.size() > MAX_H_PROPORTION)
+  {
+    cout << "; nHs: " << HsToRemove.size() << ", prop: " << double(largestHSz)/inliersEG.size() << "\n";
+    cout << "largestHSz: " << largestHSz << ", nMatches: " << inliersEG.size() << "\n";
+    inliersEG.clear();
+  }
+}
+
+void estimateFundamentalMatrices(const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const vector<IntPair>& allMatches,
+  const vector<vector<int>>& groupsH,
+  vector<vector<int>> *pgroupsEG,vector<Matrix3d> *pFs)
+{
+  const int MAX_TRANSFORMS = 5;
+  const int MIN_INLIERS_PER_TRANSFORM = 16;
+  const int MAX_RANSAC_ROUNDS = 2000;
+  const double ERROR_THRESH = 3.;
+  OptionsRANSAC ransacOpt(MAX_RANSAC_ROUNDS,ERROR_THRESH,MIN_INLIERS_PER_TRANSFORM);
+
+  auto& groupsEG = *pgroupsEG;
+  auto& Fs = *pFs;
+
+  int nAllMatches = static_cast<int>(allMatches.size());
+  vector<IntPair> remainingMatches = allMatches;
+  vector<int> remainingToAll(nAllMatches);
+  vector<vector<int>> remainingGroupsH = groupsH;
+  for(int i = 0; i < nAllMatches; i++)
+    remainingToAll[i] = i;
+
+  vector<int> remainingGroupHId(nAllMatches,-1);
+  for(int ig = 0; ig < (int)groupsH.size(); ig++)
+    for(int idx : groupsH[ig])
+      remainingGroupHId[idx] = ig;
+
+  vector<int> inliers;
+  inliers.reserve(nAllMatches);
+
+  for(int iTransform = 0; iTransform < MAX_TRANSFORMS; iTransform++)
+  {
+    inliers.clear();
+
+    Matrix3d F;
+    estimateRelativePose7ptKnownHsRANSAC(ransacOpt,keys1,keys2,
+      remainingMatches,(int)remainingGroupsH.size(),remainingGroupHId,&F,&inliers);
+
+    if(inliers.size() < MIN_INLIERS_PER_TRANSFORM)
+      break;
+
+    refineFKnownHs(ERROR_THRESH,keys1,keys2,remainingMatches,&remainingGroupsH,&F,&inliers);
+
+    if(inliers.size() < MIN_INLIERS_PER_TRANSFORM)
+      break;
+
+    // Save inliers as F group
+    Fs.push_back(F);
+    groupsEG.emplace_back();
+    for(int remainingMatchesInlier : inliers)
+      groupsEG.back().push_back(remainingToAll[remainingMatchesInlier]);
+
+    // Update indices in H groups
+    vector<bool> isInlier(remainingMatches.size(),false);
+    for(int idx : inliers)
+      isInlier[idx] = true;
+    vector<int> remainingToNextRemaining(remainingMatches.size());
+    int idxToNext = 0;
+    for(size_t i = 0; i < remainingMatches.size(); i++)
+    {
+      remainingToNextRemaining[i] = idxToNext;
+      idxToNext += (!isInlier[i]);
+    }
+    for(auto& group : remainingGroupsH)
+      for(auto& idx : group)
+        idx = remainingToNextRemaining[idx];
+
+    filterOutOutliers(inliers,&remainingMatches);
+    filterOutOutliers(inliers,&remainingToAll);
+    filterOutOutliers(inliers,&remainingGroupHId);
+
+    // Update indices to H groups
+    for(int ig = 0; ig < (int)remainingGroupsH.size(); ig++)
+      for(int idx : remainingGroupsH[ig])
+        remainingGroupHId[idx] = ig;
+
+    if(remainingMatches.size() < MIN_INLIERS_PER_TRANSFORM)
+      break;
+  }
 }
 
 struct GeomVerifCostFunctorF
@@ -1476,7 +1724,7 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   vector<Matrix3d> Fs;
   estimateFundamentalMatrices(cam1.keys(),cam2.keys(),allMatches,groupsH,&groupsEG,&Fs);
 
-  optimizeEGs(cam1.keys(),cam2.keys(),allMatches,groupsH,&groupsEG,&Fs);
+  //optimizeEGs(cam1.keys(),cam2.keys(),allMatches,groupsH,&groupsEG,&Fs);
   
   outInliers.clear();
   inlierSetSizes.resize(groupsEG.size());
