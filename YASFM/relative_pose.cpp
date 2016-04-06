@@ -1055,9 +1055,9 @@ void constructF(const T* const params,Matrix<T,3,3> *F)
   *F = U * S * V.transpose();
 }
 
-struct GeomVerifCostFunctorFs
+struct GeomVerifCostFunctorF
 {
-  GeomVerifCostFunctorFs(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+  GeomVerifCostFunctorF(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
     const vector<IntPair>& matches,const vector<int>& inliers,
     const double *weights)
     : keys1(keys1),keys2(keys2),matches(matches),inliers(inliers),
@@ -1105,6 +1105,7 @@ void initializeWeights(const vector<Vector2d>& keys1,
   MatrixXd *pweights)
 {
   const double DEFAULT_OUTLIER_VALUE = 2.;
+  //const double GAMMA = 0.5;
 
   auto& weights = *pweights;
 
@@ -1112,6 +1113,7 @@ void initializeWeights(const vector<Vector2d>& keys1,
   int nInliers = (int)inliersEG.size();
   weights.resize(nInliers,nFs+1);
   
+  // === Initialize to error value ===
   for(int ii = 0; ii < nInliers; ii++)
   {
     IntPair match = matches[inliersEG[ii]];
@@ -1126,12 +1128,17 @@ void initializeWeights(const vector<Vector2d>& keys1,
   }
   weights.rightCols(1).fill(DEFAULT_OUTLIER_VALUE);
 
+  // ==== Bias H groups towards their dominant F ===
   for(const auto& group : groupsHInlierIdxs)
   {
     RowVectorXd sum(weights.cols());
     sum.setZero();
     for(int idx : group)
       sum += weights.row(idx);
+//#define PRINT_STATUS
+#ifdef PRINT_STATUS
+    cout << sum / group.size() << "\n";
+#endif
     int minF;
     sum.minCoeff(&minF);
     for(int idx : group)
@@ -1140,11 +1147,27 @@ void initializeWeights(const vector<Vector2d>& keys1,
       weights.row(idx).rightCols(weights.cols() - minF - 1) /= weightsPenalization;
     }
   }
-  
+
   weights = weights.cwiseInverse();
+
+  /*
+  // === Bias towards dominant F in the whole scene ===
+  MatrixXd tmp = (weights.array().colwise() / weights.rowwise().sum().array()).matrix();
+  RowVectorXd ratio = tmp.leftCols(nFs).colwise().sum();
+  ratio /= ratio.sum();
+  RowVectorXd complexityModifier = pow(ratio.array(),GAMMA).matrix();
+  weights.leftCols(nFs) = (weights.leftCols(nFs).array().rowwise() *
+    complexityModifier.array()).matrix();
+  if(nFs != 0)
+    weights.rightCols(1) *= complexityModifier.maxCoeff();
+  //cout << complexityModifier << "\n";
+  */
+
+  // === Normalize to [0,1] and sum()=1 ===
   weights = (weights.array().colwise() / weights.rowwise().sum().array()).matrix();
 }
 
+/// Sum the weights of the dominant H inside Fs
 void findProportionModellableByOneHomography(const MatrixXd& weights,
    const vector<vector<int>>& groupsHInlierIdxs,VectorXd *pmaxHWeightsSum)
 {
@@ -1188,7 +1211,14 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   for(const auto& group : groupsEG)
     for(int idx : group)
       isInlier[idx] = true;
-  
+
+#ifdef PRINT_STATUS
+  cout << "\n";
+  for(const auto& group : groupsEG)
+    cout << group.size() << " ";
+  cout << "\n";
+#endif
+
   vector<int> allToInliers(matches.size(),-1);
   for(int iMatch = 0; iMatch < (int)matches.size(); iMatch++)
   {
@@ -1210,7 +1240,7 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   int nInliers = (int)inliers.size();
   MatrixXd weights;
 
-  // Convert Fs into a minimal parameterization
+  /// === Convert Fs into a minimal parameterization ===
   vector<VectorXd> FsParams(nFs);
   for(int iF = 0; iF < nFs; iF++)
   {
@@ -1232,14 +1262,13 @@ void optimizeEGs(const vector<Vector2d>& keys1,
     FsParams[iF].bottomRows(3) = aaV.angle() * aaV.axis();
   }
 
-  // Set-up the problem
+  /// === Set-up the problem ===
   ceres::Solver::Options solverOpt;
   ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
 
   double weightsPenalization = 1.;
   initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
     weightsPenalization,&weights);
-#define PRINT_STATUS
 #ifdef PRINT_STATUS
   //cout << weights << "\n";
   cout << "\n" << weights.colwise().sum() << "\n";
@@ -1248,12 +1277,13 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   {
     weightsPenalization -= 1./N_OPTIM_ITERS;
 
+    /// === Optimize Fs ===
     ceres::Problem problemFs;
     for(int iF = 0; iF < nFs; iF++)
     {
       auto costFun =
-        new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorFs>(
-        new GeomVerifCostFunctorFs(keys1,keys2,matches,inliers,&weights(0,iF)));
+        new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorF>(
+        new GeomVerifCostFunctorF(keys1,keys2,matches,inliers,&weights(0,iF)));
 
       costFun->SetNumResiduals(nInliers);
       costFun->AddParameterBlock(7);
@@ -1267,6 +1297,7 @@ void optimizeEGs(const vector<Vector2d>& keys1,
     std::cout << summary.FullReport() << "\n";
 #endif
 
+    /// === Compute up-to-date F matrices === and initialize weights
     for(int iF = 0; iF < nFs; iF++)
       constructF(&FsParams[iF](0),&Fs[iF]);
 
@@ -1277,6 +1308,7 @@ void optimizeEGs(const vector<Vector2d>& keys1,
     cout << weights.colwise().sum() << "\n";
 #endif
 
+    /// === Merge similar Fs ===
     int maxIF,maxJF;
     double maxDiff = 1.;
     for(int iF = 0; iF < nFs; iF++)
@@ -1315,6 +1347,7 @@ void optimizeEGs(const vector<Vector2d>& keys1,
 #endif
     }
 
+    /// === Remove F if it is modelable by one H ===
     VectorXd homProportion,maxHWeightsSum,offHomWeightsSum;
     findProportionModellableByOneHomography(
       weights,groupsHInlierIdxs,&maxHWeightsSum);
@@ -1346,22 +1379,41 @@ void optimizeEGs(const vector<Vector2d>& keys1,
 
     if(nFs == 0)
       break;
-    /*RowVectorXd wSum = weights.leftCols(nFs).colwise().sum();
-    int minF;
-    if(wSum.minCoeff(&minF) < MIN_MATCHES_PER_F)
-    {
-      nFs--;
-      Fs.erase(Fs.begin() + minF);
-      FsParams.erase(FsParams.begin() + minF);
-      initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
-        weightsPenalization,&weights);
-    }*/
 #ifdef PRINT_STATUS
+
+    /*for(size_t iH = 0; iH < groupsHInlierIdxs.size(); iH++)
+    {
+      for(int inlierIdx : groupsHInlierIdxs[iH])
+      {
+        //cout << weights.row(inlierIdx) << "\n";
+        IntPair match = matches[inliers[inlierIdx]];
+        const auto& x1 = keys1[match.first];
+        const auto& x2 = keys2[match.second];
+
+        for(int iF = 0; iF < nFs; iF++)
+        {
+          double err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(x2,Fs[iF],x1));
+          cout << err << " ";
+        }
+        cout << sqrt(5.) << "\n";
+      }
+      cout << "==============================\n";
+    }*/
+    /*RowVectorXd weightsH(RowVectorXd::Zero(weights.cols()));
+    for(size_t iH = 0; iH < groupsHInlierIdxs.size(); iH++)
+    {
+      for(int inlierIdx : groupsHInlierIdxs[iH])
+        cout << weights.row(inlierIdx) << "\n";
+      //cout << "==============================\n";
+    }*/
+
     //cout << weights << "\n";
     cout << weights.colwise().sum() << "\n";
+
 #endif
   }
 
+  /// === Remove small Fs ===
   RowVectorXd wSum = weights.leftCols(nFs).colwise().sum();
   for(int iF = nFs-1; iF >= 0; iF--)
   {
@@ -1376,10 +1428,28 @@ void optimizeEGs(const vector<Vector2d>& keys1,
     weightsPenalization,&weights);
 
 #ifdef PRINT_STATUS
+  for(size_t iH = 0; iH < groupsHInlierIdxs.size(); iH++)
+  {
+    for(int inlierIdx : groupsHInlierIdxs[iH])
+    {
+      //cout << weights.row(inlierIdx) << "\n";
+      IntPair match = matches[inliers[inlierIdx]];
+      const auto& x1 = keys1[match.first];
+      const auto& x2 = keys2[match.second];
+
+      for(int iF = 0; iF < nFs; iF++)
+      {
+        double err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(x2,Fs[iF],x1));
+        cout << err << " ";
+      }
+      cout << sqrt(5.) << "\n";
+    }
+    cout << "==============================\n";
+  }
   cout << weights.colwise().sum() << "\n";
 #endif
 
-  // Re-assign matches
+  /// === Re-assign matches ===
   groupsEG.clear();
   groupsEG.resize(nFs);
   for(int ii = 0; ii < nInliers; ii++)
