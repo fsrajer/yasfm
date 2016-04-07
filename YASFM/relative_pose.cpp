@@ -1223,8 +1223,6 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
         largestHSz = groupsH[iH].size();
     }
   }
-  for(size_t iH : HsToRemove)
-    groupsH.erase(groupsH.begin() + iH);
 
   for(size_t io = 0; io < others.size(); io++)
   {
@@ -1244,6 +1242,10 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
     cout << "; nHs: " << HsToRemove.size() << ", prop: " << double(largestHSz)/inliersEG.size() << "\n";
     cout << "largestHSz: " << largestHSz << ", nMatches: " << inliersEG.size() << "\n";
     inliersEG.clear();
+  } else
+  {
+    for(size_t iH : HsToRemove)
+      groupsH.erase(groupsH.begin() + iH);
   }
 }
 
@@ -1325,6 +1327,13 @@ void estimateFundamentalMatrices(const vector<Vector2d>& keys1,
 
     if(remainingPair.matches.size() < MIN_INLIERS_PER_TRANSFORM)
       break;
+  }
+
+  for(const auto& groupH : remainingGroupsH)
+  {
+    groupsEG.emplace_back();
+    for(int remainingIdx : groupH)
+      groupsEG.back().push_back(remainingToAll[remainingIdx]);
   }
 }
 
