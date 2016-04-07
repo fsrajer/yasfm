@@ -992,13 +992,35 @@ void constructF(const T* const params,Matrix<T,3,3> *F)
 
   S.setZero();
   S(0,0) = T(1.);
-  S(1,1) = s;
+  S(1,1) = s*s;
 
   aaV.angle() = aaV_.norm();
   aaV.axis() = aaV_ / aaV.angle();
   V = aaV.toRotationMatrix();
 
   *F = U * S * V.transpose();
+}
+
+void decomposeF(const Matrix3d& F,VectorXd *pparams)
+{
+  auto& params = *pparams;
+
+  JacobiSVD<Matrix3d> svd(F,Eigen::ComputeFullU | Eigen::ComputeFullV);
+  AngleAxisd aaU,aaV;
+  Matrix3d U = svd.matrixU();
+  if(U.determinant() < 0.)
+    U *= -1.;
+  Matrix3d V = svd.matrixV();
+  if(V.determinant() < 0.)
+    V *= -1.;
+  aaU.fromRotationMatrix(U);
+  aaV.fromRotationMatrix(V);
+  double s = sqrt(svd.singularValues()(1) / svd.singularValues()(0));
+
+  params.resize(7);
+  params.topRows(3) = aaU.angle() * aaU.axis();
+  params(3) = s;
+  params.bottomRows(3) = aaV.angle() * aaV.axis();
 }
 
 template<typename T>
@@ -1141,23 +1163,9 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
     weightsH(iH) /= groupsH[iH].size();
   }*/
 
-  /// === Convert F into a minimal parameterization ===
-  JacobiSVD<Matrix3d> svd(F,Eigen::ComputeFullU | Eigen::ComputeFullV);
-  AngleAxisd aaU,aaV;
-  Matrix3d U = svd.matrixU();
-  if(U.determinant() < 0.)
-    U *= -1.;
-  Matrix3d V = svd.matrixV();
-  if(V.determinant() < 0.)
-    V *= -1.;
-  aaU.fromRotationMatrix(U);
-  aaV.fromRotationMatrix(V);
-  double s = svd.singularValues()(1) / svd.singularValues()(0);
-  
+  /// === Convert F into a minimal parameterization ===  
   VectorXd FParams(7);
-  FParams.topRows(3) = aaU.angle() * aaU.axis();
-  FParams(3) = s;
-  FParams.bottomRows(3) = aaV.angle() * aaV.axis();
+  decomposeF(F,&FParams);
   
   auto costFun =
         new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorFw>(
@@ -1491,24 +1499,7 @@ void optimizeEGs(const vector<Vector2d>& keys1,
   /// === Convert Fs into a minimal parameterization ===
   vector<VectorXd> FsParams(nFs);
   for(int iF = 0; iF < nFs; iF++)
-  {
-    JacobiSVD<Matrix3d> svd(Fs[iF],Eigen::ComputeFullU | Eigen::ComputeFullV);
-    AngleAxisd aaU,aaV;
-    Matrix3d U = svd.matrixU();
-    if(U.determinant() < 0.)
-      U *= -1.;
-    Matrix3d V = svd.matrixV();
-    if(V.determinant() < 0.)
-      V *= -1.;
-    aaU.fromRotationMatrix(U);
-    aaV.fromRotationMatrix(V);
-    double s = svd.singularValues()(1) / svd.singularValues()(0);
-
-    FsParams[iF].resize(7);
-    FsParams[iF].topRows(3) = aaU.angle() * aaU.axis();
-    FsParams[iF](3) = s;
-    FsParams[iF].bottomRows(3) = aaV.angle() * aaV.axis();
-  }
+    decomposeF(Fs[iF],&FsParams[iF]);
 
   /// === Set-up the problem ===
   ceres::Solver::Options solverOpt;
