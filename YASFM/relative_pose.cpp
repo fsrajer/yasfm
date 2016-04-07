@@ -1055,9 +1055,9 @@ struct GeomVerifCostFunctorFw
 {
   GeomVerifCostFunctorFw(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
     const vector<IntPair>& matches,const vector<vector<int>>& groupsH,
-    const vector<int>& others,double errThresh)
+    const vector<int>& others,double errThresh,double alpha)
     : keys1(keys1),keys2(keys2),matches(matches),groupsH(groupsH),others(others),
-    errThresh(errThresh)
+    errThresh(errThresh),alpha(alpha)
   {
   }
 
@@ -1079,6 +1079,8 @@ struct GeomVerifCostFunctorFw
 
         T err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMatTemplated(x2,F,x1));
         
+        residuals[iResidual] = T(1. - alpha) * robustify(errThresh,err);
+        
         avgErr += err;
         iResidual++;
       }
@@ -1087,7 +1089,7 @@ struct GeomVerifCostFunctorFw
 
       iResidual -= (int)groupsH[iH].size();
       for(int iMatch : groupsH[iH])
-        residuals[iResidual++] = robAvgErr;
+        residuals[iResidual++] += T(alpha) * robAvgErr;
     }
 
     for(size_t io = 0; io < others.size(); io++)
@@ -1109,7 +1111,8 @@ struct GeomVerifCostFunctorFw
   const vector<IntPair>& matches;
   const vector<vector<int>> groupsH;
   const vector<int>& others;
-  double errThresh;
+  double errThresh; 
+  double alpha;
 };
 
 //#define PRINT_STATUS
@@ -1120,7 +1123,8 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
   Matrix3d *pF,vector<int> *pinliersEG)
 {
   const double MAX_H_PROPORTION = 0.95;
-
+  const int N_OPT_ITERS = 5;
+  
   auto& groupsH = *pgroupsH;
   auto& F = *pF;
   auto& inliersEG = *pinliersEG;
@@ -1132,11 +1136,6 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
   for(const auto& group : groupsH)
     for(int idx : group)
       isInlierH[idx] = true;
-
-  /// === Set-up the problem ===
-  ceres::Problem problem;
-  ceres::Solver::Options solverOpt;
-  ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
   
   //VectorXd weights(matches.size());
   //VectorXd weightsH(groupsH.size());
@@ -1167,19 +1166,31 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
   VectorXd FParams(7);
   decomposeF(F,&FParams);
   
-  auto costFun =
-        new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorFw>(
-        new GeomVerifCostFunctorFw(keys1,keys2,matches,groupsH,others,errThresh));
+  double alpha = 0.;
+  for(int iIter = 0; iIter < N_OPT_ITERS; iIter++)
+  {
+    /// === Set-up the problem ===
+    ceres::Problem problem;
+    ceres::Solver::Options solverOpt;
+    ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
 
-  costFun->SetNumResiduals((int)matches.size());
-  costFun->AddParameterBlock(7);
-  problem.AddResidualBlock(costFun,lossFun,FParams.data());
+    auto costFun =
+      new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorFw>(
+      new GeomVerifCostFunctorFw(keys1,keys2,matches,groupsH,others,errThresh,
+      alpha));
 
-  ceres::Solver::Summary summary;
-  ceres::Solve(solverOpt,&problem,&summary);
+    costFun->SetNumResiduals((int)matches.size());
+    costFun->AddParameterBlock(7);
+    problem.AddResidualBlock(costFun,lossFun,FParams.data());
+
+    ceres::Solver::Summary summary;
+    ceres::Solve(solverOpt,&problem,&summary);
 #ifdef PRINT_STATUS
-  std::cout << summary.FullReport() << "\n";
+    std::cout << summary.FullReport() << "\n";
 #endif
+    alpha += 1./(N_OPT_ITERS-1);
+  }
+  
   constructF(FParams.data(),&F);
 
   inliersEG.clear();
@@ -1197,7 +1208,7 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
       avgErr += sqrt(computeSymmetricEpipolarSquaredDistanceFundMatTemplated(x2,F,x1));
     }
     avgErr /= double(groupsH[iH].size());
-    cout << "; avgErr: " << iH << ":" << avgErr;
+    //cout << "; avgErr: " << iH << ":" << avgErr;
     if(avgErr < errThresh)
     {
       for(int iMatch : groupsH[iH])
