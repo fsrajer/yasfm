@@ -1024,7 +1024,7 @@ void decomposeF(const Matrix3d& F,VectorXd *pparams)
 }
 
 template<typename T>
-T computeSymmetricEpipolarSquaredDistanceFundMatTemplated(const Vector2d& pt2,
+T computeSampsonSquaredDistance(const Vector2d& pt2,
   const Matrix<T,3,3>& F,const Vector2d& pt1)
 {
   Matrix<T,3,1> Fpt1 = F*pt1.homogeneous().cast<T>();
@@ -1033,8 +1033,7 @@ T computeSymmetricEpipolarSquaredDistanceFundMatTemplated(const Vector2d& pt2,
   T pt2Fpt1 = pt2.homogeneous().cast<T>().dot(Fpt1);
 
   return (pt2Fpt1*pt2Fpt1) *
-    (T(1.) / Fpt1.topRows(2).squaredNorm() + 
-    T(1.) / FTpt2.topRows(2).squaredNorm());
+    (T(1.) / (Fpt1.topRows(2).squaredNorm() + FTpt2.topRows(2).squaredNorm()));
 }
 
 template<typename T>
@@ -1077,7 +1076,7 @@ struct GeomVerifCostFunctorFw
         const auto& x1 = keys1[match.first];
         const auto& x2 = keys2[match.second];
 
-        T err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMatTemplated(x2,F,x1));
+        T err = sqrt(computeSampsonSquaredDistance(x2,F,x1));
         
         residuals[iResidual] = T(1. - alpha) * robustify(errThresh,err);
 
@@ -1102,7 +1101,7 @@ struct GeomVerifCostFunctorFw
       const auto& x2 = keys2[match.second];
 
       residuals[iResidual] = robustify(errThresh,
-        sqrt(computeSymmetricEpipolarSquaredDistanceFundMatTemplated(x2,F,x1)));
+        sqrt(computeSampsonSquaredDistance(x2,F,x1)));
 
       residuals[iResidual] *= T(1. - pair.dists[others[io]]);
 
@@ -1211,7 +1210,7 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
       const auto& x1 = keys1[match.first];
       const auto& x2 = keys2[match.second];
 
-      avgErr += sqrt(computeSymmetricEpipolarSquaredDistanceFundMatTemplated(x2,F,x1));
+      avgErr += sqrt(computeSampsonSquaredDistance(x2,F,x1));
     }
     avgErr /= double(groupsH[iH].size());
     //cout << "; avgErr: " << iH << ":" << avgErr;
@@ -1233,7 +1232,7 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
     const auto& x1 = keys1[match.first];
     const auto& x2 = keys2[match.second];
 
-    double err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMatTemplated(x2,F,x1));
+    double err = sqrt(computeSampsonSquaredDistance(x2,F,x1));
 
     if(err < errThresh)
       inliersEG.push_back(others[io]);
