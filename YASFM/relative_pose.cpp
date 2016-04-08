@@ -1077,9 +1077,7 @@ struct GeomVerifCostFunctorFw
         const auto& x2 = keys2[match.second];
 
         T err = sqrt(computeSampsonSquaredDistance(x2,F,x1));
-        
         residuals[iResidual] = T(1. - alpha) * robustify(errThresh,err);
-
         avgErr += err;
         iResidual++;
       }
@@ -1090,7 +1088,8 @@ struct GeomVerifCostFunctorFw
       for(int iMatch : groupsH[iH])
       {
         residuals[iResidual] += T(alpha) * robAvgErr;
-        residuals[iResidual++] *= T(1. - pair.dists[iMatch]);
+        residuals[iResidual] *= T(1. - pair.dists[iMatch]);
+        iResidual++;
       }
     }
 
@@ -1102,9 +1101,7 @@ struct GeomVerifCostFunctorFw
 
       residuals[iResidual] = robustify(errThresh,
         sqrt(computeSampsonSquaredDistance(x2,F,x1)));
-
       residuals[iResidual] *= T(1. - pair.dists[others[io]]);
-
       iResidual++;
     }
 
@@ -1141,31 +1138,13 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
   for(const auto& group : groupsH)
     for(int idx : group)
       isInlierH[idx] = true;
-  
-  //VectorXd weights(matches.size());
-  //VectorXd weightsH(groupsH.size());
 
   vector<int> others;
   for(int iMatch = 0; iMatch < (int)matches.size(); iMatch++)
   {
     if(!isInlierH[iMatch])
       others.push_back(iMatch);
-    
-    /*IntPair match = matches[iMatch];
-    const auto& x1 = keys1[match.first];
-    const auto& x2 = keys2[match.second];
-
-    double err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(x2,F,x1));
-    weights(iMatch) = 1. - std::max(1.,err/errThresh);*/
   }
-
-  /*weightsH.setZero();
-  for(size_t iH = 0; iH < groupsH.size(); iH++)
-  {
-    for(int idx : groupsH[iH])
-      weightsH(iH) += weights(idx);
-    weightsH(iH) /= groupsH[iH].size();
-  }*/
 
   /// === Convert F into a minimal parameterization ===  
   VectorXd FParams(7);
@@ -1213,7 +1192,6 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
       avgErr += sqrt(computeSampsonSquaredDistance(x2,F,x1));
     }
     avgErr /= double(groupsH[iH].size());
-    //cout << "; avgErr: " << iH << ":" << avgErr;
     if(avgErr < errThresh)
     {
       for(int iMatch : groupsH[iH])
