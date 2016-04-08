@@ -63,6 +63,7 @@ public:
     opt.emplace("minInliers",make_unique<OptTypeWithVal<int>>(minInliers));
     opt.emplace("confidence",make_unique<OptTypeWithVal<double>>(0.95));
     opt.emplace("refineTolerance",make_unique<OptTypeWithVal<double>>(1e-12));
+    opt.emplace("maxSampleSelectionSkips",make_unique<OptTypeWithVal<int>>(100000));
   }
 
   /// Constructor.
@@ -73,6 +74,7 @@ public:
     opt.emplace("minInliers",make_unique<OptTypeWithVal<int>>(minInliers));
     opt.emplace("confidence",make_unique<OptTypeWithVal<double>>(confidence));
     opt.emplace("refineTolerance",make_unique<OptTypeWithVal<double>>(1e-12));
+    opt.emplace("maxSampleSelectionSkips",make_unique<OptTypeWithVal<int>>(100000));
   }
 
   // Shortcuts
@@ -81,6 +83,8 @@ public:
   YASFM_API int minInliers() const { return get<int>("minInliers"); }
   YASFM_API double confidence() const { return get<double>("confidence"); }
   YASFM_API double refineTolerance() const { return get<double>("refineTolerance"); }
+  YASFM_API int maxSampleSelectionSkips() const
+  { return get<int>("maxSampleSelectionSkips"); }
 };
 
 /// Base, interface like, class for access to data used in RANSAC like frameworks.
@@ -257,12 +261,19 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   int maxInliers = -1;
   vector<int> idxs;
   idxs.resize(minMatches);
-  for(int round = 0; round < ransacRounds; round++)
+  int nSampleSelectionSkips = 0;
+  for(int round = 0; round < (ransacRounds+nSampleSelectionSkips); round++)
   {
     generateRandomIndices(minMatches,nMatches,&idxs);
 
     if(!m.isPermittedSelection(idxs))
-      continue;
+    {
+      nSampleSelectionSkips++;
+      if(nSampleSelectionSkips < opt.maxSampleSelectionSkips())
+        continue;
+      else
+        break;
+    }
 
     vector<MatType> hypotheses;
     m.computeTransformation(idxs,&hypotheses);
@@ -327,9 +338,10 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   int nUsedMatches = minMatches;
   // number of drawn samples containing only data points from [1,nUsedPts]
   int nSamplesDrawn = 1;
+  int nSampleSelectionSkips = 0;
   double avgSamplesDrawn = computeInitAvgSamplesDrawnPROSAC(ransacRounds,nMatches,minMatches);
 
-  for(int round = 0; round < ransacRounds; round++)
+  for(int round = 0; round < (ransacRounds+nSampleSelectionSkips); round++)
   {
     // === choose a subset from which we will take random points ===
     if(round == nSamplesDrawn && nUsedMatches < nMatches)
@@ -357,7 +369,13 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     }
 
     if(!m.isPermittedSelection(idxs))
-      continue;
+    {
+      nSampleSelectionSkips++;
+      if(nSampleSelectionSkips < opt.maxSampleSelectionSkips())
+        continue;
+      else
+        break;
+    }
 
     vector<MatType> hypotheses;
     m.computeTransformation(idxs,&hypotheses);
