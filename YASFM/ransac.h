@@ -312,8 +312,8 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   }
 }
 
-template<typename MatType>
-int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC& opt,
+template<typename MatType,bool DoLocalOpt>
+int _commonEstimateTransformLOPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC& opt,
   const vector<int>& matchesOrder,MatType *pM,vector<int> *inliers)
 {
   int minMatches = m.minMatches();
@@ -335,6 +335,7 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   int maxInliers = -1;
   vector<int> idxs;
   idxs.resize(minMatches);
+  vector<int> tentativeInliers;
   int nUsedMatches = minMatches;
   // number of drawn samples containing only data points from [1,nUsedPts]
   int nSamplesDrawn = 1;
@@ -380,8 +381,15 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     vector<MatType> hypotheses;
     m.computeTransformation(idxs,&hypotheses);
 
-    for(const auto& Mcurr : hypotheses)
+    for(auto& Mcurr : hypotheses)
     {
+      if(DoLocalOpt)
+      {
+        tentativeInliers.clear();
+        findInliers(m,Mcurr,sqThresh,&tentativeInliers);
+        m.refine(opt.refineTolerance(),tentativeInliers,&Mcurr);
+      }
+
       int nInliers = findInliers(m,Mcurr,sqThresh);
       if(maxInliers < nInliers)
       {
@@ -396,7 +404,7 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
 
   if(maxInliers >= opt.minInliers())
   {
-    vector<int> tentativeInliers;
+    tentativeInliers.clear();
     findInliers(m,M,sqThresh,&tentativeInliers);
     m.refine(opt.refineTolerance(),tentativeInliers,&M);
 
@@ -412,6 +420,20 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     inliers->clear();
     return 0;
   }
+}
+
+template<typename MatType>
+int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC& opt,
+  const vector<int>& matchesOrder,MatType *pM,vector<int> *inliers)
+{
+  return _commonEstimateTransformLOPROSAC<MatType,false>(m,opt,matchesOrder,pM,inliers);
+}
+
+template<typename MatType>
+int estimateTransformLOPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC& opt,
+  const vector<int>& matchesOrder,MatType *pM,vector<int> *inliers)
+{
+  return _commonEstimateTransformLOPROSAC<MatType,true>(m,opt,matchesOrder,pM,inliers);
 }
 
 template<typename MatType>
