@@ -1127,6 +1127,7 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
 {
   const double MAX_H_PROPORTION = 0.95;
   const int N_OPT_ITERS = 5;
+  const int MIN_OFF_H_INLIERS = 5;
   
   auto& groupsH = *pgroupsH;
   auto& F = *pF;
@@ -1216,11 +1217,12 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
       inliersEG.push_back(others[io]);
   }
 
+  //cout << "; nHs: " << HsToRemove.size() << ", prop: " << double(largestHSz)/inliersEG.size();
+  //cout << "; largestHSz: " << largestHSz << ", nMatches: " << inliersEG.size();
   if(HsToRemove.size() < 2 &&
-    double(largestHSz)/inliersEG.size() > MAX_H_PROPORTION)
-  {
-    cout << "; nHs: " << HsToRemove.size() << ", prop: " << double(largestHSz)/inliersEG.size() << "\n";
-    cout << "largestHSz: " << largestHSz << ", nMatches: " << inliersEG.size() << "\n";
+    (double(largestHSz)/inliersEG.size() > MAX_H_PROPORTION ||
+    (inliersEG.size()-largestHSz) < MIN_OFF_H_INLIERS))
+  { 
     inliersEG.clear();
   } else
   {
