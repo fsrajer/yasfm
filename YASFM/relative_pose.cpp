@@ -966,13 +966,15 @@ private:
   const vector<int>& groupId_;
 };
 
-bool estimateRelativePose7ptKnownHsRANSAC(const OptionsRANSAC& opt,
+bool estimateRelativePose7ptKnownHsLOPROSAC(const OptionsRANSAC& opt,
   const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
-  const vector<IntPair>& matches,int nGroups,const vector<int>& groupId,
+  const CameraPair& pair,int nGroups,const vector<int>& groupId,
   Matrix3d *F,vector<int> *inliers)
 {
-  Mediator7ptKnownHsRANSAC m(keys1,keys2,matches,nGroups,groupId);
-  int nInliers = estimateTransformRANSAC(m,opt,F,inliers);
+  Mediator7ptKnownHsRANSAC m(keys1,keys2,pair.matches,nGroups,groupId);
+  vector<int> matchesOrder;
+  yasfm::quicksort(pair.dists,&matchesOrder);
+  int nInliers = estimateTransformLOPROSAC(m,opt,matchesOrder,F,inliers);
   return (nInliers > 0);
 }
 
@@ -1261,8 +1263,8 @@ void estimateFundamentalMatrices(const vector<Vector2d>& keys1,
     inliers.clear();
 
     Matrix3d F;
-    estimateRelativePose7ptKnownHsRANSAC(ransacOpt,keys1,keys2,
-      remainingPair.matches,(int)remainingGroupsH.size(),remainingGroupHId,&F,&inliers);
+    estimateRelativePose7ptKnownHsLOPROSAC(ransacOpt,keys1,keys2,
+      remainingPair,(int)remainingGroupsH.size(),remainingGroupHId,&F,&inliers);
 
     if(inliers.size() < MIN_INLIERS_PER_TRANSFORM)
       break;
