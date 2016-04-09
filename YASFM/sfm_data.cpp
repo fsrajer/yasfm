@@ -158,10 +158,14 @@ void Dataset::writeASCII(const string& filename) const
   }
 
   const int nFieldsCameraPair = 3;
+  const int nFieldsMatchGroup = 3;
   file << "pairs_ " << pairs_.size() << " " << nFieldsCameraPair << "\n";
   file << "matches\n";
   file << "dists\n";
-  file << "supportSizes\n";
+  file << "groups " << nFieldsMatchGroup << "\n";
+  file << "size\n";
+  file << "type\n";
+  file << "T\n";
   for(const auto& entry : pairs_)
   {
     IntPair idxs = entry.first;
@@ -173,10 +177,24 @@ void Dataset::writeASCII(const string& filename) const
     file << pair.dists.size() << "\n";
     for(double dist : pair.dists)
       file << dist << "\n";
-    file << pair.supportSizes.size() << "\n";
-    for(int supportSize : pair.supportSizes)
-      file << " " << supportSize;
-    file << "\n";
+    file << pair.groups.size() << "\n";
+    for(const auto& g : pair.groups)
+    {
+      file << g.size << " " << g.type;
+      switch(g.type)
+      {
+      case 'H':
+      case 'F':
+        for(int i = 0; i < 9; i++)
+          file << " " << g.T(i);
+        break;
+      default:
+        for(int i = 0; i < (int)g.T.size(); i++)
+          file << " " << g.T(i);
+        break;
+      }
+      file << "\n";
+    }
   }
 
   file.close();
@@ -335,6 +353,7 @@ void Dataset::readMatches(istream& file)
   int nPairs,nFields;
   file >> nPairs >> nFields;
   int format = 0;
+  int groupsFormat = 0;
   for(int i = 0; i < nFields; i++)
   {
     file >> s;
@@ -344,6 +363,22 @@ void Dataset::readMatches(istream& file)
       format |= 2;
     else if(s == "supportSizes")
       format |= 4;
+    else if(s == "groups")
+    {
+      format |= 8;
+      int nFieldsGroups;
+      file >> nFieldsGroups;
+      for(int j = 0; j < nFieldsGroups; j++)
+      {
+        file >> s;
+        if(s == "size")
+          groupsFormat |= 1;
+        else if(s == "type")
+          groupsFormat |= 2;
+        else if(s == "T")
+          groupsFormat |= 4;
+      }
+    }
   }
   pairs_.clear();
   pairs_.reserve(nPairs);
@@ -377,9 +412,40 @@ void Dataset::readMatches(istream& file)
     {
       int n;
       file >> n;
-      pair.supportSizes.resize(n); 
-      for(int& sz : pair.supportSizes)
-        file >> sz;
+      pair.groups.resize(n);
+      for(auto& g : pair.groups)
+      {
+        file >> g.size;
+        g.type = ' ';
+      }
+    }
+    if(format & 8)
+    {
+      int nGroups;
+      file >> nGroups;
+      pair.groups.resize(nGroups);
+      for(int ig = 0; ig < nGroups; ig++)
+      {
+        auto& g = pair.groups[ig];
+        if(groupsFormat & 1)
+          file >> g.size;
+        if(groupsFormat & 2)
+          file >> g.type;
+        if(groupsFormat & 4)
+        {
+          switch(g.type)
+          {
+          case 'H':
+          case 'F':
+            g.T.resize(3,3);
+            for(int i = 0; i < 9; i++)
+              file >> g.T(i);
+            break;
+          default:
+            break;
+          }
+        }
+      }
     }
   }
 }

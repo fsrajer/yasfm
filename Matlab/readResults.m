@@ -199,6 +199,15 @@ function pairs = readPairs(fid,nPairs,nFields,nCams)
 fields = cell(nFields,1);
 for i=1:nFields
     fields{i} = fgetl(fid);
+    tokens = strsplit(fields{i});
+    if numel(tokens) > 1 && strcmp(tokens{1},'groups')
+       fields{i} = tokens{1};
+       nFieldsGroups = str2double(tokens{2});
+       fieldsGroups = cell(nFieldsGroups,1);
+       for j=1:nFieldsGroups
+           fieldsGroups{j} = fgetl(fid);
+       end
+    end
 end
 pairs = repmat(struct('matches',zeros(2,0)),nCams,nCams);
 for i=1:nPairs
@@ -218,9 +227,34 @@ for i=1:nPairs
         fgetl(fid);
     end
     if nFields >= 3 && strcmp(fields{3},'supportSizes')
-        nSuppSz = fscanf(fid,'%i',1);
+        nGroups = fscanf(fid,'%i',1);
         fgetl(fid);
-        pairs(im1,im2).supportSizes = fscanf(fid,'%i',[1 nSuppSz]);
+        pairs(im1,im2).groups = [];
+        for ig=1:nGroups
+            pairs(im1,im2).groups(ig).size = fscanf(fid,'%i',[1 1]);
+        end
+        fgetl(fid);
+    end
+    if nFields >= 3 && strcmp(fields{3},'groups')
+        nGroups = fscanf(fid,'%i',1);
+        pairs(im1,im2).groups = [];
+        for ig=1:nGroups
+            if nFieldsGroups >=1 && strcmp(fieldsGroups{1},'size')
+                pairs(im1,im2).groups(ig).size = fscanf(fid,'%i',[1 1]);
+            end
+            if nFieldsGroups >=2 && strcmp(fieldsGroups{2},'type')
+                fscanf(fid,'%c',[1 1]); % skip space
+                pairs(im1,im2).groups(ig).type = fscanf(fid,'%c',[1 1]);
+            end
+            if nFieldsGroups >=3 && strcmp(fieldsGroups{3},'T')
+                switch pairs(im1,im2).groups(ig).type
+                    case 'F'
+                        pairs(im1,im2).groups(ig).T = fscanf(fid,'%lf',[3 3]);
+                    case 'H'
+                        pairs(im1,im2).groups(ig).T = fscanf(fid,'%lf',[3 3]);
+                end
+            end
+        end
         fgetl(fid);
     end
 end

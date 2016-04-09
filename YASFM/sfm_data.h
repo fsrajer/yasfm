@@ -25,6 +25,7 @@
 #include "utils_io.h"
 
 using Eigen::Vector3d;
+using Eigen::MatrixXd;
 using std::string;
 using std::vector;
 using std::ostream;
@@ -39,6 +40,16 @@ namespace yasfm
 ///////////////   Declarations   ///////////////////
 ////////////////////////////////////////////////////
 
+/// This is useful simply for storing fundamental matrix or when detecting 
+/// multiple motions for example.
+typedef struct MatchGroup
+{
+  int size; ///< Number of inliers.
+  /// 'H' = homography, 'F' = fundamental matrix
+  char type;
+  MatrixXd T; ///< Transformation.
+} MatchGroup;
+
 /// Structure for storing camera pair information.
 typedef struct CameraPair
 {
@@ -47,8 +58,9 @@ typedef struct CameraPair
   vector<IntPair> matches; 
   /// This can be any score. The smaller the better.
   vector<double> dists;
-  /// For geometric verification. Numbers of inliers to individual transformations.
-  vector<int> supportSizes;
+  /// matches and dists are ordered wrt to groups, i.e. indices [0,groups[0].size)
+  /// belong to the first group.
+  vector<MatchGroup> groups;
 } CameraPair;
 
 /// Main class for storing results of the reconstruction.

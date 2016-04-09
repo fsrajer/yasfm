@@ -566,7 +566,7 @@ transformations from the most supported one.
 */
 YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   const Camera& cam1,const Camera& cam2,const CameraPair& matches,
-  vector<int> *inliers,vector<int> *inlierSetSizes);
+  vector<int> *inliers,vector<MatchGroup> *groups);
 
 /// Compute similarity transform given one feature match.
 /**

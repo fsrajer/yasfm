@@ -366,6 +366,10 @@ void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
       nPrevMatches = static_cast<int>(pair.matches.size());
       filterVector(inliers,&pair.matches);
       filterVector(inliers,&pair.dists);
+      pair.groups.resize(1);
+      pair.groups[0].size = (int)pair.matches.size();
+      pair.groups[0].type = 'F';
+      pair.groups[0].T = F;
       ++it;
 	  pairsDone++;
     } else
@@ -787,7 +791,7 @@ void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
     vector<int> inliers;
     int nInliers = verifyMatchesGeometrically(opt,
       *cams[camsIdx.first],*cams[camsIdx.second],pair,&inliers,
-      &pair.supportSizes);
+      &pair.groups);
     if(nInliers >= opt.get<int>("minInliersPerTransform"))
     {
       // Filter and reorder
@@ -1122,7 +1126,7 @@ struct GeomVerifCostFunctorFw
 
 void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
   const vector<Vector2d>& keys2,const CameraPair& pair,
-  vector<vector<int>> *pgroupsH,
+  vector<vector<int>> *pgroupsH,vector<Matrix3d> *pHs,
   Matrix3d *pF,vector<int> *pinliersEG)
 {
   const double MAX_H_PROPORTION = 0.95;
@@ -1130,6 +1134,7 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
   const int MIN_OFF_H_INLIERS = 5;
   
   auto& groupsH = *pgroupsH;
+  auto& Hs = *pHs;
   auto& F = *pF;
   auto& inliersEG = *pinliersEG;
   const auto& matches = pair.matches;
@@ -1227,13 +1232,16 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
   } else
   {
     for(size_t iH : HsToRemove)
+    {
       groupsH.erase(groupsH.begin() + iH);
+      Hs.erase(Hs.begin() + iH);
+    }
   }
 }
 
 void estimateFundamentalMatrices(const vector<Vector2d>& keys1,
   const vector<Vector2d>& keys2,const CameraPair& allPair,
-  const vector<vector<int>>& groupsH,
+  vector<vector<int>> *pgroupsH,vector<Matrix3d> *pHs,
   vector<vector<int>> *pgroupsEG,vector<Matrix3d> *pFs)
 {
   const int MAX_TRANSFORMS = 5;
@@ -1242,19 +1250,20 @@ void estimateFundamentalMatrices(const vector<Vector2d>& keys1,
   const double ERROR_THRESH = 3.;
   OptionsRANSAC ransacOpt(MAX_RANSAC_ROUNDS,ERROR_THRESH,MIN_INLIERS_PER_TRANSFORM);
 
+  auto& remainingGroupsH = *pgroupsH;
+  auto& remainingHs = *pHs;
   auto& groupsEG = *pgroupsEG;
   auto& Fs = *pFs;
 
   int nAllMatches = static_cast<int>(allPair.matches.size());
   CameraPair remainingPair = allPair;
   vector<int> remainingToAll(nAllMatches);
-  vector<vector<int>> remainingGroupsH = groupsH;
   for(int i = 0; i < nAllMatches; i++)
     remainingToAll[i] = i;
 
   vector<int> remainingGroupHId(nAllMatches,-1);
-  for(int ig = 0; ig < (int)groupsH.size(); ig++)
-    for(int idx : groupsH[ig])
+  for(int ig = 0; ig < (int)remainingHs.size(); ig++)
+    for(int idx : remainingGroupsH[ig])
       remainingGroupHId[idx] = ig;
 
   vector<int> inliers;
@@ -1271,7 +1280,8 @@ void estimateFundamentalMatrices(const vector<Vector2d>& keys1,
     if(inliers.size() < MIN_INLIERS_PER_TRANSFORM)
       break;
 
-    refineFKnownHs(ERROR_THRESH,keys1,keys2,remainingPair,&remainingGroupsH,&F,&inliers);
+    refineFKnownHs(ERROR_THRESH,keys1,keys2,remainingPair,&remainingGroupsH,
+      &remainingHs,&F,&inliers);
 
     if(inliers.size() < MIN_INLIERS_PER_TRANSFORM)
       break;
@@ -1311,11 +1321,10 @@ void estimateFundamentalMatrices(const vector<Vector2d>& keys1,
       break;
   }
 
-  for(const auto& groupH : remainingGroupsH)
+  for(auto& groupH : remainingGroupsH)
   {
-    groupsEG.emplace_back();
-    for(int remainingIdx : groupH)
-      groupsEG.back().push_back(remainingToAll[remainingIdx]);
+    for(int& idx : groupH)
+      idx = remainingToAll[idx];
   }
 }
 
@@ -1710,10 +1719,10 @@ void optimizeEGs(const vector<Vector2d>& keys1,
 
 int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   const Camera& cam1,const Camera& cam2,const CameraPair& allPair,
-  vector<int> *poutInliers,vector<int> *pinlierSetSizes)
+  vector<int> *poutInliers,vector<MatchGroup> *poutGroups)
 {
   auto& outInliers = *poutInliers;
-  auto& inlierSetSizes = *pinlierSetSizes;
+  auto& outGroups = *poutGroups;
   
   vector<vector<int>> groupsH;
   vector<Matrix3d> Hs;
@@ -1721,16 +1730,27 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
 
   vector<vector<int>> groupsEG;
   vector<Matrix3d> Fs;
-  estimateFundamentalMatrices(cam1.keys(),cam2.keys(),allPair,groupsH,&groupsEG,&Fs);
+  estimateFundamentalMatrices(cam1.keys(),cam2.keys(),allPair,&groupsH,&Hs,&groupsEG,&Fs);
 
   //optimizeEGs(cam1.keys(),cam2.keys(),allMatches,groupsH,&groupsEG,&Fs);
   
   outInliers.clear();
-  inlierSetSizes.resize(groupsEG.size());
+  outGroups.clear();
   for(size_t ig = 0; ig < groupsEG.size(); ig++)
   {
     outInliers.insert(outInliers.end(),groupsEG[ig].begin(),groupsEG[ig].end());
-    inlierSetSizes[ig] = (int)groupsEG[ig].size();
+    outGroups.emplace_back();
+    outGroups.back().size = (int)groupsEG[ig].size();
+    outGroups.back().type = 'F';
+    outGroups.back().T = Fs[ig];
+  }
+  for(size_t ig = 0; ig < groupsH.size(); ig++)
+  {
+    outInliers.insert(outInliers.end(),groupsH[ig].begin(),groupsH[ig].end());
+    outGroups.emplace_back();
+    outGroups.back().size = (int)groupsH[ig].size();
+    outGroups.back().type = 'H';
+    outGroups.back().T = Hs[ig];
   }
 
   return static_cast<int>(outInliers.size());
