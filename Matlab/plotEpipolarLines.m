@@ -1,4 +1,4 @@
-function drawEpipolarLines(img1, img2, pts1, pts2, F, nth)
+function plotEpipolarLines(img1, img2, pts1, pts2, F, nth)
 
 markerSize = 20;
 lineWidth = 2;
