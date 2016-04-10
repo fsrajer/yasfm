@@ -328,7 +328,7 @@ void quicksort(const vector<T>& arr,vector<int> *order)
 {
   int n = static_cast<int>(arr.size());
   order->resize(n);
-  ::quicksort(n,&arr[0],&(*order)[0]);
+  ::quicksort(n,arr.data(),order->data());
 }
 
 template<typename T>
