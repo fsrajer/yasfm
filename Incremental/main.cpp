@@ -270,6 +270,7 @@ int main(int argc,const char* argv[])
     double focalPx = opt.get<double>("defaultFocalDividedBySensorSize") * maxDim;
     cam.setFocal(focalPx);
   }
+  bool useCalibratedEpipolarVerif = true;
 
   float& ratioThresh = opt.getOpt<OptionsFLANN>("matchingFLANN").get<float>("ratioThresh");
   ratioThresh = 0.6f;
@@ -306,7 +307,7 @@ int main(int argc,const char* argv[])
     verifyMatchesGeometrically(opt.getOpt<OptionsGeometricVerification>("geometricVerification"),
       data.cams(),&data.pairs());
     //verifyMatchesEpipolar(opt.getOpt<OptionsRANSAC>("epipolarVerification"),
-    //  data.cams(),&data.pairs());
+    //  useCalibratedEpipolarVerif,data.cams(),&data.pairs());
 
     data.writeASCII(name + "/matched_" + std::to_string(i+1) + ".txt");
     opt.write(joinPaths(dir,name + "/options_" + std::to_string(i+1) + ".txt"));

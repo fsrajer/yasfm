@@ -331,15 +331,17 @@ void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
   }
 }
 
-void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
+void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,bool useCalibratedEG,
 	const ptr_vector<Camera>& cams, pair_umap<CameraPair> *pairs, 
 	GeomVerifyCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
-	verifyMatchesEpipolar(solverOpt, true, cams, pairs, callbackFunction, callbackObjectPtr);
+  verifyMatchesEpipolar(solverOpt,true,useCalibratedEG,cams,pairs,
+    callbackFunction,callbackObjectPtr);
 }
 
 void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
-  bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs,
+  bool verbose,bool useCalibratedEG,const ptr_vector<Camera>& cams,
+  pair_umap<CameraPair> *pairs,
   GeomVerifyCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
   clock_t start,end;
@@ -349,7 +351,8 @@ void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
   {
     IntPair camsIdx = it->first;
     auto &pair = it->second;
-
+    const auto& cam1 = *cams[camsIdx.first];
+    const auto& cam2 = *cams[camsIdx.second];
     if(verbose)
     {
       cout << "verifying: " << camsIdx.first << " -> " << camsIdx.second << "\t";
@@ -357,10 +360,20 @@ void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
       start = clock();
     }
 
+    bool success;
     Matrix3d F;
     vector<int> inliers;
-    bool success = estimateRelativePose7ptPROSAC(solverOpt,
-      cams[camsIdx.first]->keys(),cams[camsIdx.second]->keys(),pair,&F,&inliers);
+    if(useCalibratedEG)
+    {
+      Matrix3d E;
+      success = estimateRelativePose5ptPROSAC(solverOpt,
+        cam1,cam2,pair,&E,&inliers);
+      F.noalias() = cam2.K().inverse().transpose() * E * cam1.K().inverse();
+    } else
+    {
+      success = estimateRelativePose7ptPROSAC(solverOpt,
+        cam1.keys(),cam2.keys(),pair,&F,&inliers);
+    }
     if(success)
     {
       nPrevMatches = static_cast<int>(pair.matches.size());
@@ -502,6 +515,20 @@ bool estimateRelativePose5ptRANSAC(const OptionsRANSAC& opt,
   Matrix3d F;
   Mediator5ptRANSAC m(cam1,cam2,matches);
   int nInliers = estimateTransformRANSAC(m,opt,&F,inliers);
+  *E = cam2.K().transpose() * F * cam1.K();
+  return (nInliers > 0);
+}
+
+
+bool estimateRelativePose5ptPROSAC(const OptionsRANSAC& opt,
+  const Camera& cam1,const Camera& cam2,const CameraPair& pair,Matrix3d *E,
+  vector<int> *inliers)
+{
+  Matrix3d F;
+  Mediator5ptRANSAC m(cam1,cam2,pair.matches);
+  vector<int> matchesOrder;
+  yasfm::quicksort(pair.dists,&matchesOrder);
+  int nInliers = estimateTransformPROSAC(m,opt,matchesOrder,&F,inliers);
   *E = cam2.K().transpose() * F * cam1.K();
   return (nInliers > 0);
 }
@@ -1472,8 +1499,11 @@ int Mediator5ptRANSAC::minMatches() const
 void Mediator5ptRANSAC::refine(double tolerance,const vector<int>& inliers,
   Matrix3d *F) const
 {
-  // TODO: Find LM lib for non-linear minimization
-  // change F to E before optimization.
+  Matrix3d E = cam2_.K().transpose() * (*F) * cam1_.K();
+  refineEssentialMatrixNonLinear(cam1_.keys(),cam2_.keys(),
+    invK1_,invK2_,matches_,inliers,
+    tolerance,&E);
+  F->noalias() = invK2_.transpose() * E * invK1_;
 }
 
 MediatorHomographyRANSAC::MediatorHomographyRANSAC(const vector<Vector2d>& keys1,
