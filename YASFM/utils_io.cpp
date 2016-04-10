@@ -1,10 +1,15 @@
 #include "utils_io.h"
 
+#include <direct.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <climits>
 #include <algorithm>
+#include <memory>
 #include <iostream>
 #include <iomanip>
 #include <fstream>
+#include <sstream>
 
 #include "IL\il.h"
 #ifdef _WIN32
@@ -28,9 +33,72 @@ using std::cerr;
 using std::ifstream;
 using std::ofstream;
 using std::setprecision;
+using std::getline;
+using std::istringstream;
 
 namespace yasfm
 {
+
+bool dirExists(const string& dir)
+{
+  struct stat info;
+
+  if(stat(dir.c_str(),&info) != 0)
+    return false; // does not exist
+  else if(info.st_mode & S_IFDIR)
+    return true;
+  else
+  {
+    YASFM_PRINT_ERROR("Not a directory:\n" << dir);
+    return false;
+  }
+}
+
+void makeDirRecursive(const string& dirIn)
+{
+  const string separators("\\/");
+
+  // Put a separator to the end if it is not there.
+  string dir = dirIn;
+  size_t idx = dir.find_last_of(separators);
+  if(idx != dir.size()-1)
+    dir = dir + "/";
+
+  if(dirExists(dir.substr(0,dir.size()-1)))
+    return; // early out
+
+  idx = dir.find_first_of(separators);
+  while(idx < dir.length())
+  {
+    string subdir = dir.substr(0,idx);
+    if(!subdir.empty() && subdir[idx-1] == ':')
+      subdir = subdir + "/";
+    if(!dirExists(subdir))
+      _mkdir(subdir.c_str());
+    idx = dir.find_first_of(separators,idx+1);
+  }
+}
+
+bool hasExtension(const string& filename,const string& extension)
+{
+  if(filename.length() < extension.length())
+    return false;
+  string filenameExt = filename.substr(filename.length() - extension.length());
+  std::transform(filenameExt.begin(),filenameExt.end(),filenameExt.begin(),::tolower);
+  return (filenameExt.compare(extension) == 0);
+}
+
+bool hasExtension(const string& filename,const vector<string>& allowedExtensions)
+{
+  for(const string& ext : allowedExtensions)
+  {
+    if(hasExtension(filename,ext))
+    {
+      return true;
+    }
+  }
+  return false;
+}
 
 void listImgFilenames(const string& dir,vector<string> *filenames)
 {
@@ -67,43 +135,16 @@ void listFilenames(const string& dir,
     closedir(dirReadable);
   } else
   {
-    cerr << "ERROR: listFilenames: Could not open dir: " << dir << "\n";
-  }
-}
-
-void initDevIL()
-{
-  static bool devilLoaded = false;
-  if(!devilLoaded)
-  {
-    ilInit();
-    ilOriginFunc(IL_ORIGIN_UPPER_LEFT);
-    ilEnable(IL_ORIGIN_SET);
-    devilLoaded = true;
+    YASFM_PRINT_ERROR("Could not open dir:\n" << dir);
   }
 }
 
 void getImgDims(const string& filename,int *width,int *height)
 {
-  initDevIL();
-
-  ILuint imId; // will be used to store image name
-  ilGenImages(1,&imId); //this is what DevIL uses to keep track of image object
-  ilBindImage(imId); // setting the current working image
-
-  ILboolean success = ilLoadImage((const ILstring)filename.c_str());
-  if(success)
-  {
-    if(width)
-      *width = ilGetInteger(IL_IMAGE_WIDTH);
-
-    if(height)
-      *height = ilGetInteger(IL_IMAGE_HEIGHT);
-  } else
-  {
-    cerr << "ERROR: getImgDims: Could not load image: " << filename << "\n";
-  }
-  ilDeleteImages(1,&imId);
+  if(hasExtension(filename,"jpg") || hasExtension(filename,"jpeg"))
+    getImgDimsJPG(filename,width,height);
+  else
+    getImgDimsAny(filename,width,height);
 }
 
 void readColors(const string& filename,const vector<Vector2d>& coord,
@@ -138,7 +179,7 @@ void readColors(const string& filename,const vector<Vector2d>& coord,
   } else
   {
     colors.clear();
-    cerr << "ERROR: readColors: could not load image: " << filename << "\n";
+    YASFM_PRINT_ERROR("Could not load image:\n" << filename);
   }
   ilDeleteImages(1,&imId);
 }
@@ -218,13 +259,238 @@ double findFocalLengthInEXIF(const string& ccdDBFilename,const string& imgFilena
   }
 }
 
+void readCMPSFMFormat(double focalConstraintWeight,double radConstraint,
+  double radConstraintWeight,ReadCMPSFMMode readMode,
+  Dataset *pdata,ArrayXXd *homographyProportion)
+{
+  auto& data = *pdata;
+  string dir = data.dir();
+  string listImgs = joinPaths(dir,"list_imgs.txt");
+  string focalEstimates = joinPaths(dir,"focal_estimates.txt");
+  string listKeys = joinPaths(dir,"list_keys.txt");
+  string matchesInit = joinPaths(dir,"matches.init.txt");
+  string matchesEG = joinPaths(dir,"matches.eg.txt");
+  string transforms = joinPaths(dir,"transforms.txt");
+  string tracks = joinPaths(dir,"tracks.txt");
+  
+  readCMPSFMImageList(listImgs,dir,data.featsDir(),
+    radConstraint,radConstraintWeight,&data.cams());
+  readCMPSFMFocalEstimates(focalEstimates,focalConstraintWeight,&data.cams());
+
+  if(readMode >= ReadCMPSFMModeKeys)
+    readCMPSFMKeys(listKeys,dir,&data.cams());
+  if(readMode == ReadCMPSFMModeTentativeMatches)
+    readCMPSFMMatches(matchesInit,false,&data.pairs());
+  if(readMode >= ReadCMPSFMModeVerifiedMatches && readMode < ReadCMPSFMModeTracks)
+    readCMPSFMMatches(matchesEG,true,&data.pairs());
+  if(readMode >= ReadCMPSFMModeTransforms)
+    readCMPSFMTransforms(transforms,homographyProportion);
+  if(readMode >= ReadCMPSFMModeTracks)
+    readCMPSFMTracks(tracks,&data.nViewMatches());
+}
+
+void readCMPSFMImageList(const string& imgListFn,const string& dataDir,
+  const string& defaultFeatsDir,double radConstraint,
+  double radConstraintWeight,ptr_vector<Camera> *pcams)
+{
+  auto& cams = *pcams;
+  ifstream file(imgListFn);
+  if(!file.is_open())
+  {
+    YASFM_PRINT_ERROR_FILE_OPEN(imgListFn);
+    return;
+  }
+  cams.clear();
+  string fn;
+  while(!file.eof())
+  {
+    getline(file,fn);
+    if(fn.empty())
+      continue;
+    fn = joinPaths(dataDir,fn);
+    cams.push_back(std::make_unique<StandardCameraRadial>(fn,defaultFeatsDir));
+
+    StandardCameraRadial *cam = 
+      static_cast<StandardCameraRadial *>(&(*cams.back()));
+    vector<double> radConstraints(2,radConstraint),radWeights(2,radConstraintWeight);
+    cam->constrainRadial(&radConstraints[0],&radWeights[0]);
+  }
+  file.close();
+}
+
+void readCMPSFMFocalEstimates(const string& focalsFn,double focalConstraintWeight,
+  ptr_vector<Camera> *pcams)
+{
+  auto& cams = *pcams;
+  ifstream file(focalsFn);
+  if(!file.is_open())
+  {
+    YASFM_PRINT_ERROR_FILE_OPEN(focalsFn);
+    return;
+  }
+  string endline;
+  int i = 0;
+  while(!file.eof())
+  {
+    double focalEstimate;
+    file >> focalEstimate;
+    getline(file,endline);
+    if(endline.empty())
+      continue;
+
+    StandardCamera *cam = static_cast<StandardCamera *>(&(*cams[i]));
+    if(focalEstimate > 0.)
+    {
+      cam->setFocal(focalEstimate);
+      cam->constrainFocal(focalEstimate,focalConstraintWeight);
+    }
+
+    i++;
+  }
+  file.close();
+}
+
+void readCMPSFMKeys(const string& keysListFn,const string& dataDir,
+  ptr_vector<Camera> *pcams)
+{
+  auto& cams = *pcams;
+  ifstream file(keysListFn);
+  if(!file.is_open())
+  {
+    YASFM_PRINT_ERROR_FILE_OPEN(keysListFn);
+    return;
+  }
+  string fn;
+  int i = 0;
+  while(!file.eof())
+  {
+    getline(file,fn);
+    if(fn.empty())
+      continue;
+    
+    cams[i]->setFeaturesFilename(joinPaths(dataDir,fn),true);
+
+    i++;
+  }
+  file.close();
+}
+
+void readCMPSFMMatches(const string& matchesFn,
+  bool isMatchesEG,pair_umap<CameraPair> *ppairs)
+{
+  auto& pairs = *ppairs;
+  pairs.clear();
+  ifstream file(matchesFn);
+  if(!file.is_open())
+  {
+    YASFM_PRINT_ERROR_FILE_OPEN(matchesFn);
+    return;
+  }
+  int version;
+  file >> version;
+  string line;
+  while(!file.eof())
+  {
+    getline(file,line);
+    if(line.empty())
+      continue;
+
+    istringstream ss(line);
+    int i,j;
+    ss >> i >> j;
+
+    auto& pair = pairs[IntPair(i,j)];
+    int n;
+    file >> n;
+    pair.matches.resize(n);
+    pair.dists.resize(n);
+    for(int i = 0; i < n; i++)
+      file >> pair.matches[i].first >> pair.matches[i].second >> pair.dists[i];
+    
+    if(isMatchesEG)
+      getline(file,line);
+    getline(file,line);
+  }
+  file.close();
+}
+
+void readCMPSFMTransforms(const string& transformsFn,
+  ArrayXXd *phomographyProportion)
+{
+  auto& prop = *phomographyProportion;
+  ifstream file(transformsFn);
+  if(!file.is_open())
+  {
+    YASFM_PRINT_ERROR_FILE_OPEN(transformsFn);
+    return;
+  }
+  int nImgs;
+  file >> nImgs;
+  prop.resize(nImgs,nImgs);
+  prop.setZero();
+  string line;
+  while(!file.eof())
+  {
+    getline(file,line);
+    if(line.empty())
+      continue;
+
+    istringstream ss(line);
+    int i,j;
+    ss >> i >> j;
+
+    getline(file,line);
+    getline(file,line);
+    file >> prop(i,j);
+    prop(j,i) = prop(i,j);
+    getline(file,line);
+    getline(file,line);
+  }
+  file.close();
+}
+
+void readCMPSFMTracks(const string& tracksFn,
+  vector<NViewMatch> *ptracks)
+{
+  auto& tracks = *ptracks;
+  tracks.clear();
+  ifstream file(tracksFn);
+  if(!file.is_open())
+  {
+    YASFM_PRINT_ERROR_FILE_OPEN(tracksFn);
+    return;
+  }
+  string line;
+  while(!file.eof())
+  {
+    getline(file,line);
+    if(line.empty())
+      continue;
+
+    tracks.emplace_back();
+    auto& track = tracks.back();
+    
+    istringstream ss(line);
+    int size,camIdx,keyIdx;
+    ss >> size;
+    track.reserve(size);
+
+    for(int i = 0; i < size; i++)
+    {
+      ss >> camIdx >> keyIdx;
+      track.emplace(camIdx,keyIdx);
+    }
+  }
+  file.close();
+}
+
 void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructedCams,
   const ptr_vector<Camera>& cams,const vector<Point>& pts)
 {
   ofstream out(filename);
   if(!out.is_open())
   {
-    cerr << "ERROR: writeSFMBundlerFormat: unable to open: " << filename << " for writing\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(filename);
     return;
   }
   out << "# Bundle file v0.3\n";
@@ -339,25 +605,57 @@ istream& operator>>(istream& file,NViewMatch& m)
 namespace
 {
 
-bool hasExtension(const string& filename,const string& extension)
+void getImgDimsJPG(const string& filename,int *width,int *height)
 {
-  if(filename.length() < extension.length())
-    return false;
-  string filenameExt = filename.substr(filename.length() - extension.length());
-  std::transform(filenameExt.begin(),filenameExt.end(),filenameExt.begin(),::tolower);
-  return (filenameExt.compare(extension) == 0);
+  jhead::ResetJpgfile();
+  jhead::ImageInfo = jhead::ImageInfo_t();
+  jhead::ReadJpegFile(filename.c_str(),jhead::ReadMode_t::READ_METADATA);
+
+  if(width)
+    *width = jhead::ImageInfo.Width;
+
+  if(height)
+    *height = jhead::ImageInfo.Height;
+
+  // Precaution - maybe useless
+  if((width && *width <= 0) || (height && *height <= 0))
+    getImgDimsAny(filename,width,height);
 }
 
-bool hasExtension(const string& filename,const vector<string>& allowedExtensions)
+
+void initDevIL()
 {
-  for(const string& ext : allowedExtensions)
+  static bool devilLoaded = false;
+  if(!devilLoaded)
   {
-    if(hasExtension(filename,ext))
-    {
-      return true;
-    }
+    ilInit();
+    ilOriginFunc(IL_ORIGIN_UPPER_LEFT);
+    ilEnable(IL_ORIGIN_SET);
+    devilLoaded = true;
   }
-  return false;
+}
+
+void getImgDimsAny(const string& filename,int *width,int *height)
+{
+  initDevIL();
+
+  ILuint imId; // will be used to store image name
+  ilGenImages(1,&imId); //this is what DevIL uses to keep track of image object
+  ilBindImage(imId); // setting the current working image
+
+  ILboolean success = ilLoadImage((const ILstring)filename.c_str());
+  if(success)
+  {
+    if(width)
+      *width = ilGetInteger(IL_IMAGE_WIDTH);
+
+    if(height)
+      *height = ilGetInteger(IL_IMAGE_HEIGHT);
+  } else
+  {
+    YASFM_PRINT_ERROR("Could not load image:\n" << filename);
+  }
+  ilDeleteImages(1,&imId);
 }
 
 double findCCDWidthInDB(const string& dbFilename,const string& cameraMake,const string& cameraModel)
@@ -365,7 +663,7 @@ double findCCDWidthInDB(const string& dbFilename,const string& cameraMake,const 
   ifstream file(dbFilename);
   if(!file.is_open())
   {
-    cerr << "ERROR: could not open file: " << dbFilename << "\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(dbFilename);
     return 0.;
   }
   string makeModel = cameraMake + " " + cameraModel;
@@ -433,86 +731,6 @@ double readCCDWidthFromDBEntry(const string& entry)
 
 
 /*
-void writeFeaturesBinary(const IDataset& dts)
-{
-  writeFeaturesBinary(dts.cams(),dts.dir());
-}
-
-void writeFeaturesBinary(const ptr_vector<ICamera>& cams,const string& dir)
-{
-  for(const auto& cam : cams)
-    writeFeaturesBinary(dir,*cam);
-}
-
-void writeFeaturesBinary(const string& dir,const ICamera& cam)
-{
-  ofstream out(joinPaths(dir,cam.featsFilename()),std::ios::binary);
-  if(!out.is_open())
-  {
-    cerr << "writeFeaturesBinary: unable to open: " << cam.featsFilename() << " for binary writing" << "\n";
-    return;
-  }
-  int nFeatures = cam.nFeatures();
-  out.write((char*)(&nFeatures),sizeof(nFeatures));
-  if(nFeatures > 0)
-  {
-    int descrDim = cam.feature(0).descrDim();
-    out.write((char*)(&descrDim),sizeof(descrDim));
-    float *descr = new float[descrDim];
-    for(int i = 0; i < nFeatures; i++)
-    {
-      const IFeature& feat = cam.feature(i);
-      double x = feat.x();
-      double y = feat.y();
-      out.write((char*)(&y),sizeof(y));
-      out.write((char*)(&x),sizeof(x));
-      feat.descriptor(descr);
-      out.write((char*)(descr),descrDim * sizeof(*(descr)));
-    }
-    delete[] descr;
-  }
-  out.close();
-}
-
-void readFeaturesBinary(IDataset& dts)
-{
-  readFeaturesBinary(dts.cams(),dts.dir());
-}
-
-void readFeaturesBinary(ptr_vector<ICamera>& cams,const string& dir)
-{
-  for(auto& cam : cams)
-    readFeaturesBinary(dir,*cam);
-}
-
-void readFeaturesBinary(const string& dir,ICamera& cam)
-{
-  ifstream in(joinPaths(dir,cam.featsFilename()),std::ios::binary);
-  if(!in.is_open())
-  {
-    cerr << "readFeaturesBinary: unable to open: " << cam.featsFilename()<< " for binary reading" << "\n";
-    return;
-  }
-  int nFeatures,descrDim;
-  in.read((char*)(&nFeatures),sizeof(nFeatures));
-  cam.reserveFeatures(nFeatures);
-  if(nFeatures > 0)
-  {
-    in.read((char*)(&descrDim),sizeof(descrDim));
-    float *descr = new float[descrDim];
-    for(int i = 0; i < nFeatures; i++)
-    {
-      double x,y;
-      in.read((char*)(&y),sizeof(y));
-      in.read((char*)(&x),sizeof(x));
-      in.read((char*)(descr),descrDim * sizeof(*(descr)));
-      cam.addFeature(x,y,descrDim,descr,nullptr);
-    }
-    delete[] descr;
-  }
-  in.close();
-}
-
 void writeSFMPLYFormat(const string& filename,const unordered_set<int>& addedCams,
   const ptr_vector<ICamera>& cams,const vector<Vector3d>& points,const vector<bool>& pointsMask,
   const vector<Vector3uc> *pointColors)

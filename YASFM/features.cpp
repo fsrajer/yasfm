@@ -40,6 +40,13 @@ void detectSiftGPU(const OptionsSIFTGPU& opt,const vector<int>& camsToUse,
     maxHeight = std::max(maxHeight,cam.imgHeight());
   }
 
+  if(maxHeight <= 0 || maxHeight <= 0)
+  {
+    if(!cams.empty())
+      YASFM_PRINT_ERROR("Dimensions of images probably not set. Exiting.");
+    return;
+  }
+
   unique_ptr<SiftGPU> sift(CreateNewSiftGPU(1));
 
   bool success = initializeSiftGPU(opt,maxWidth,maxHeight,sift.get());
@@ -151,7 +158,7 @@ bool initializeSiftGPU(const OptionsSIFTGPU& opt,int maxWidth,int maxHeight,
 
   if(sift->CreateContextGL() != SiftGPU::SIFTGPU_FULL_SUPPORTED)
   {
-    cerr << "ERROR: SiftGPUAutoMemRelease::initialize: Could not create OpenGL context.\n";
+    YASFM_PRINT_ERROR("Could not create OpenGL context.");
     return false;
   }
 

@@ -22,7 +22,7 @@ namespace yasfm
 Dataset::Dataset(const string& dir)
   : dir_(dir)
 {
-  _mkdir(featsDir().c_str());
+  makeDirRecursive(featsDir());
 }
 
 Dataset::Dataset(const Dataset& o)
@@ -98,7 +98,7 @@ void Dataset::writeASCII(const string& filename) const
   ofstream file(fn);
   if(!file.is_open())
   {
-    cerr << "ERROR: Dataset::writeASCII: unable to open: " << fn << " for writing\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(fn);
     return;
   }
 
@@ -213,7 +213,7 @@ void Dataset::readASCII(const string& filename)
   ifstream file(fn);
   if(!file.is_open())
   {
-    cerr << "ERROR: Dataset::readASCII: unable to open: " << fn << " for reading\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(fn);
     return;
   }
   while(!file.eof())

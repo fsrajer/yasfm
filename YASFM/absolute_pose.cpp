@@ -86,9 +86,8 @@ void resectCamera5AndHalfPt(const vector<Vector2d>& keys,const vector<Point>& po
   const size_t minPts = 6;
   if(camToSceneMatches.size() < minPts)
   {
-    cerr << "ERROR: resectCamera5AndHalfPt: "
-      << "Cannot estimate transform. " << camToSceneMatches.size()
-      << " points given, but 6 needed.\n";
+    YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
+      << camToSceneMatches.size() << " given but " << minPts << " needed.");
     return;
   }
 
@@ -220,9 +219,8 @@ void resectCamera3pt(const vector<Vector2d>& normKeys,
 	const size_t minPts = 3;
 	if (camToSceneMatches.size() < minPts)
 	{
-		cerr << "ERROR: resectCamera3Pt: "
-			<< "Cannot estimate transform. " << camToSceneMatches.size()
-			<< " points given, but 3 needed.\n";
+    YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
+      << camToSceneMatches.size() << " given but " << minPts << " needed.");
 		return;
 	}
 

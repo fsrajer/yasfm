@@ -212,9 +212,9 @@ int main(int argc,const char* argv[])
 
   string dir(argv[1]);
   string imgsSubdir(argv[2]);
-  _mkdir(dir.c_str());
+  makeDirRecursive(dir);
   string outDir = joinPaths(dir,"models");
-  _mkdir(outDir.c_str());
+  makeDirRecursive(outDir);
 
   //opt.write(joinPaths(dir,"options.txt"));
 
@@ -360,7 +360,7 @@ int main(int argc,const char* argv[])
     size_t nExploredPrev = exploredCams.size();
     string appendix = "model" + std::to_string(modelId);
     string currOutDir = joinPaths(outDir,appendix);
-    _mkdir(currOutDir.c_str());
+    makeDirRecursive(currOutDir);
 
     Dataset currData = data;
     uset<int> exploredCamsCurr;
@@ -408,7 +408,7 @@ void runSFM(const IncrementalOptions& opt,const string& outDir,
 
   if(initPair.first < 0 || initPair.second < 0)
   {
-    cerr << "runSFM: No good pairs for initialization\n";
+    cout << __func__ << ": No good pairs for initialization\n";
     return;
   }
 
@@ -519,7 +519,10 @@ void IncrementalOptions::write(const string& filename) const
 {
   ofstream file(filename);
   if(!file.is_open())
-    cerr << "Options::write: error: could not open " << filename << " for writing\n";
+  {
+    YASFM_PRINT_ERROR_FILE_OPEN(filename);
+    return;
+  }
   OptionsWrapper::write(file);
   file.close();
 }

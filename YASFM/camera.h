@@ -271,6 +271,13 @@ public:
   */
   YASFM_API virtual void setImage(const string& filename,int width,int height);
 
+  /// Set features filename, clear existing keys and optionally read the new ones.
+  /**
+  \param[in] filename Path to features file.
+  \param[in] readKeys Should the keys be read.
+  */
+  YASFM_API virtual void setFeaturesFilename(const string& filename,bool readKeys);
+
   /// \return Reference to the path to the image file.
   YASFM_API const string& imgFilename() const;
 
@@ -350,6 +357,21 @@ private:
   void copyIn(const Camera& o);
 
   void allocAndRegisterDescr(int num,int dim);
+
+  /// Read in features in .feat.gz format.
+  /// WARNING: Might trigger release of descriptors of some other camera if the
+  /// memory limit is reached.
+  YASFM_API void readFeaturesFeatGz(int readMode);
+
+  /// Read in features in .sft format.
+  /// WARNING: Might trigger release of descriptors of some other camera if the
+  /// memory limit is reached.
+  YASFM_API void readFeaturesSft(int readMode);
+
+  /// Read in features in .key format.
+  /// WARNING: Might trigger release of descriptors of some other camera if the
+  /// memory limit is reached.
+  YASFM_API void readFeaturesKey(int readMode);
 
   string imgFilename_; ///< Path to image file.
   int imgWidth_;       ///< Image width.

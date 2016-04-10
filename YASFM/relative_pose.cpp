@@ -325,7 +325,7 @@ void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
       *C = -Rb.transpose()*tb;
     } else
     {
-      cerr << "ERROR: E2RC: None of the 4 decompositions is good\n";
+      YASFM_PRINT_ERROR("None of the 4 decompositions is good.");
       return;
     }
   }
@@ -431,9 +431,8 @@ void estimateRelativePose7pt(const vector<Vector2d>& keys1,const vector<Vector2d
   const size_t minPts = 7;
   if(matches.size() < minPts)
   {
-    cerr << "ERROR: estimateRelativePose7pt: "
-      << "Cannot estimate transformation. " << matches.size()
-      << " matches given but 7 needed.\n";
+    YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
+      << matches.size() << " given but " << minPts << " needed.");
     pFs->clear();
     return;
   }
@@ -537,17 +536,17 @@ void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
   const vector<Vector3d>& pts2Norm,const vector<IntPair>& matches,
   vector<Matrix3d> *pEs)
 {
-  if(matches.size() < 5)
+  const int minPts = 5;
+  if(matches.size() < minPts)
   {
-    cerr << "ERROR: estimateRelativePose5pt: "
-      << "Cannot estimate transformation. " << matches.size()
-      << " matches given but 5 needed.\n";
+    YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
+      << matches.size() << " given but " << minPts << " needed.");
     pEs->clear();
     return;
   }
   auto& Es = *pEs;
-  double matchedPts1[5][3],matchedPts2[5][3];
-  for(size_t i = 0; i < 5; i++)
+  double matchedPts1[minPts][3],matchedPts2[minPts][3];
+  for(size_t i = 0; i < minPts; i++)
   {
     memcpy(matchedPts1[i],pts1Norm[matches[i].first].data(),3 * sizeof(double));
     memcpy(matchedPts2[i],pts2Norm[matches[i].second].data(),3 * sizeof(double));
