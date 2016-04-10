@@ -6,7 +6,7 @@ using Eigen::JacobiSVD;
 using Eigen::Map;
 using Eigen::MatrixXd;
 using Eigen::Vector2d;
-using Eigen::VectorXd;
+using Eigen::AngleAxisd;
 using std::cerr;
 using std::cout;
 
@@ -85,6 +85,26 @@ void closestEssentialMatrix(const double* const pA,double* pE)
 void closestEssentialMatrix(const Matrix3d& A,Matrix3d *E)
 {
   closestEssentialMatrix(A.data(),E->data());
+}
+
+void decomposeFToMinimalParams(const Matrix3d& F,VectorXd *pparams)
+{
+  auto& params = *pparams;
+
+  JacobiSVD<Matrix3d> svd(F,Eigen::ComputeFullU | Eigen::ComputeFullV);
+  AngleAxisd aaU,aaV;
+  Matrix3d U = svd.matrixU();
+  U *= U.determinant();
+  Matrix3d V = svd.matrixV();
+  V *= V.determinant();
+  aaU.fromRotationMatrix(U);
+  aaV.fromRotationMatrix(V);
+  double s = sqrt(svd.singularValues()(1) / svd.singularValues()(0));
+
+  params.resize(7);
+  params.topRows(3) = aaU.angle() * aaU.axis();
+  params(3) = s;
+  params.bottomRows(3) = aaV.angle() * aaV.axis();
 }
 
 void RQDecomposition(const Matrix3d& A,Matrix3d *pR,Matrix3d *pQ)

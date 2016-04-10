@@ -792,7 +792,7 @@ void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
     int nInliers = verifyMatchesGeometrically(opt,
       *cams[camsIdx.first],*cams[camsIdx.second],pair,&inliers,
       &pair.groups);
-    if(nInliers >= opt.get<int>("minInliersPerTransform"))
+    if(nInliers > 0)
     {
       // Filter and reorder
       vector<IntPair> newMatches(inliers.size());
@@ -863,7 +863,7 @@ void growHomographies(const OptionsGeometricVerification& opt,
   bestInliers.reserve(nAllMatches);
   currInliers.reserve(nAllMatches);
 
-  for(int iTransform = 0; iTransform < opt.get<int>("maxTransforms"); iTransform++)
+  for(int iTransform = 0; iTransform < opt.get<int>("maxHs"); iTransform++)
   {
     bestInliers.clear();
 
@@ -914,7 +914,7 @@ void growHomographies(const OptionsGeometricVerification& opt,
       }
     }
 
-    if(bestInliers.size() < opt.get<int>("minInliersPerTransform"))
+    if(bestInliers.size() < opt.get<int>("minInliersPerH"))
       break;
 
     Hs.push_back(bestH);
@@ -925,50 +925,32 @@ void growHomographies(const OptionsGeometricVerification& opt,
     filterOutOutliers(bestInliers,&remainingMatches);
     filterOutOutliers(bestInliers,&remainingToAll);
 
-    if(remainingMatches.size() < opt.get<int>("minInliersPerTransform"))
+    if(remainingMatches.size() < opt.get<int>("minInliersPerH"))
       break;
   }
 }
 
-class Mediator7ptKnownHsRANSAC : public Mediator7ptRANSAC
+Mediator7ptKnownHsRANSAC::Mediator7ptKnownHsRANSAC(const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const vector<IntPair>& matches,int nGroups,
+  const vector<int>& groupId)
+  : Mediator7ptRANSAC(keys1,keys2,matches),nGroups_(nGroups),groupId_(groupId)
 {
-public:
-  /// Constructor. Mind the order of points. We estimate such F that pts2'*F*pts1 = 0.
-  /**
-  \param[in] keys1 Keys in the first camera.
-  \param[in] keys2 Keys in the second camera.
-  \param[in] matches Keys matches.
-  */
-  Mediator7ptKnownHsRANSAC(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
-    const vector<IntPair>& matches,int nGroups,const vector<int>& groupId)
-    : Mediator7ptRANSAC(keys1,keys2,matches),nGroups_(nGroups),groupId_(groupId)
-  {
-  }
+}
 
-  /// Are these indices permitted to be used for computating the transformation?
-  /**
-  \param[in] idxs Indices of matches.
-  \return True if the matches selection is permitted.
-  */
-  virtual bool isPermittedSelection(const vector<int>& idxs) const
+bool Mediator7ptKnownHsRANSAC::isPermittedSelection(const vector<int>& idxs) const
+{
+  // counts[0] corresponds to non-planar matches
+  vector<int> counts(nGroups_+1,0);
+  for(int idx : idxs)
+    counts[groupId_[idx]+1]++;
+  for(int ig = 0; ig < nGroups_; ig++)
   {
-    // counts[0] corresponds to non-planar matches
-    vector<int> counts(nGroups_+1,0);
-    for(int idx : idxs)
-      counts[groupId_[idx]+1]++;
-    for(int ig = 0; ig < nGroups_; ig++)
-    {
-      // Degenerate selection?
-      if(counts[ig+1] > 4)
-        return false;
-    }
-    return true;
+    // Degenerate selection?
+    if(counts[ig+1] > 4)
+      return false;
   }
-
-private:
-  int nGroups_;
-  const vector<int>& groupId_;
-};
+  return true;
+}
 
 bool estimateRelativePose7ptKnownHsLOPROSAC(const OptionsRANSAC& opt,
   const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
@@ -983,67 +965,7 @@ bool estimateRelativePose7ptKnownHsLOPROSAC(const OptionsRANSAC& opt,
 }
 
 template<typename T>
-void constructF(const T* const params,Matrix<T,3,3> *F)
-{
-  Map<const Matrix<T,3,1>> aaU_(&params[0]);
-  T s = params[3];
-  Map<const Matrix<T,3,1>> aaV_(&params[4]);
-
-  Matrix<T,3,3> U,S,V;
-  AngleAxis<T> aaU,aaV;
-
-  aaU.angle() = aaU_.norm();
-  aaU.axis() = aaU_ / aaU.angle();
-  U = aaU.toRotationMatrix();
-
-  S.setZero();
-  S(0,0) = T(1.);
-  S(1,1) = s*s;
-
-  aaV.angle() = aaV_.norm();
-  aaV.axis() = aaV_ / aaV.angle();
-  V = aaV.toRotationMatrix();
-
-  *F = U * S * V.transpose();
-}
-
-void decomposeF(const Matrix3d& F,VectorXd *pparams)
-{
-  auto& params = *pparams;
-
-  JacobiSVD<Matrix3d> svd(F,Eigen::ComputeFullU | Eigen::ComputeFullV);
-  AngleAxisd aaU,aaV;
-  Matrix3d U = svd.matrixU();
-  if(U.determinant() < 0.)
-    U *= -1.;
-  Matrix3d V = svd.matrixV();
-  if(V.determinant() < 0.)
-    V *= -1.;
-  aaU.fromRotationMatrix(U);
-  aaV.fromRotationMatrix(V);
-  double s = sqrt(svd.singularValues()(1) / svd.singularValues()(0));
-
-  params.resize(7);
-  params.topRows(3) = aaU.angle() * aaU.axis();
-  params(3) = s;
-  params.bottomRows(3) = aaV.angle() * aaV.axis();
-}
-
-template<typename T>
-T computeSampsonSquaredDistance(const Vector2d& pt2,
-  const Matrix<T,3,3>& F,const Vector2d& pt1)
-{
-  Matrix<T,3,1> Fpt1 = F*pt1.homogeneous().cast<T>();
-  Matrix<T,3,1> FTpt2 = F.transpose()*pt2.homogeneous().cast<T>();
-
-  T pt2Fpt1 = pt2.homogeneous().cast<T>().dot(Fpt1);
-
-  return (pt2Fpt1*pt2Fpt1) *
-    (T(1.) / (Fpt1.topRows(2).squaredNorm() + FTpt2.topRows(2).squaredNorm()));
-}
-
-template<typename T>
-T robustify(double softThresh,T x)
+T robustifyRefineFKnownHsCostFunctor(double softThresh,T x)
 {
   x /= T(softThresh);
   if(x < T(1))
@@ -1056,9 +978,9 @@ T robustify(double softThresh,T x)
     return T(1.);
 }
 
-struct GeomVerifCostFunctorFw
+struct RefineFKnownHsCostFunctor
 {
-  GeomVerifCostFunctorFw(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+  RefineFKnownHsCostFunctor(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
     const CameraPair& pair,const vector<vector<int>>& groupsH,
     const vector<int>& others,double errThresh,double alpha)
     : keys1(keys1),keys2(keys2),pair(pair),groupsH(groupsH),others(others),
@@ -1070,7 +992,7 @@ struct GeomVerifCostFunctorFw
   bool operator()(T const* const* parameters,T* residuals) const
   {
     Matrix<T,3,3> F;
-    constructF(parameters[0],&F);
+    composeFFromMinimalParams(parameters[0],&F);
 
     int iResidual = 0;
     for(size_t iH = 0; iH < groupsH.size(); iH++)
@@ -1082,13 +1004,14 @@ struct GeomVerifCostFunctorFw
         const auto& x1 = keys1[match.first];
         const auto& x2 = keys2[match.second];
 
-        T err = sqrt(computeSampsonSquaredDistance(x2,F,x1));
-        residuals[iResidual] = T(1. - alpha) * robustify(errThresh,err);
+        T err = sqrt(computeSampsonSquaredDistanceFundMat(x2,F,x1));
+        residuals[iResidual] =
+          T(1. - alpha) * robustifyRefineFKnownHsCostFunctor(errThresh,err);
         avgErr += err;
         iResidual++;
       }
       avgErr /= T(double(groupsH[iH].size()));
-      T robAvgErr = robustify(errThresh,avgErr);
+      T robAvgErr = robustifyRefineFKnownHsCostFunctor(errThresh,avgErr);
 
       iResidual -= (int)groupsH[iH].size();
       for(int iMatch : groupsH[iH])
@@ -1105,8 +1028,8 @@ struct GeomVerifCostFunctorFw
       const auto& x1 = keys1[match.first];
       const auto& x2 = keys2[match.second];
 
-      residuals[iResidual] = robustify(errThresh,
-        sqrt(computeSampsonSquaredDistance(x2,F,x1)));
+      residuals[iResidual] = robustifyRefineFKnownHsCostFunctor(errThresh,
+        sqrt(computeSampsonSquaredDistanceFundMat(x2,F,x1)));
       residuals[iResidual] *= T(1. - pair.dists[others[io]]);
       iResidual++;
     }
@@ -1118,48 +1041,43 @@ struct GeomVerifCostFunctorFw
   const CameraPair& pair;
   const vector<vector<int>> groupsH;
   const vector<int>& others;
-  double errThresh; 
+  /// This changes robustify function.
+  double errThresh;
+  /// Weights how do we compute error of a match which is modelled by homography.
+  /// err = alpha * robustify(groupAverageError) + (1-alpha) * robustify(matchError)
   double alpha;
 };
 
-//#define PRINT_STATUS
-
-void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
-  const vector<Vector2d>& keys2,const CameraPair& pair,
-  vector<vector<int>> *pgroupsH,vector<Matrix3d> *pHs,
-  Matrix3d *pF,vector<int> *pinliersEG)
+void refineFKnownHs(const OptionsGeometricVerification& opt,
+  const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const CameraPair& pair,
+  vector<vector<int>> *pgroupsH,Matrix3d *pF,vector<int> *pinliersF)
 {
-  const double MAX_H_PROPORTION = 0.95;
-  const int N_OPT_ITERS = 5;
-  const int MIN_OFF_H_INLIERS = 5;
-  
   auto& groupsH = *pgroupsH;
-  auto& Hs = *pHs;
   auto& F = *pF;
-  auto& inliersEG = *pinliersEG;
+  auto& inliersF = *pinliersF;
   const auto& matches = pair.matches;
 
+  int nOptIters = opt.get<int>("nOptIterations");
+  double errThresh = opt.get<double>("fundMatThresh");
   if(errThresh == 0.)
     errThresh = 1e-12; // We will divide by the errThresh
 
-  vector<bool> isInlierH(matches.size(),false);
+  vector<bool> isModelledByH(matches.size(),false);
   for(const auto& group : groupsH)
     for(int idx : group)
-      isInlierH[idx] = true;
+      isModelledByH[idx] = true;
 
   vector<int> others;
   for(int iMatch = 0; iMatch < (int)matches.size(); iMatch++)
-  {
-    if(!isInlierH[iMatch])
+    if(!isModelledByH[iMatch])
       others.push_back(iMatch);
-  }
 
   /// === Convert F into a minimal parameterization ===  
   VectorXd FParams(7);
-  decomposeF(F,&FParams);
-  
+  decomposeFToMinimalParams(F,&FParams);
+
   double alpha = 0.;
-  for(int iIter = 0; iIter < N_OPT_ITERS; iIter++)
+  for(int iIter = 0; iIter < nOptIters; iIter++)
   {
     /// === Set-up the problem ===
     ceres::Problem problem;
@@ -1167,8 +1085,8 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
     ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
 
     auto costFun =
-      new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorFw>(
-      new GeomVerifCostFunctorFw(keys1,keys2,pair,groupsH,others,errThresh*1.5,
+      new ceres::DynamicAutoDiffCostFunction<RefineFKnownHsCostFunctor>(
+      new RefineFKnownHsCostFunctor(keys1,keys2,pair,groupsH,others,errThresh*1.5,
       alpha));
 
     costFun->SetNumResiduals((int)matches.size());
@@ -1180,12 +1098,12 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
 #ifdef PRINT_STATUS
     std::cout << summary.FullReport() << "\n";
 #endif
-    alpha += 1./(N_OPT_ITERS-1);
+    alpha += 1./(nOptIters-1);
   }
-  
-  constructF(FParams.data(),&F);
 
-  inliersEG.clear();
+  composeFFromMinimalParams(FParams.data(),&F);
+
+  inliersF.clear();
   size_t largestHSz = 0;
   list<size_t> HsToRemove;
   for(size_t iH = 0; iH < groupsH.size(); iH++)
@@ -1197,13 +1115,13 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
       const auto& x1 = keys1[match.first];
       const auto& x2 = keys2[match.second];
 
-      avgErr += sqrt(computeSampsonSquaredDistance(x2,F,x1));
+      avgErr += sqrt(computeSampsonSquaredDistanceFundMat(x2,F,x1));
     }
     avgErr /= double(groupsH[iH].size());
     if(avgErr < errThresh)
     {
       for(int iMatch : groupsH[iH])
-        inliersEG.push_back(iMatch);
+        inliersF.push_back(iMatch);
       HsToRemove.push_front(iH);
       if(largestHSz < groupsH[iH].size())
         largestHSz = groupsH[iH].size();
@@ -1216,60 +1134,51 @@ void refineFKnownHs(double errThresh,const vector<Vector2d>& keys1,
     const auto& x1 = keys1[match.first];
     const auto& x2 = keys2[match.second];
 
-    double err = sqrt(computeSampsonSquaredDistance(x2,F,x1));
+    double err = sqrt(computeSampsonSquaredDistanceFundMat(x2,F,x1));
 
     if(err < errThresh)
-      inliersEG.push_back(others[io]);
+      inliersF.push_back(others[io]);
   }
 
-  //cout << "; nHs: " << HsToRemove.size() << ", prop: " << double(largestHSz)/inliersEG.size();
-  //cout << "; largestHSz: " << largestHSz << ", nMatches: " << inliersEG.size();
   if(HsToRemove.size() < 2 &&
-    (double(largestHSz)/inliersEG.size() > MAX_H_PROPORTION ||
-    (inliersEG.size()-largestHSz) < MIN_OFF_H_INLIERS))
-  { 
-    inliersEG.clear();
+    (double(largestHSz)/inliersF.size() > opt.get<double>("maxHProportionInF") ||
+    (inliersF.size()-largestHSz) < opt.get<int>("minOffHInliersInF")))
+  {
+    inliersF.clear();
   } else
   {
     for(size_t iH : HsToRemove)
-    {
       groupsH.erase(groupsH.begin() + iH);
-      Hs.erase(Hs.begin() + iH);
-    }
   }
 }
 
-void estimateFundamentalMatrices(const vector<Vector2d>& keys1,
-  const vector<Vector2d>& keys2,const CameraPair& allPair,
-  vector<vector<int>> *pgroupsH,vector<Matrix3d> *pHs,
-  vector<vector<int>> *pgroupsEG,vector<Matrix3d> *pFs)
+void estimateFundamentalMatrices(const OptionsGeometricVerification& opt,
+  const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const CameraPair& allPair,
+  const vector<vector<int>>& groupsH,vector<vector<int>> *pgroupsF,vector<Matrix3d> *pFs)
 {
-  const int MAX_TRANSFORMS = 5;
-  const int MIN_INLIERS_PER_TRANSFORM = 16;
-  const int MAX_RANSAC_ROUNDS = 2000;
-  const double ERROR_THRESH = 3.;
-  OptionsRANSAC ransacOpt(MAX_RANSAC_ROUNDS,ERROR_THRESH,MIN_INLIERS_PER_TRANSFORM);
-
-  auto& remainingGroupsH = *pgroupsH;
-  auto& remainingHs = *pHs;
-  auto& groupsEG = *pgroupsEG;
+  auto& groupsF = *pgroupsF;
   auto& Fs = *pFs;
+  int minInliersPerF = opt.get<int>("minInliersPerF");
+
+  OptionsRANSAC ransacOpt(opt.get<int>("maxRansacRounds"),
+    opt.get<double>("fundMatThresh"),minInliersPerF);
 
   int nAllMatches = static_cast<int>(allPair.matches.size());
   CameraPair remainingPair = allPair;
+  vector<vector<int>> remainingGroupsH = groupsH;
   vector<int> remainingToAll(nAllMatches);
   for(int i = 0; i < nAllMatches; i++)
     remainingToAll[i] = i;
 
   vector<int> remainingGroupHId(nAllMatches,-1);
-  for(int ig = 0; ig < (int)remainingHs.size(); ig++)
-    for(int idx : remainingGroupsH[ig])
+  for(int ig = 0; ig < (int)groupsH.size(); ig++)
+    for(int idx : groupsH[ig])
       remainingGroupHId[idx] = ig;
 
   vector<int> inliers;
   inliers.reserve(nAllMatches);
 
-  for(int iTransform = 0; iTransform < MAX_TRANSFORMS; iTransform++)
+  for(int iTransform = 0; iTransform < opt.get<int>("maxFs"); iTransform++)
   {
     inliers.clear();
 
@@ -1277,20 +1186,19 @@ void estimateFundamentalMatrices(const vector<Vector2d>& keys1,
     estimateRelativePose7ptKnownHsLOPROSAC(ransacOpt,keys1,keys2,
       remainingPair,(int)remainingGroupsH.size(),remainingGroupHId,&F,&inliers);
 
-    if(inliers.size() < MIN_INLIERS_PER_TRANSFORM)
+    if(inliers.size() < minInliersPerF)
       break;
 
-    refineFKnownHs(ERROR_THRESH,keys1,keys2,remainingPair,&remainingGroupsH,
-      &remainingHs,&F,&inliers);
+    refineFKnownHs(opt,keys1,keys2,remainingPair,&remainingGroupsH,&F,&inliers);
 
-    if(inliers.size() < MIN_INLIERS_PER_TRANSFORM)
+    if(inliers.size() < minInliersPerF)
       break;
 
     // Save inliers as F group
     Fs.push_back(F);
-    groupsEG.emplace_back();
+    groupsF.emplace_back();
     for(int remainingMatchesInlier : inliers)
-      groupsEG.back().push_back(remainingToAll[remainingMatchesInlier]);
+      groupsF.back().push_back(remainingToAll[remainingMatchesInlier]);
 
     // Update indices in H groups
     vector<bool> isInlier(remainingPair.matches.size(),false);
@@ -1317,423 +1225,46 @@ void estimateFundamentalMatrices(const vector<Vector2d>& keys1,
       for(int idx : remainingGroupsH[ig])
         remainingGroupHId[idx] = ig;
 
-    if(remainingPair.matches.size() < MIN_INLIERS_PER_TRANSFORM)
+    if(remainingPair.matches.size() < minInliersPerF)
       break;
-  }
-
-  for(auto& groupH : remainingGroupsH)
-  {
-    for(int& idx : groupH)
-      idx = remainingToAll[idx];
-  }
-}
-
-struct GeomVerifCostFunctorF
-{
-  GeomVerifCostFunctorF(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
-    const vector<IntPair>& matches,const vector<int>& inliers,
-    const double *weights)
-    : keys1(keys1),keys2(keys2),matches(matches),inliers(inliers),
-    weights(weights,inliers.size())
-  {
-  }
-
-  template<typename T>
-  bool operator()(T const* const* parameters,T* residuals) const
-  {
-    Matrix<T,3,3> F;
-    constructF(parameters[0],&F);
-
-    for(size_t ii = 0; ii < inliers.size(); ii++)
-    {
-      IntPair match = matches[inliers[ii]];
-      const auto& x1 = keys1[match.first];
-      const auto& x2 = keys2[match.second];
-
-      Matrix<T,3,1> Fx1 = F*x1.homogeneous().cast<T>();
-      Matrix<T,3,1> FTx2 = F.transpose()*x2.homogeneous().cast<T>();
-
-      T x2Fx1 = x2.homogeneous().cast<T>().dot(Fx1);
-
-      residuals[ii] = sqrt((x2Fx1*x2Fx1) *
-        (T(1.) / Fx1.topRows(2).squaredNorm() +
-        T(1.) / FTx2.topRows(2).squaredNorm()));
-
-      residuals[ii] *= T(weights(ii));
-    }
-
-    return true;
-  }
-
-  const vector<Vector2d> &keys1,&keys2;
-  const vector<IntPair>& matches;
-  const vector<int>& inliers;
-  Map<const VectorXd> weights;
-};
-
-void initializeWeights(const vector<Vector2d>& keys1,
-  const vector<Vector2d>& keys2,const vector<IntPair>& matches,
-  const vector<int>& inliersEG,const vector<Matrix3d>& Fs,
-  const vector<vector<int>>& groupsHInlierIdxs,double weightsPenalization,
-  MatrixXd *pweights)
-{
-  const double DEFAULT_OUTLIER_VALUE = 2.;
-  //const double GAMMA = 0.5;
-
-  auto& weights = *pweights;
-
-  int nFs = (int)Fs.size();
-  int nInliers = (int)inliersEG.size();
-  weights.resize(nInliers,nFs+1);
-  
-  // === Initialize to error value ===
-  for(int ii = 0; ii < nInliers; ii++)
-  {
-    IntPair match = matches[inliersEG[ii]];
-    const auto& x1 = keys1[match.first];
-    const auto& x2 = keys2[match.second];
-
-    for(int iF = 0; iF < nFs; iF++)
-    {
-      double err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(x2,Fs[iF],x1));
-      weights(ii,iF) = (err == 0.) ? 1e-15 : err;
-    }
-  }
-  weights.rightCols(1).fill(DEFAULT_OUTLIER_VALUE);
-
-  // ==== Bias H groups towards their dominant F ===
-  for(const auto& group : groupsHInlierIdxs)
-  {
-    RowVectorXd sum(weights.cols());
-    sum.setZero();
-    for(int idx : group)
-      sum += weights.row(idx);
-//#define PRINT_STATUS
-#ifdef PRINT_STATUS
-    cout << sum / group.size() << "\n";
-#endif
-    int minF;
-    sum.minCoeff(&minF);
-    for(int idx : group)
-    {
-      weights.row(idx).leftCols(minF) /= weightsPenalization;
-      weights.row(idx).rightCols(weights.cols() - minF - 1) /= weightsPenalization;
-    }
-  }
-
-  weights = weights.cwiseInverse();
-
-  /*
-  // === Bias towards dominant F in the whole scene ===
-  MatrixXd tmp = (weights.array().colwise() / weights.rowwise().sum().array()).matrix();
-  RowVectorXd ratio = tmp.leftCols(nFs).colwise().sum();
-  ratio /= ratio.sum();
-  RowVectorXd complexityModifier = pow(ratio.array(),GAMMA).matrix();
-  weights.leftCols(nFs) = (weights.leftCols(nFs).array().rowwise() *
-    complexityModifier.array()).matrix();
-  if(nFs != 0)
-    weights.rightCols(1) *= complexityModifier.maxCoeff();
-  //cout << complexityModifier << "\n";
-  */
-
-  // === Normalize to [0,1] and sum()=1 ===
-  weights = (weights.array().colwise() / weights.rowwise().sum().array()).matrix();
-}
-
-/// Sum the weights of the dominant H inside Fs
-void findProportionModellableByOneHomography(const MatrixXd& weights,
-   const vector<vector<int>>& groupsHInlierIdxs,VectorXd *pmaxHWeightsSum)
-{
-  auto& maxHWeightsSum = *pmaxHWeightsSum;
-  int nFs = int(weights.cols()) - 1;
-  int nHs = (int)groupsHInlierIdxs.size();
-  MatrixXd nInliersH(MatrixXd::Zero(nHs,nFs));
-  for(size_t iH = 0; iH < groupsHInlierIdxs.size(); iH++)
-    for(int idx : groupsHInlierIdxs[iH])
-      nInliersH.row(iH) += weights.row(idx).leftCols(nFs);
-
-  if(nHs != 0)
-    maxHWeightsSum = nInliersH.colwise().maxCoeff();
-}
-
-void optimizeEGs(const vector<Vector2d>& keys1,
-  const vector<Vector2d>& keys2,const vector<IntPair>& matches,
-  const vector<vector<int>>& groupsH,
-  vector<vector<int>> *pgroupsEG,vector<Matrix3d> *pFs)
-{
-  const int MIN_MATCHES_PER_F = 16;
-  const int N_OPTIM_ITERS = 10;
-  const double MAX_H_PROPORTION = 0.95;
-  const int MIN_OFF_H_INLIERS = 5;
-  const double F_DIFF_MERGE_THRESH = 0.001;
-
-  auto& groupsEG = *pgroupsEG;
-  auto& Fs = *pFs;
-
-  if(Fs.empty())
-    return;
-
-  int nFs = (int)Fs.size();
-  int nHs = (int)groupsH.size();
-
-  vector<int> inliers;
-  vector<bool> isInlier(matches.size());
-  for(const auto& group : groupsH)
-    for(int idx : group)
-      isInlier[idx] = true;
-  for(const auto& group : groupsEG)
-    for(int idx : group)
-      isInlier[idx] = true;
-
-#ifdef PRINT_STATUS
-  cout << "\n";
-  for(const auto& group : groupsEG)
-    cout << group.size() << " ";
-  cout << "\n";
-#endif
-
-  vector<int> allToInliers(matches.size(),-1);
-  for(int iMatch = 0; iMatch < (int)matches.size(); iMatch++)
-  {
-    if(isInlier[iMatch])
-    {
-      allToInliers[iMatch] = (int)inliers.size();
-      inliers.push_back(iMatch);
-    }
-  }
-
-  vector<vector<int>> groupsHInlierIdxs(nHs);
-  for(int iH = 0; iH < nHs; iH++)
-  {
-    groupsHInlierIdxs[iH].reserve(groupsH[iH].size());
-    for(int allIdx : groupsH[iH])
-      groupsHInlierIdxs[iH].push_back(allToInliers[allIdx]);
-  }
-
-  int nInliers = (int)inliers.size();
-  MatrixXd weights;
-
-  /// === Convert Fs into a minimal parameterization ===
-  vector<VectorXd> FsParams(nFs);
-  for(int iF = 0; iF < nFs; iF++)
-    decomposeF(Fs[iF],&FsParams[iF]);
-
-  /// === Set-up the problem ===
-  ceres::Solver::Options solverOpt;
-  ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
-
-  double weightsPenalization = 1.;
-  initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
-    weightsPenalization,&weights);
-#ifdef PRINT_STATUS
-  //cout << weights << "\n";
-  cout << "\n" << weights.colwise().sum() << "\n";
-#endif
-  for(int i = 0; i < N_OPTIM_ITERS; i++)
-  {
-    weightsPenalization -= 1./N_OPTIM_ITERS;
-
-    /// === Optimize Fs ===
-    ceres::Problem problemFs;
-    for(int iF = 0; iF < nFs; iF++)
-    {
-      auto costFun =
-        new ceres::DynamicAutoDiffCostFunction<GeomVerifCostFunctorF>(
-        new GeomVerifCostFunctorF(keys1,keys2,matches,inliers,&weights(0,iF)));
-
-      costFun->SetNumResiduals(nInliers);
-      costFun->AddParameterBlock(7);
-
-      problemFs.AddResidualBlock(costFun,lossFun,&FsParams[iF](0));
-    }
-
-    ceres::Solver::Summary summary;
-    ceres::Solve(solverOpt,&problemFs,&summary);
-#ifdef PRINT_STATUS
-    std::cout << summary.FullReport() << "\n";
-#endif
-
-    /// === Compute up-to-date F matrices === and initialize weights
-    for(int iF = 0; iF < nFs; iF++)
-      constructF(&FsParams[iF](0),&Fs[iF]);
-
-    initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
-      weightsPenalization,&weights);
-#ifdef PRINT_STATUS
-    //cout << weights << "\n";
-    cout << weights.colwise().sum() << "\n";
-#endif
-
-    /// === Merge similar Fs ===
-    int maxIF,maxJF;
-    double maxDiff = 1.;
-    for(int iF = 0; iF < nFs; iF++)
-    {
-      for(int jF = iF+1; jF < nFs; jF++)
-      {
-        double diff = ((Fs[iF] / Fs[iF](2,2)) - (Fs[jF] / Fs[jF](2,2))).norm();
-        //cout << iF << "-" << jF << ": " << diff << "\n";
-        if(diff < maxDiff)
-        {
-          maxDiff = diff;
-          maxIF = iF;
-          maxJF = jF;
-        }
-      }
-    }
-    if(maxDiff < F_DIFF_MERGE_THRESH)
-    {
-      for(int iF = 0; iF < nFs; iF++)
-        problemFs.SetParameterBlockConstant(&FsParams[0](0));
-      problemFs.SetParameterBlockVariable(&FsParams[maxIF](0));
-
-      weights.col(maxIF) += weights.col(maxJF);
-      ceres::Solve(solverOpt,&problemFs,&summary);
-      constructF(&FsParams[maxIF](0),&Fs[maxIF]);
-
-      nFs--;
-      Fs.erase(Fs.begin() + maxJF);
-      FsParams.erase(FsParams.begin() + maxJF);
-      initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
-        weightsPenalization,&weights);
-
-#ifdef PRINT_STATUS
-      //cout << weights << "\n";
-      cout << weights.colwise().sum() << "\n";
-#endif
-    }
-
-    /// === Remove F if it is modelable by one H ===
-    VectorXd homProportion,maxHWeightsSum,offHomWeightsSum;
-    findProportionModellableByOneHomography(
-      weights,groupsHInlierIdxs,&maxHWeightsSum);
-    if(nHs != 0)
-    {
-      homProportion = (maxHWeightsSum.array()
-        / weights.leftCols(nFs).colwise().sum().transpose().array()).matrix();
-      offHomWeightsSum =
-        weights.leftCols(nFs).colwise().sum().transpose() - maxHWeightsSum;
-    }
-#ifdef PRINT_STATUS
-    cout << homProportion.transpose() << "\n";
-    cout << offHomWeightsSum.transpose() << "\n";
-#endif
-    int iF;
-    if(nHs != 0 && (homProportion.maxCoeff(&iF) > MAX_H_PROPORTION
-      || offHomWeightsSum.minCoeff(&iF) < MIN_OFF_H_INLIERS))
-    {
-#ifdef PRINT_STATUS
-      cout << "Removing " << iF << " because it has " << homProportion.maxCoeff()
-        << " modellable by homography\n";
-#endif
-      nFs--;
-      Fs.erase(Fs.begin() + iF);
-      FsParams.erase(FsParams.begin() + iF);
-      initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
-        weightsPenalization,&weights);
-    }
-
-    if(nFs == 0)
-      break;
-#ifdef PRINT_STATUS
-
-    /*for(size_t iH = 0; iH < groupsHInlierIdxs.size(); iH++)
-    {
-      for(int inlierIdx : groupsHInlierIdxs[iH])
-      {
-        //cout << weights.row(inlierIdx) << "\n";
-        IntPair match = matches[inliers[inlierIdx]];
-        const auto& x1 = keys1[match.first];
-        const auto& x2 = keys2[match.second];
-
-        for(int iF = 0; iF < nFs; iF++)
-        {
-          double err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(x2,Fs[iF],x1));
-          cout << err << " ";
-        }
-        cout << sqrt(5.) << "\n";
-      }
-      cout << "==============================\n";
-    }*/
-    /*RowVectorXd weightsH(RowVectorXd::Zero(weights.cols()));
-    for(size_t iH = 0; iH < groupsHInlierIdxs.size(); iH++)
-    {
-      for(int inlierIdx : groupsHInlierIdxs[iH])
-        cout << weights.row(inlierIdx) << "\n";
-      //cout << "==============================\n";
-    }*/
-
-    //cout << weights << "\n";
-    cout << weights.colwise().sum() << "\n";
-
-#endif
-  }
-
-  /// === Remove small Fs ===
-  RowVectorXd wSum = weights.leftCols(nFs).colwise().sum();
-  for(int iF = nFs-1; iF >= 0; iF--)
-  {
-    if(wSum(iF) < MIN_MATCHES_PER_F)
-    {
-      nFs--;
-      Fs.erase(Fs.begin() + iF);
-      FsParams.erase(FsParams.begin() + iF);
-    }
-  }
-  initializeWeights(keys1,keys2,matches,inliers,Fs,groupsHInlierIdxs,
-    weightsPenalization,&weights);
-
-#ifdef PRINT_STATUS
-  for(size_t iH = 0; iH < groupsHInlierIdxs.size(); iH++)
-  {
-    for(int inlierIdx : groupsHInlierIdxs[iH])
-    {
-      //cout << weights.row(inlierIdx) << "\n";
-      IntPair match = matches[inliers[inlierIdx]];
-      const auto& x1 = keys1[match.first];
-      const auto& x2 = keys2[match.second];
-
-      for(int iF = 0; iF < nFs; iF++)
-      {
-        double err = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(x2,Fs[iF],x1));
-        cout << err << " ";
-      }
-      cout << sqrt(5.) << "\n";
-    }
-    cout << "==============================\n";
-  }
-  cout << weights.colwise().sum() << "\n";
-#endif
-
-  /// === Re-assign matches ===
-  groupsEG.clear();
-  groupsEG.resize(nFs);
-  for(int ii = 0; ii < nInliers; ii++)
-  {
-    int max;
-    weights.row(ii).maxCoeff(&max);
-    if(max < nFs)
-      groupsEG[max].push_back(inliers[ii]);
   }
 }
 
 int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
-  const Camera& cam1,const Camera& cam2,const CameraPair& allPair,
+  const Camera& cam1,const Camera& cam2,const CameraPair& pair,
   vector<int> *poutInliers,vector<MatchGroup> *poutGroups)
 {
   auto& outInliers = *poutInliers;
   auto& outGroups = *poutGroups;
-  
+
   vector<vector<int>> groupsH;
   vector<Matrix3d> Hs;
-  growHomographies(opt,cam1,cam2,allPair.matches,&groupsH,&Hs);
+  growHomographies(opt,cam1,cam2,pair.matches,&groupsH,&Hs);
 
   vector<vector<int>> groupsEG;
   vector<Matrix3d> Fs;
-  estimateFundamentalMatrices(cam1.keys(),cam2.keys(),allPair,&groupsH,&Hs,&groupsEG,&Fs);
+  estimateFundamentalMatrices(opt,cam1.keys(),cam2.keys(),pair,groupsH,&groupsEG,&Fs);
 
-  //optimizeEGs(cam1.keys(),cam2.keys(),allMatches,groupsH,&groupsEG,&Fs);
-  
+  // == Remove Hs modelled by EG ==
+  vector<bool> isModelledByEG(pair.matches.size(),false);
+  for(const auto& g : groupsEG)
+    for(int idx : g)
+      isModelledByEG[idx] = true;
+
+  vector<size_t> nModelledByEG(Hs.size(),0);
+  for(size_t iH = 0; iH < Hs.size(); iH++)
+    for(int idx : groupsH[iH])
+      nModelledByEG[iH] += isModelledByEG[idx];
+
+  for(int iH = int(groupsH.size())-1; iH >= 0; iH--)
+  {
+    if(nModelledByEG[iH] == groupsH[iH].size())
+    {
+      groupsH.erase(groupsH.begin() + iH);
+      Hs.erase(Hs.begin() + iH);
+    }
+  }
+
   outInliers.clear();
   outGroups.clear();
   for(size_t ig = 0; ig < groupsEG.size(); ig++)
@@ -2030,20 +1561,6 @@ int computeSymmetricEpipolarDistanceEssenMatCMINPACK(void *pdata,
       (*data.keys2)[match.second],F,(*data.keys1)[match.first]));
   }
   return 0; // Negative value would terminate the optimization.
-}
-
-// dist = (pt2'*F*pt1)^2/((F*pt1)^2_1 + (F*pt1)^2_2 + (FT*pt2)^2_1 + (FT*pt2)^2_2)
-// where FT is the transpose of F and _i is the i-th element of a vector
-// Units are squared pixels.
-double computeSampsonSquaredDistanceFundMat(const Vector2d& pt2,const Matrix3d& F,const Vector2d& pt1)
-{
-  Vector3d Fpt1 = F*pt1.homogeneous();
-  Vector3d FTpt2 = F.transpose()*pt2.homogeneous();
-
-  double pt2Fpt1 = pt2.homogeneous().dot(Fpt1);
-
-  return (pt2Fpt1*pt2Fpt1) /
-    (Fpt1.topRows(2).squaredNorm() + FTpt2.topRows(2).squaredNorm());
 }
 
 // Check: http://stackoverflow.com/questions/13328676/c-solving-cubic-equations
