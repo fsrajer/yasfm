@@ -1,15 +1,15 @@
 function matches = splitMatchesToGroups(pair)
 
-if ~isfield(pair,'supportSizes') || isempty(pair.supportSizes)
+if ~isfield(pair,'groups') || isempty(pair.groups)
     matches = {pair.matches};
     return;
 end
 
-ss = pair.supportSizes;
-matches = cell(1,numel(ss));
+groups = pair.groups;
+matches = cell(1,numel(groups));
 off = 0;
-for i=1:numel(ss)
-    sz = ss(i);
+for i=1:numel(groups)
+    sz = groups(i).size;
     matches{i} = pair.matches(:,(1:sz)+off);
     off = off + sz;
 end

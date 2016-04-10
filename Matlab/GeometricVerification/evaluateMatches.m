@@ -34,6 +34,7 @@ nImgs = numel(data.cams);
 
 ld = load(gtFn);
 labels = ld.labels;
+nImgs = 64;
 
 estPairs = cell(1,nMethods);
 for i=1:nMethods
