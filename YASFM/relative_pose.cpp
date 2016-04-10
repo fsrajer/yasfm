@@ -574,11 +574,12 @@ void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
 {
   auto& F = *pF;
   int nUseful = static_cast<int>(matchesToUse.size());
+  const int minPts = 8;
 
-  if(nUseful < 8)
+  if(nUseful < minPts)
   {
-    cerr << "ERROR: estimateFundamentalMatrix: Too few matches handed."
-      << " At least 8 needed and " << nUseful << " was given.\n";
+    YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
+      << matchesToUse.size() << " given but " << minPts << " needed.");
     F.setZero();
     return;
   }
@@ -675,11 +676,12 @@ void estimateEssentialMatrix(const vector<Vector2d>& pts1,
 {
   auto& E = *pE;
   int nUseful = static_cast<int>(matchesToUse.size());
+  const int minPts = 8;
 
-  if(nUseful < 8)
+  if(matchesToUse.size() < minPts)
   {
-    cerr << "ERROR: estimateEssentialMatrix: Too few matches handed."
-      << " At least 8 needed and " << nUseful << " was given.\n";
+    YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
+      << matchesToUse.size() << " given but " << minPts << " needed.");
     E.setZero();
     return;
   }
@@ -850,6 +852,15 @@ void estimateFundamentalMatrixParallax(const vector<Vector2d>& keys1,
   const vector<int>& offPlaneMatches,Matrix3d *pF)
 {
   auto& F = *pF;
+  const int minPts = 2;
+
+  if(offPlaneMatches.size() < minPts)
+  {
+    YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
+      << offPlaneMatches.size() << " given but " << minPts << " needed.");
+    F.setZero();
+    return;
+  }
 
   MatrixXd A(offPlaneMatches.size(),3);
   for(size_t iOffPlane = 0; iOffPlane < offPlaneMatches.size(); iOffPlane++)
