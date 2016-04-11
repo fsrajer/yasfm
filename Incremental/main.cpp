@@ -220,12 +220,15 @@ int main(int argc,const char* argv[])
   //data.readASCII("init.txt");
   
   cout << "Looking for similar camera pairs.\n";
-  vector<set<int>> queries;
   bool verbose = true;
   findSimilarCameraPairs(data.cams(),opt.get<int>("maxVocabularySize"),
-    opt.get<int>("nSimilarCamerasToMatch"),verbose,&queries);
+    opt.get<int>("nSimilarCamerasToMatch"),verbose,&data.queries());
 
-  matchFeatFLANN(opt.getOpt<OptionsFLANN>("matchingFLANN"),data.cams(),queries,&data.pairs());
+  data.writeASCII("similar.txt");
+  //data.readASCII("similar.txt");
+
+  matchFeatFLANN(opt.getOpt<OptionsFLANN>("matchingFLANN"),data.cams(),
+    data.queries(),&data.pairs());
   //matchFeatFLANN(opt.getOpt<OptionsFLANN>("matchingFLANN"),data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.get<int>("minNumPairwiseMatches"),&data.pairs());
   data.clearDescriptors();
@@ -233,10 +236,12 @@ int main(int argc,const char* argv[])
   data.writeASCII("tentatively_matched.txt");
   //data.readASCII("tentatively_matched.txt");
 
-  //verifyMatchesGeometrically(opt.get<OptionsGeometricVerification>("geometricVerification"),
-  //  data.cams(),&data.pairs());
+  /*verifyMatchesGeometrically(
+    opt.getOpt<OptionsGeometricVerification>("geometricVerification"),
+    data.cams(),&data.pairs());*/
+  bool useCalibratedEpipolarVerif = false;
   verifyMatchesEpipolar(opt.getOpt<OptionsRANSAC>("epipolarVerification"),
-    data.cams(),&data.pairs());
+    useCalibratedEpipolarVerif,data.cams(),&data.pairs());
   
   data.writeASCII("matched.txt");
   //data.readASCII("matched.txt");

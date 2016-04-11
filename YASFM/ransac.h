@@ -63,6 +63,7 @@ public:
     opt.emplace("minInliers",make_unique<OptTypeWithVal<int>>(minInliers));
     opt.emplace("confidence",make_unique<OptTypeWithVal<double>>(0.95));
     opt.emplace("refineTolerance",make_unique<OptTypeWithVal<double>>(1e-12));
+    opt.emplace("maxSampleSelectionSkips",make_unique<OptTypeWithVal<int>>(100000));
   }
 
   /// Constructor.
@@ -73,6 +74,7 @@ public:
     opt.emplace("minInliers",make_unique<OptTypeWithVal<int>>(minInliers));
     opt.emplace("confidence",make_unique<OptTypeWithVal<double>>(confidence));
     opt.emplace("refineTolerance",make_unique<OptTypeWithVal<double>>(1e-12));
+    opt.emplace("maxSampleSelectionSkips",make_unique<OptTypeWithVal<int>>(100000));
   }
 
   // Shortcuts
@@ -81,6 +83,8 @@ public:
   YASFM_API int minInliers() const { return get<int>("minInliers"); }
   YASFM_API double confidence() const { return get<double>("confidence"); }
   YASFM_API double refineTolerance() const { return get<double>("refineTolerance"); }
+  YASFM_API int maxSampleSelectionSkips() const
+  { return get<int>("maxSampleSelectionSkips"); }
 };
 
 /// Base, interface like, class for access to data used in RANSAC like frameworks.
@@ -257,12 +261,19 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   int maxInliers = -1;
   vector<int> idxs;
   idxs.resize(minMatches);
-  for(int round = 0; round < ransacRounds; round++)
+  int nSampleSelectionSkips = 0;
+  for(int round = 0; round < (ransacRounds+nSampleSelectionSkips); round++)
   {
     generateRandomIndices(minMatches,nMatches,&idxs);
 
     if(!m.isPermittedSelection(idxs))
-      continue;
+    {
+      nSampleSelectionSkips++;
+      if(nSampleSelectionSkips < opt.maxSampleSelectionSkips())
+        continue;
+      else
+        break;
+    }
 
     vector<MatType> hypotheses;
     m.computeTransformation(idxs,&hypotheses);
@@ -301,8 +312,8 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   }
 }
 
-template<typename MatType>
-int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC& opt,
+template<typename MatType,bool DoLocalOpt>
+int _commonEstimateTransformLOPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC& opt,
   const vector<int>& matchesOrder,MatType *pM,vector<int> *inliers)
 {
   int minMatches = m.minMatches();
@@ -324,12 +335,14 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   int maxInliers = -1;
   vector<int> idxs;
   idxs.resize(minMatches);
+  vector<int> tentativeInliers;
   int nUsedMatches = minMatches;
   // number of drawn samples containing only data points from [1,nUsedPts]
   int nSamplesDrawn = 1;
+  int nSampleSelectionSkips = 0;
   double avgSamplesDrawn = computeInitAvgSamplesDrawnPROSAC(ransacRounds,nMatches,minMatches);
 
-  for(int round = 0; round < ransacRounds; round++)
+  for(int round = 0; round < (ransacRounds+nSampleSelectionSkips); round++)
   {
     // === choose a subset from which we will take random points ===
     if(round == nSamplesDrawn && nUsedMatches < nMatches)
@@ -357,13 +370,26 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     }
 
     if(!m.isPermittedSelection(idxs))
-      continue;
+    {
+      nSampleSelectionSkips++;
+      if(nSampleSelectionSkips < opt.maxSampleSelectionSkips())
+        continue;
+      else
+        break;
+    }
 
     vector<MatType> hypotheses;
     m.computeTransformation(idxs,&hypotheses);
 
-    for(const auto& Mcurr : hypotheses)
+    for(auto& Mcurr : hypotheses)
     {
+      if(DoLocalOpt)
+      {
+        tentativeInliers.clear();
+        findInliers(m,Mcurr,sqThresh,&tentativeInliers);
+        m.refine(opt.refineTolerance(),tentativeInliers,&Mcurr);
+      }
+
       int nInliers = findInliers(m,Mcurr,sqThresh);
       if(maxInliers < nInliers)
       {
@@ -378,7 +404,7 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
 
   if(maxInliers >= opt.minInliers())
   {
-    vector<int> tentativeInliers;
+    tentativeInliers.clear();
     findInliers(m,M,sqThresh,&tentativeInliers);
     m.refine(opt.refineTolerance(),tentativeInliers,&M);
 
@@ -394,6 +420,20 @@ int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     inliers->clear();
     return 0;
   }
+}
+
+template<typename MatType>
+int estimateTransformPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC& opt,
+  const vector<int>& matchesOrder,MatType *pM,vector<int> *inliers)
+{
+  return _commonEstimateTransformLOPROSAC<MatType,false>(m,opt,matchesOrder,pM,inliers);
+}
+
+template<typename MatType>
+int estimateTransformLOPROSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC& opt,
+  const vector<int>& matchesOrder,MatType *pM,vector<int> *inliers)
+{
+  return _commonEstimateTransformLOPROSAC<MatType,true>(m,opt,matchesOrder,pM,inliers);
 }
 
 template<typename MatType>

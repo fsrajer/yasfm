@@ -22,7 +22,9 @@
 #include "camera.h"
 
 using Eigen::Matrix3d;
+using Eigen::Matrix;
 using Eigen::Vector3d;
+using Eigen::VectorXd;
 using std::string;
 using std::vector;
 
@@ -131,6 +133,40 @@ YASFM_API void closestRank2Matrix(const double* const A,double* B);
 \param[out] B 3x3 rank 2 matrix.
 */
 YASFM_API void closestRank2Matrix(const Matrix3d& A,Matrix3d *B);
+
+/// Find closest essential matrix using svd decomposition.
+/**
+\param[in] A 3x3 matrix.
+\param[out] E Essential matrix (rank 2 + 1st and 2nd singular values the same).
+*/
+YASFM_API void closestEssentialMatrix(const double* const A,double* E);
+
+/// Find closest essential matrix using svd decomposition.
+/**
+\param[in] A 3x3 matrix.
+\param[out] E Essential matrix (rank 2 + 1st and 2nd singular values the same).
+*/
+YASFM_API void closestEssentialMatrix(const Matrix3d& A,Matrix3d *E);
+
+/// Get fundamental matrix from minimal parameters (see decompose function description).
+/**
+\param[in] params Minimal parameters.
+\param[out] F Fundamental matrix.
+*/
+template<typename T>
+void composeFFromMinimalParams(const T* const params,Matrix<T,3,3> *F);
+
+/// Get minimal parameters of fundamental matrix using svd.
+/**
+F = U*S*VT, where U*det(U) and V*det(V) are rotations (6 parameters using angle-axis)
+and S = [1 0 0; 0 s*s 0; 0 0 0] (1 parameter).
+
+params = [u0 u1 u2 s v0 v1 v2]' where ui, vi are angle-axis parameters.
+
+\param[in] F Fundamental matrix.
+\param[out] params Minimal parameters.
+*/
+YASFM_API void decomposeFToMinimalParams(const Matrix3d& F,VectorXd *params);
 
 /// RQ decomposition
 /**
@@ -332,6 +368,31 @@ void filterOutOutliers(const vector<int>& outliers,vector<T> *parr)
     keep[i] = false;
 
   filterVector(keep,parr);
+}
+
+template<typename T>
+void composeFFromMinimalParams(const T* const params,Matrix<T,3,3> *F)
+{
+  Map<const Matrix<T,3,1>> aaU_(&params[0]);
+  T s = params[3];
+  Map<const Matrix<T,3,1>> aaV_(&params[4]);
+
+  Matrix<T,3,3> U,S,V;
+  AngleAxis<T> aaU,aaV;
+
+  aaU.angle() = aaU_.norm();
+  aaU.axis() = aaU_ / aaU.angle();
+  U = aaU.toRotationMatrix();
+
+  S.setZero();
+  S(0,0) = T(1.);
+  S(1,1) = s*s;
+
+  aaV.angle() = aaV_.norm();
+  aaV.axis() = aaV_ / aaV.angle();
+  V = aaV.toRotationMatrix();
+
+  F->noalias() = U * S * V.transpose();
 }
 
 template<unsigned int N>

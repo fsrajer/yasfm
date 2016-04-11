@@ -17,17 +17,27 @@ if ~exist('lineWidth','var')
     lineWidth = 1;%1.25;2.5; 4
 end
 
-for idx=1:size(matches,2)
-    i=matches(1,idx);
-    j=matches(2,idx);
-    if showLines
-        line([keys1(i).coord(1) keys2(j).coord(1)],...
-            [keys1(i).coord(2) keys2(j).coord(2)],...
-            'Color', lineColor, 'LineWidth', lineWidth);
-    end
+matchedKeys1 = keys1(matches(1,:));
+matchedKeys2 = keys2(matches(2,:));
+
+if showLines
+    coord1 = cell2mat({matchedKeys1.coord});
+    coord2 = cell2mat({matchedKeys2.coord});
+    
+    x = [coord1(1,:); coord2(1,:); nan(1,size(matches,2))];
+    y = [coord1(2,:); coord2(2,:); nan(1,size(matches,2))];
+    
+    plot(x(:),y(:),'Color', lineColor, 'LineWidth', lineWidth);
+    
+%     for i=1:size(matches,2)
+%         line([matchedKeys1(i).coord(1) matchedKeys2(i).coord(1)],...
+%             [matchedKeys1(i).coord(2) matchedKeys2(i).coord(2)],...
+%             'Color', lineColor, 'LineWidth', lineWidth);
+%     end
 end
 
-plotKeys(keys1(matches(1,:)),true,ptColor,lineWidth);
-plotKeys(keys2(matches(2,:)),true,ptColor,lineWidth);
+
+plotKeys(matchedKeys1,true,ptColor,lineWidth);
+plotKeys(matchedKeys2,true,ptColor,lineWidth);
 
 end

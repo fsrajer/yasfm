@@ -15,6 +15,7 @@
 #include <vector>
 #include <istream>
 #include <ostream>
+#include <set>
 
 #include "Eigen/Dense"
 
@@ -24,10 +25,12 @@
 #include "utils_io.h"
 
 using Eigen::Vector3d;
+using Eigen::MatrixXd;
 using std::string;
 using std::vector;
 using std::ostream;
 using std::istream;
+using std::set;
 using std::make_unique;
 
 namespace yasfm
@@ -37,6 +40,16 @@ namespace yasfm
 ///////////////   Declarations   ///////////////////
 ////////////////////////////////////////////////////
 
+/// This is useful simply for storing fundamental matrix or when detecting 
+/// multiple motions for example.
+typedef struct MatchGroup
+{
+  int size; ///< Number of inliers.
+  /// 'H' = homography, 'F' = fundamental matrix
+  char type;
+  MatrixXd T; ///< Transformation.
+} MatchGroup;
+
 /// Structure for storing camera pair information.
 typedef struct CameraPair
 {
@@ -45,6 +58,9 @@ typedef struct CameraPair
   vector<IntPair> matches; 
   /// This can be any score. The smaller the better.
   vector<double> dists;
+  /// matches and dists are ordered wrt to groups, i.e. indices [0,groups[0].size)
+  /// belong to the first group.
+  vector<MatchGroup> groups;
 } CameraPair;
 
 /// Main class for storing results of the reconstruction.
@@ -179,6 +195,9 @@ public:
   /// \return Points.
   YASFM_API vector<Point>& pts();
 
+  YASFM_API const vector<set<int>>& queries() const;
+  YASFM_API vector<set<int>>& queries();
+
   /// \return Features directory.
   YASFM_API string featsDir() const;
 
@@ -201,6 +220,7 @@ private:
   string dir_; ///< Working directory.
   /// The cameras stored as pointers to Camera.
   ptr_vector<Camera> cams_;
+  vector<set<int>> queries_; ///< Which pairs should be matched. 
   pair_umap<CameraPair> pairs_;
   uset<int> reconstructedCams_;
   vector<NViewMatch> nViewMatches_; ///< Only matches not converted to points yet.

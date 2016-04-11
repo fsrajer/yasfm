@@ -26,6 +26,9 @@
 # /YASFM/
 /YASFM/x64
 
+# vlfeat - version directly downloaded from the web
+/matlab/vlfeat-0.9.20
+
 # /bin/
 /bin/Incremental.exe
 /bin/Incremental.pdb

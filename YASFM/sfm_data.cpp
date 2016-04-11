@@ -43,6 +43,7 @@ void Dataset::copyIn(const Dataset& o)
   {
     cams_.push_back(cam->clone());
   }
+  queries_ = o.queries_;
   pairs_ = o.pairs_;
   reconstructedCams_ = o.reconstructedCams_;
   nViewMatches_ = o.nViewMatches_;
@@ -101,9 +102,7 @@ void Dataset::writeASCII(const string& filename) const
     return;
   }
 
-  const int nFields = 6;
-  const int nFieldsPoints = 4;
-  const int nFieldsCameraPair = 2;
+  const int nFields = 7;
   int nPtsAlive = countPtsAlive();
 
   file << "########### INFO ###########\n"
@@ -132,6 +131,7 @@ void Dataset::writeASCII(const string& filename) const
   for(const auto& match : nViewMatches_)
     file << match << "\n";
 
+  const int nFieldsPoints = 4;
   file << "pts_ " << nPtsAlive << " " << nFieldsPoints << "\n";
   file << "coord\n";
   file << "views\n";
@@ -148,9 +148,24 @@ void Dataset::writeASCII(const string& filename) const
     }
   }
 
+  file << "queries_ " << queries_.size() <<"\n";
+  for(size_t i = 0; i < queries_.size(); i++)
+  {
+    file << queries_[i].size();
+    for(int idx : queries_[i])
+      file << " " << idx;
+    file << "\n";
+  }
+
+  const int nFieldsCameraPair = 3;
+  const int nFieldsMatchGroup = 3;
   file << "pairs_ " << pairs_.size() << " " << nFieldsCameraPair << "\n";
   file << "matches\n";
   file << "dists\n";
+  file << "groups " << nFieldsMatchGroup << "\n";
+  file << "size\n";
+  file << "type\n";
+  file << "T\n";
   for(const auto& entry : pairs_)
   {
     IntPair idxs = entry.first;
@@ -162,6 +177,24 @@ void Dataset::writeASCII(const string& filename) const
     file << pair.dists.size() << "\n";
     for(double dist : pair.dists)
       file << dist << "\n";
+    file << pair.groups.size() << "\n";
+    for(const auto& g : pair.groups)
+    {
+      file << g.size << " " << g.type;
+      switch(g.type)
+      {
+      case 'H':
+      case 'F':
+        for(int i = 0; i < 9; i++)
+          file << " " << g.T(i);
+        break;
+      default:
+        for(int i = 0; i < (int)g.T.size(); i++)
+          file << " " << g.T(i);
+        break;
+      }
+      file << "\n";
+    }
   }
 
   file.close();
@@ -172,6 +205,7 @@ void Dataset::readASCII(const string& filename)
   string fn = joinPaths(dir(),filename);
   dir_.clear();
   cams_.clear();
+  queries_.clear();
   pairs_.clear();
   reconstructedCams_.clear();
   nViewMatches_.clear();
@@ -241,6 +275,22 @@ void Dataset::readASCII(const string& filename)
         {
           // Keep this for a while and remove when that format is not used anywhere.
           readPointsOld(file);
+        } else if(s == "queries_")
+        {
+          size_t nQueries;
+          file >> nQueries;
+          queries_.resize(nQueries);
+          for(size_t i = 0; i < nQueries; i++)
+          {
+            size_t n;
+            file >> n;
+            for(size_t j = 0; j < n; j++)
+            {
+              int idx;
+              file >> idx;
+              queries_[i].insert(idx);
+            }
+          }
         } else if(s == "pairs_")
         {
           readMatches(file);
@@ -303,6 +353,7 @@ void Dataset::readMatches(istream& file)
   int nPairs,nFields;
   file >> nPairs >> nFields;
   int format = 0;
+  int groupsFormat = 0;
   for(int i = 0; i < nFields; i++)
   {
     file >> s;
@@ -310,6 +361,24 @@ void Dataset::readMatches(istream& file)
       format |= 1;
     else if(s == "dists")
       format |= 2;
+    else if(s == "supportSizes")
+      format |= 4;
+    else if(s == "groups")
+    {
+      format |= 8;
+      int nFieldsGroups;
+      file >> nFieldsGroups;
+      for(int j = 0; j < nFieldsGroups; j++)
+      {
+        file >> s;
+        if(s == "size")
+          groupsFormat |= 1;
+        else if(s == "type")
+          groupsFormat |= 2;
+        else if(s == "T")
+          groupsFormat |= 4;
+      }
+    }
   }
   pairs_.clear();
   pairs_.reserve(nPairs);
@@ -337,6 +406,45 @@ void Dataset::readMatches(istream& file)
       for(int iDist = 0; iDist < nDists; iDist++)
       {
         file >> pair.dists[iDist];
+      }
+    }
+    if(format & 4)
+    {
+      int n;
+      file >> n;
+      pair.groups.resize(n);
+      for(auto& g : pair.groups)
+      {
+        file >> g.size;
+        g.type = ' ';
+      }
+    }
+    if(format & 8)
+    {
+      int nGroups;
+      file >> nGroups;
+      pair.groups.resize(nGroups);
+      for(int ig = 0; ig < nGroups; ig++)
+      {
+        auto& g = pair.groups[ig];
+        if(groupsFormat & 1)
+          file >> g.size;
+        if(groupsFormat & 2)
+          file >> g.type;
+        if(groupsFormat & 4)
+        {
+          switch(g.type)
+          {
+          case 'H':
+          case 'F':
+            g.T.resize(3,3);
+            for(int i = 0; i < 9; i++)
+              file >> g.T(i);
+            break;
+          default:
+            break;
+          }
+        }
       }
     }
   }
@@ -434,6 +542,8 @@ ptr_vector<Camera>& Dataset::cams() { return cams_; }
 const pair_umap<CameraPair>& Dataset::pairs() const { return pairs_; }
 pair_umap<CameraPair>& Dataset::pairs() { return pairs_; }
 const uset<int>& Dataset::reconstructedCams() const { return reconstructedCams_; }
+const vector<set<int>>& Dataset::queries() const { return queries_; }
+vector<set<int>>& Dataset::queries() { return queries_; }
 const vector<NViewMatch>& Dataset::nViewMatches() const { return nViewMatches_; }
 vector<NViewMatch>& Dataset::nViewMatches() { return nViewMatches_; }
 const vector<Point>& Dataset::pts() const { return pts_; }
