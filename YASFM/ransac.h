@@ -383,16 +383,16 @@ int _commonEstimateTransformLOPROSAC(const MediatorRANSAC<MatType>& m,const Opti
 
     for(auto& Mcurr : hypotheses)
     {
-      if(DoLocalOpt)
-      {
-        tentativeInliers.clear();
-        findInliers(m,Mcurr,sqThresh,&tentativeInliers);
-        m.refine(opt.refineTolerance(),tentativeInliers,&Mcurr);
-      }
-
-      int nInliers = findInliers(m,Mcurr,sqThresh);
+      tentativeInliers.clear();
+      int nInliers = findInliers(m,Mcurr,sqThresh,&tentativeInliers);
       if(maxInliers < nInliers)
       {
+        if(DoLocalOpt)
+        {
+          m.refine(opt.refineTolerance(),tentativeInliers,&Mcurr);
+          nInliers = findInliers(m,Mcurr,sqThresh);
+        }
+
         maxInliers = nInliers;
         M = Mcurr;
 
