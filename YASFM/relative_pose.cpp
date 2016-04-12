@@ -1057,18 +1057,16 @@ bool estimateRelativePose7ptKnownHsLOPROSAC(const OptionsRANSAC& opt,
   return (nInliers > 0);
 }
 
+/**
+Robustifier taken from TDV course lectures of Radim Sara.
+*/
 template<typename T>
 T robustifyRefineFKnownHsCostFunctor(double softThresh,T x)
 {
-  x /= T(softThresh);
-  if(x < T(1))
-    return T(-0.25)*(T(3.)*x*x*x - T(6.)*x*x);
-  else if(x < T(2))
-  {
-    T tmp = T(2.) - x;
-    return T(-0.25)*(tmp*tmp*tmp - T(4.));
-  } else
-    return T(1.);
+  const double t = 0.25;
+  const double sigma = softThresh / sqrt(-log(t*t));
+
+  return -log(exp(-(x*x)/T(2*sigma*sigma))+T(t)) + T(log(1+t));
 }
 
 struct RefineFKnownHsCostFunctor
