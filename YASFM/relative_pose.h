@@ -1068,9 +1068,11 @@ T computeSampsonSquaredDistanceFundMat(const Vector2d& pt2,
   Matrix<T,3,1> FTpt2 = F.transpose()*pt2.homogeneous().cast<T>();
 
   T pt2Fpt1 = pt2.homogeneous().cast<T>().dot(Fpt1);
-
-  return (pt2Fpt1*pt2Fpt1) *
-    (T(1.) / (Fpt1.topRows(2).squaredNorm() + FTpt2.topRows(2).squaredNorm()));
+  T sqNorm = (Fpt1.topRows(2).squaredNorm() + FTpt2.topRows(2).squaredNorm());
+  if(sqNorm == 0.)
+    return (pt2Fpt1*pt2Fpt1) * T(1e100);
+  else
+    return (pt2Fpt1*pt2Fpt1) * (T(1.) / sqNorm);
 }
 
 template<bool UseFirstMatch>
