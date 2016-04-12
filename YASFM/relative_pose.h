@@ -56,6 +56,27 @@ typedef void(*GeomVerifyCallbackFunctionPtr)(void *, IntPair imgPair, int nMatch
 */
 typedef void(*HomographyInliersCallbackFunctionPtr)(void *, double progress);
 
+/// Convert F to a representation useful for non-linear optimization.
+/**
+See decompose function description.
+
+\param[in] H Homography 3x3.
+\param[in] v Vector 3.
+\param[out] F Fundamental matrix.
+*/
+template<typename T>
+void composeF(const T* const H,const T* const v,Matrix<T,3,3> *F);
+
+/// Convert F from the representation for non-linear optimization.
+/**
+F = H*[v]x, where [v]x is a cross-product matrix and H is a homography.
+
+\param[in] F Fundamental matrix.
+\param[out] H Homography.
+\param[out] v Vector.
+*/
+YASFM_API void decomposeF(const Matrix3d& F,Matrix3d *H,Vector3d *v);
+
 /// Choose good camera pair for initialization (with the most matches).
 /**
 \param[in] minMatches Minimum matches needed for a camera pair to be enough.
@@ -861,6 +882,21 @@ private:
 namespace
 {
 
+/// Compute symmetric epipolar distance.
+/**
+See Hartley & Zisserman p. 278.
+Compute for pts2'*F*pts1 = 0.
+MIND THE ORDER of the input points.
+
+\param[in] pt2 Point in the second camera.
+\param[in] F Fundamental matrix.
+\param[in] pt1 Point in the first camera.
+\return Error (in pixels).
+*/
+template<typename T>
+T computeSymmetricEpipolarDist(const Vector2d& pt2,
+  const Matrix<T,3,3>& F,const Vector2d& pt1);
+
 /// Compute squared symmetric epipolar distance.
 /**
 See Hartley & Zisserman p. 278.
@@ -872,30 +908,9 @@ MIND THE ORDER of the input points.
 \param[in] pt1 Point in the first camera.
 \return Squared error (in squared pixels).
 */
-double computeSymmetricEpipolarSquaredDistanceFundMat(const Vector2d& pt2,const Matrix3d& F,
-  const Vector2d& pt1);
-
-/// Function for cminpack call which computes symmetric epipolar distance.
-/**
-\param[in] data Pointer to FundamentalMatrixRefineData.
-\param[in] nPoints Number of matches/residuals.
-\param[in] nParams Number of F parameters (9).
-\param[in] params F parameters column wise.
-\param[out] residuals Errors.
-\param[in] iflag Is this call residual or Jacobian computation.
-\return Flag. Negative value would terminate the optimization.
-*/
-int computeSymmetricEpipolarDistanceFundMatCMINPACK(void *data,int nPoints,
-  int nParams,const double* params,double* residuals,int iflag);
-
-/// Structure for passing data into cminpack for refining.
-struct FundamentalMatrixRefineData
-{
-  const vector<Vector2d> *keys1;
-  const vector<Vector2d> *keys2;
-  const vector<IntPair> *matches; ///< Keys matches.
-  const vector<int> *matchesToUse;     ///< Indices of inlier matches.
-};
+template<typename T>
+T computeSymmetricEpipolarDistSquared(const Vector2d& pt2,
+  const Matrix<T,3,3>& F,const Vector2d& pt1);
 
 /// Function for cminpack call which computes symmetric epipolar distance.
 /**
@@ -979,8 +994,71 @@ void matchedPointsCenteringMatrix(const vector<Vector2d>& pts,
 ///////////////   Definitions   ////////////////////
 ////////////////////////////////////////////////////
 
+namespace yasfm
+{
+
+template<typename T>
+void composeF(const T* const pH,const T* const v,Matrix<T,3,3> *F)
+{
+  Map<const Matrix<T,3,3>> H(pH);
+  Matrix<T,3,3> vx;
+  vx(0,0) = T(0); vx(0,1) = -v[2]; vx(0,2) = v[1];
+  vx(1,0) = v[2]; vx(1,1) = T(0); vx(1,2) = -v[0];
+  vx(2,0) = -v[1]; vx(2,1) = v[0]; vx(2,2) = T(0);
+  F->noalias() = H * vx;
+}
+
+}
+
 namespace
 {
+
+template<typename T>
+void _commonComputeSymmetricEpipolarDist(const Vector2d& pt2,
+  const Matrix<T,3,3>& F,const Vector2d& pt1,
+  T *pt2Fpt1,T *sqNorm1,T *sqNorm2)
+{
+  Matrix<T,3,1> Fpt1 = F*pt1.homogeneous().cast<T>();
+  Matrix<T,3,1> FTpt2 = F.transpose()*pt2.homogeneous().cast<T>();
+
+  *pt2Fpt1 = pt2.homogeneous().cast<T>().dot(Fpt1);
+  *sqNorm1 = Fpt1.topRows(2).squaredNorm();
+  *sqNorm2 = FTpt2.topRows(2).squaredNorm();
+}
+
+template<typename T>
+T computeSymmetricEpipolarDist(const Vector2d& pt2,
+  const Matrix<T,3,3>& F,const Vector2d& pt1)
+{
+  T pt2Fpt1,sqNorm1,sqNorm2;
+  _commonComputeSymmetricEpipolarDist(pt2,F,pt1,&pt2Fpt1,&sqNorm1,&sqNorm2);
+
+  if(sqNorm1 == 0. || sqNorm2 == 0.)
+  {
+    return pt2Fpt1 * T(1e100);
+  } else
+  {
+    return pt2Fpt1 *
+      (T(1.) / sqrt(sqNorm1) + T(1.) / sqrt(sqNorm2));
+  }
+}
+
+template<typename T>
+T computeSymmetricEpipolarDistSquared(const Vector2d& pt2,
+  const Matrix<T,3,3>& F,const Vector2d& pt1)
+{
+  T pt2Fpt1,sqNorm1,sqNorm2;
+  _commonComputeSymmetricEpipolarDist(pt2,F,pt1,&pt2Fpt1,&sqNorm1,&sqNorm2);
+
+  if(sqNorm1 == 0. || sqNorm2 == 0.)
+  {
+    return (pt2Fpt1*pt2Fpt1) * T(1e100);
+  } else
+  {
+    return (pt2Fpt1*pt2Fpt1) *
+      (T(1.) / sqNorm1 + T(1.) / sqNorm2);
+  }
+}
 
 template<typename T>
 T computeSampsonSquaredDistanceFundMat(const Vector2d& pt2,

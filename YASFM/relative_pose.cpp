@@ -24,6 +24,22 @@ using std::list;
 namespace yasfm
 {
 
+void decomposeF(const Matrix3d& F,Matrix3d *H,Vector3d *v)
+{
+  JacobiSVD<Matrix3d> svd(F,Eigen::ComputeFullU | Eigen::ComputeFullV);
+  Matrix3d U = svd.matrixU();
+  Matrix3d V = svd.matrixV();
+  double s = svd.singularValues()(1) / svd.singularValues()(0);
+  Matrix3d B = svd.singularValues().asDiagonal();
+  B(2,2) = B(1,1);
+  Matrix3d W = Matrix3d::Zero();
+  W(0,1) = 1;
+  W(1,0) = -1;
+  W(2,2) = 1;
+  H->noalias() = U*B*(V*W).transpose();
+  *v = V.col(2);
+}
+
 IntPair chooseInitialCameraPair(int minMatches,int nCams,
   const uset<int>& camsToIgnore,const vector<NViewMatch>& nViewMatches)
 {
@@ -624,26 +640,66 @@ void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
   refineFundamentalMatrixNonLinear(pts1,pts2,matches,matchesToUse,tolerance,&F);
 }
 
+struct RefineFCostFunctor
+{
+  RefineFCostFunctor(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const vector<IntPair>& matches,const vector<int>& matchesToUse)
+    : keys1(keys1),keys2(keys2),matches(matches),matchesToUse(matchesToUse)
+  {
+  }
+
+  template<typename T>
+  bool operator()(T const* const* parameters,T* residuals) const
+  {
+    Matrix<T,3,3> F;
+    composeF(parameters[0],parameters[1],&F);
+
+    for(size_t iResidual = 0; iResidual < matchesToUse.size(); iResidual++)
+    {
+      IntPair match = matches[matchesToUse[iResidual]];
+      const auto& x1 = keys1[match.first];
+      const auto& x2 = keys2[match.second];
+
+      residuals[iResidual] = computeSymmetricEpipolarDist(x2,F,x1);
+    }
+    return true;
+  }
+
+  const vector<Vector2d> &keys1,&keys2;
+  const vector<IntPair>& matches;
+  const vector<int> matchesToUse;
+};
+
 void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,
   const vector<int>& matchesToUse,double tolerance,Matrix3d *F)
 {
-  int numPoints = static_cast<int>(matchesToUse.size());
-  const int numParams = 9;
+  Matrix3d H;
+  Vector3d v;
+  decomposeF(*F,&H,&v);
 
-  FundamentalMatrixRefineData data;
-  data.keys1 = &pts1;
-  data.keys2 = &pts2;
-  data.matches = &matches;
-  data.matchesToUse = &matchesToUse;
+  ceres::Problem problem;
+  ceres::Solver::Options solverOpt;
+  solverOpt.function_tolerance = tolerance;
+  solverOpt.gradient_tolerance = tolerance;
+  solverOpt.parameter_tolerance = tolerance;
+  //solverOpt.max_num_iterations = 200;
+  ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
 
-  vector<double> residuals(numPoints);
+  auto costFun =
+    new ceres::DynamicAutoDiffCostFunction<RefineFCostFunctor>(
+    new RefineFCostFunctor(pts1,pts2,matches,matchesToUse));
 
-  Matrix3d tmp = *F;
-  nonLinearOptimLMCMINPACK(computeSymmetricEpipolarDistanceFundMatCMINPACK,
-    &data,numPoints,numParams,tolerance,tmp.data(),&residuals[0]);
+  costFun->SetNumResiduals((int)matchesToUse.size());
+  costFun->AddParameterBlock(9);
+  costFun->AddParameterBlock(3);
+  problem.AddResidualBlock(costFun,lossFun,H.data(),v.data());
 
-  closestRank2Matrix(tmp,F);
+  ceres::Solver::Summary summary;
+  ceres::Solve(solverOpt,&problem,&summary);
+  //cout << summary.FullReport();
+
+  composeF(H.data(),v.data(),F);
 }
 
 int findFundamentalMatrixInliers(double thresh,const vector<Vector2d>& pts1,
@@ -657,7 +713,7 @@ int findFundamentalMatrixInliers(double thresh,const vector<Vector2d>& pts1,
   inliers.reserve(nMatches);
   for(int iMatch = 0; iMatch < nMatches; iMatch++)
   {
-    double sqDist = computeSymmetricEpipolarSquaredDistanceFundMat(
+    double sqDist = computeSymmetricEpipolarDistSquared(
       pts2[matches[iMatch].second],
       F,
       pts1[matches[iMatch].first]);
@@ -1029,7 +1085,7 @@ struct RefineFKnownHsCostFunctor
   bool operator()(T const* const* parameters,T* residuals) const
   {
     Matrix<T,3,3> F;
-    composeFFromMinimalParams(parameters[0],&F);
+    composeF(parameters[0],parameters[1],&F);
 
     int iResidual = 0;
     for(size_t iH = 0; iH < groupsH.size(); iH++)
@@ -1110,8 +1166,9 @@ void refineFKnownHs(const OptionsGeometricVerification& opt,
       others.push_back(iMatch);
 
   /// === Convert F into a minimal parameterization ===  
-  VectorXd FParams(7);
-  decomposeFToMinimalParams(F,&FParams);
+  Matrix3d FParamH;
+  Vector3d FParamv;
+  decomposeF(F,&FParamH,&FParamv);
 
   double alpha = 0.;
   for(int iIter = 0; iIter < nOptIters; iIter++)
@@ -1127,8 +1184,9 @@ void refineFKnownHs(const OptionsGeometricVerification& opt,
       alpha));
 
     costFun->SetNumResiduals((int)matches.size());
-    costFun->AddParameterBlock(7);
-    problem.AddResidualBlock(costFun,lossFun,FParams.data());
+    costFun->AddParameterBlock(9);
+    costFun->AddParameterBlock(3);
+    problem.AddResidualBlock(costFun,lossFun,FParamH.data(),FParamv.data());
 
     ceres::Solver::Summary summary;
     ceres::Solve(solverOpt,&problem,&summary);
@@ -1138,7 +1196,7 @@ void refineFKnownHs(const OptionsGeometricVerification& opt,
     alpha += 1./(nOptIters-1);
   }
 
-  composeFFromMinimalParams(FParams.data(),&F);
+  composeF(FParamH.data(),FParamv.data(),&F);
 
   inliersF.clear();
   size_t largestHSz = 0;
@@ -1448,7 +1506,7 @@ void Mediator7ptRANSAC::computeTransformation(const vector<int>& idxs,vector<Mat
 double Mediator7ptRANSAC::computeSquaredError(const Matrix3d& F,int matchIdx) const
 {
   IntPair match = matches_[matchIdx];
-  return computeSymmetricEpipolarSquaredDistanceFundMat(
+  return computeSymmetricEpipolarDistSquared(
     keys2_[match.second],
     F,
     keys1_[match.first]);
@@ -1494,7 +1552,7 @@ void Mediator5ptRANSAC::computeTransformation(const vector<int>& idxs,vector<Mat
 
 double Mediator5ptRANSAC::computeSquaredError(const Matrix3d& F,int matchIdx) const
 {
-  return computeSymmetricEpipolarSquaredDistanceFundMat(
+  return computeSymmetricEpipolarDistSquared(
     cam2_.key(matches_[matchIdx].second),
     F,
     cam1_.key(matches_[matchIdx].first));
@@ -1556,34 +1614,6 @@ void MediatorHomographyRANSAC::refine(double tolerance,const vector<int>& inlier
 namespace
 {
 
-double computeSymmetricEpipolarSquaredDistanceFundMat(const Vector2d& pt2,
-  const Matrix3d& F,const Vector2d& pt1)
-{
-  Vector3d Fpt1 = F*pt1.homogeneous();
-  Vector3d FTpt2 = F.transpose()*pt2.homogeneous();
-
-  double pt2Fpt1 = pt2.homogeneous().dot(Fpt1);
-
-  return (pt2Fpt1*pt2Fpt1) *
-    (1. / Fpt1.topRows(2).squaredNorm() + 1. / FTpt2.topRows(2).squaredNorm());
-}
-
-int computeSymmetricEpipolarDistanceFundMatCMINPACK(void *pdata,
-  int nPoints,int nParams,const double* params,double* residuals,int iflag)
-{
-  Matrix3d F;
-  closestRank2Matrix(params,F.data());
-
-  const auto& data = *static_cast<FundamentalMatrixRefineData *>(pdata);
-  for(int iInlier = 0; iInlier < nPoints; iInlier++)
-  {
-    IntPair match = (*data.matches)[(*data.matchesToUse)[iInlier]];
-    residuals[iInlier] = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(
-      (*data.keys2)[match.second],F,(*data.keys1)[match.first]));
-  }
-  return 0; // Negative value would terminate the optimization.
-}
-
 int computeSymmetricEpipolarDistanceEssenMatCMINPACK(void *pdata,
   int nPoints,int nParams,const double* params,double* residuals,int iflag)
 {
@@ -1597,8 +1627,8 @@ int computeSymmetricEpipolarDistanceEssenMatCMINPACK(void *pdata,
   for(int iInlier = 0; iInlier < nPoints; iInlier++)
   {
     IntPair match = (*data.matches)[(*data.matchesToUse)[iInlier]];
-    residuals[iInlier] = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(
-      (*data.keys2)[match.second],F,(*data.keys1)[match.first]));
+    residuals[iInlier] = computeSymmetricEpipolarDist(
+      (*data.keys2)[match.second],F,(*data.keys1)[match.first]);
   }
   return 0; // Negative value would terminate the optimization.
 }

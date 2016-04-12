@@ -148,26 +148,6 @@ YASFM_API void closestEssentialMatrix(const double* const A,double* E);
 */
 YASFM_API void closestEssentialMatrix(const Matrix3d& A,Matrix3d *E);
 
-/// Get fundamental matrix from minimal parameters (see decompose function description).
-/**
-\param[in] params Minimal parameters.
-\param[out] F Fundamental matrix.
-*/
-template<typename T>
-void composeFFromMinimalParams(const T* const params,Matrix<T,3,3> *F);
-
-/// Get minimal parameters of fundamental matrix using svd.
-/**
-F = U*S*VT, where U*det(U) and V*det(V) are rotations (6 parameters using angle-axis)
-and S = [1 0 0; 0 s*s 0; 0 0 0] (1 parameter).
-
-params = [u0 u1 u2 s v0 v1 v2]' where ui, vi are angle-axis parameters.
-
-\param[in] F Fundamental matrix.
-\param[out] params Minimal parameters.
-*/
-YASFM_API void decomposeFToMinimalParams(const Matrix3d& F,VectorXd *params);
-
 /// RQ decomposition
 /**
 Decomposes A so that A = R*Q, where R is upper triangular and Q is orthogonal. 
@@ -368,31 +348,6 @@ void filterOutOutliers(const vector<int>& outliers,vector<T> *parr)
     keep[i] = false;
 
   filterVector(keep,parr);
-}
-
-template<typename T>
-void composeFFromMinimalParams(const T* const params,Matrix<T,3,3> *F)
-{
-  Map<const Matrix<T,3,1>> aaU_(&params[0]);
-  T s = params[3];
-  Map<const Matrix<T,3,1>> aaV_(&params[4]);
-
-  Matrix<T,3,3> U,S,V;
-  AngleAxis<T> aaU,aaV;
-
-  aaU.angle() = aaU_.norm();
-  aaU.axis() = aaU_ / aaU.angle();
-  U = aaU.toRotationMatrix();
-
-  S.setZero();
-  S(0,0) = T(1.);
-  S(1,1) = s*s;
-
-  aaV.angle() = aaV_.norm();
-  aaV.axis() = aaV_ / aaV.angle();
-  V = aaV.toRotationMatrix();
-
-  F->noalias() = U * S * V.transpose();
 }
 
 template<unsigned int N>
