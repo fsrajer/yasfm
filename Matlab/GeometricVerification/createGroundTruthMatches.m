@@ -1,6 +1,5 @@
 %% setup
 addpath ..
-pairsToLabel = [29 30; 61 62; 1 2; 45 46; 47 48; 59 60; 11 12; 5 6; 55 56; 57 58]';
 
 dataDir = 'C:\Users\Filip\Dropbox\pairs';
 inFn = 'tentatively_matched_all.txt';
@@ -14,6 +13,7 @@ separatorWidthScale = 0.03125;
 % ignoreFeats = false;
 % data = readResults(inFn,ignoreFeats);
 % nImgs = numel(data.cams);
+% pairsToLabel = [1:2:nImgs; 2:2:nImgs];
 % 
 % load(outFn);
 % % labels = cell(nImgs,nImgs);
@@ -21,7 +21,7 @@ separatorWidthScale = 0.03125;
 %% do labelling
 
 waitfor(msgbox({'press buttons to label:','spacebar - dont know',...
-    '0 - outlier','1,2,... - motion groups'}));
+    '0 - outlier','1,2,... - motion groups','escape - skip pair'}));
 
 for pairIdx=1:size(pairsToLabel,2)
     i = pairsToLabel(1,pairIdx);
@@ -44,7 +44,9 @@ for pairIdx=1:size(pairsToLabel,2)
     img(1:h2,(offset+1):(offset+w2),:) = im2;
     
     [~,order] = sort(dists);
-    labels{i,j} = -ones(1,n);
+    if numel(labels{i,j}) ~= n
+        labels{i,j} = -ones(1,n);
+    end
     for k=1:n
         idx = order(k);
         m = matches(:,idx);
@@ -53,8 +55,12 @@ for pairIdx=1:size(pairsToLabel,2)
         key2(1) = key2(1) + offset;
         tit = ['id: ' num2str(k) '/' num2str(n)...
             ', score: ' num2str(dists(idx))];
-        labels{i,j}(idx) = plotMatchAndAskForLabel(img,...
-            key1,key2,tit);
+        retVal = plotMatchAndAskForLabel(img,key1,key2,tit);
+        if isinf(retVal)
+            break;
+        else
+            labels{i,j}(idx) = retVal;
+        end
         save(outFn,'labels');
     end
     save(outFn,'labels');

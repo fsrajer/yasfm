@@ -3,6 +3,7 @@ function label = plotMatchAndAskForLabel(img,key1,key2,tit)
 %   label = -1 - don't know -> use spacebar
 %   label = 0 - outlier
 %   label = 1,2,.. - motion groups
+%   label = Inf - skip image pair
 
 hold off;
 
@@ -29,6 +30,9 @@ while true
            break;
        elseif ismember(keyPressed,'0123456789')
            label = str2double(keyPressed);
+           break;
+       elseif strcmp('escape',get(gcf,'CurrentKey'))
+           label = Inf;
            break;
        end
    end
