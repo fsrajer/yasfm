@@ -660,7 +660,9 @@ struct RefineFCostFunctor
       const auto& x1 = keys1[match.first];
       const auto& x2 = keys2[match.second];
 
-      residuals[iResidual] = computeSymmetricEpipolarDist(x2,F,x1);
+      T err = computeFundMatSampsonDistSquared(x2,F,x1);
+      // avoiding division by 0 when computing the derivatives
+      residuals[iResidual] = (err == 0.) ? err : sqrt(err); 
     }
     return true;
   }
@@ -713,7 +715,7 @@ int findFundamentalMatrixInliers(double thresh,const vector<Vector2d>& pts1,
   inliers.reserve(nMatches);
   for(int iMatch = 0; iMatch < nMatches; iMatch++)
   {
-    double sqDist = computeSymmetricEpipolarDistSquared(
+    double sqDist = computeFundMatSampsonDistSquared(
       pts2[matches[iMatch].second],
       F,
       pts1[matches[iMatch].first]);
@@ -794,7 +796,7 @@ void refineEssentialMatrixNonLinear(const vector<Vector2d>& pts1,
   vector<double> residuals(numPoints);
 
   Matrix3d tmp = *E;
-  nonLinearOptimLMCMINPACK(computeSymmetricEpipolarDistanceEssenMatCMINPACK,
+  nonLinearOptimLMCMINPACK(computeEssenMatSampsonDistCMINPACK,
     &data,numPoints,numParams,tolerance,tmp.data(),&residuals[0]);
 
   closestEssentialMatrix(tmp,E);
@@ -1095,7 +1097,7 @@ struct RefineFKnownHsCostFunctor
         const auto& x1 = keys1[match.first];
         const auto& x2 = keys2[match.second];
 
-        T err = sqrt(computeSampsonSquaredDistanceFundMat(x2,F,x1));
+        T err = sqrt(computeFundMatSampsonDistSquared(x2,F,x1));
         residuals[iResidual] =
           T(1. - alpha) * robustifyRefineFKnownHsCostFunctor(errThresh,err);
         avgErr += err;
@@ -1120,7 +1122,7 @@ struct RefineFKnownHsCostFunctor
       const auto& x2 = keys2[match.second];
 
       residuals[iResidual] = robustifyRefineFKnownHsCostFunctor(errThresh,
-        sqrt(computeSampsonSquaredDistanceFundMat(x2,F,x1)));
+        sqrt(computeFundMatSampsonDistSquared(x2,F,x1)));
       residuals[iResidual] *= T(1. - pair.dists[others[io]]);
       iResidual++;
     }
@@ -1208,7 +1210,7 @@ void refineFKnownHs(const OptionsGeometricVerification& opt,
       const auto& x1 = keys1[match.first];
       const auto& x2 = keys2[match.second];
 
-      avgErr += sqrt(computeSampsonSquaredDistanceFundMat(x2,F,x1));
+      avgErr += sqrt(computeFundMatSampsonDistSquared(x2,F,x1));
     }
     avgErr /= double(groupsH[iH].size());
     if(avgErr < errThresh)
@@ -1227,7 +1229,7 @@ void refineFKnownHs(const OptionsGeometricVerification& opt,
     const auto& x1 = keys1[match.first];
     const auto& x2 = keys2[match.second];
 
-    double err = sqrt(computeSampsonSquaredDistanceFundMat(x2,F,x1));
+    double err = sqrt(computeFundMatSampsonDistSquared(x2,F,x1));
 
     if(err < errThresh)
       inliersF.push_back(others[io]);
@@ -1504,7 +1506,7 @@ void Mediator7ptRANSAC::computeTransformation(const vector<int>& idxs,vector<Mat
 double Mediator7ptRANSAC::computeSquaredError(const Matrix3d& F,int matchIdx) const
 {
   IntPair match = matches_[matchIdx];
-  return computeSymmetricEpipolarDistSquared(
+  return computeFundMatSampsonDistSquared(
     keys2_[match.second],
     F,
     keys1_[match.first]);
@@ -1550,7 +1552,7 @@ void Mediator5ptRANSAC::computeTransformation(const vector<int>& idxs,vector<Mat
 
 double Mediator5ptRANSAC::computeSquaredError(const Matrix3d& F,int matchIdx) const
 {
-  return computeSymmetricEpipolarDistSquared(
+  return computeFundMatSampsonDistSquared(
     cam2_.key(matches_[matchIdx].second),
     F,
     cam1_.key(matches_[matchIdx].first));
@@ -1612,7 +1614,7 @@ void MediatorHomographyRANSAC::refine(double tolerance,const vector<int>& inlier
 namespace
 {
 
-int computeSymmetricEpipolarDistanceEssenMatCMINPACK(void *pdata,
+int computeEssenMatSampsonDistCMINPACK(void *pdata,
   int nPoints,int nParams,const double* params,double* residuals,int iflag)
 {
   const auto& data = *static_cast<EssentialMatrixRefineData *>(pdata);
@@ -1625,8 +1627,8 @@ int computeSymmetricEpipolarDistanceEssenMatCMINPACK(void *pdata,
   for(int iInlier = 0; iInlier < nPoints; iInlier++)
   {
     IntPair match = (*data.matches)[(*data.matchesToUse)[iInlier]];
-    residuals[iInlier] = computeSymmetricEpipolarDist(
-      (*data.keys2)[match.second],F,(*data.keys1)[match.first]);
+    residuals[iInlier] = sqrt(computeFundMatSampsonDistSquared(
+      (*data.keys2)[match.second],F,(*data.keys1)[match.first]));
   }
   return 0; // Negative value would terminate the optimization.
 }

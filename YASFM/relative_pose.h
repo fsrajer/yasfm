@@ -922,7 +922,7 @@ T computeSymmetricEpipolarDistSquared(const Vector2d& pt2,
 \param[in] iflag Is this call residual or Jacobian computation.
 \return Flag. Negative value would terminate the optimization.
 */
-int computeSymmetricEpipolarDistanceEssenMatCMINPACK(void *data,int nPoints,
+int computeEssenMatSampsonDistCMINPACK(void *data,int nPoints,
   int nParams,const double* params,double* residuals,int iflag);
 
 /// Structure for passing data into cminpack for refining.
@@ -947,7 +947,7 @@ MIND THE ORDER of the input points.
 \return Squared error (in squared pixels).
 */
 template<typename T>
-T computeSampsonSquaredDistanceFundMat(const Vector2d& pt2,
+T computeFundMatSampsonDistSquared(const Vector2d& pt2,
   const Matrix<T,3,3>& F,const Vector2d& pt1);
 
 /// Solve third order polynomial.
@@ -1061,7 +1061,7 @@ T computeSymmetricEpipolarDistSquared(const Vector2d& pt2,
 }
 
 template<typename T>
-T computeSampsonSquaredDistanceFundMat(const Vector2d& pt2,
+T computeFundMatSampsonDistSquared(const Vector2d& pt2,
   const Matrix<T,3,3>& F,const Vector2d& pt1)
 {
   Matrix<T,3,1> Fpt1 = F*pt1.homogeneous().cast<T>();
