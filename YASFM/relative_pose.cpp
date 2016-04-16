@@ -1098,18 +1098,18 @@ struct RefineFKnownHsCostFunctor
         const auto& x2 = keys2[match.second];
 
         T err = sqrt(computeFundMatSampsonDistSquared(x2,F,x1));
-        residuals[iResidual] =
-          T(1. - alpha) * robustifyRefineFKnownHsCostFunctor(errThresh,err);
+        residuals[iResidual] = T(1. - alpha) * err;
         avgErr += err;
         iResidual++;
       }
       avgErr /= T(double(groupsH[iH].size()));
-      T robAvgErr = robustifyRefineFKnownHsCostFunctor(errThresh,avgErr);
 
       iResidual -= (int)groupsH[iH].size();
       for(int iMatch : groupsH[iH])
       {
-        residuals[iResidual] += T(alpha) * robAvgErr;
+        residuals[iResidual] += T(alpha) * avgErr;
+        residuals[iResidual] = 
+          robustifyRefineFKnownHsCostFunctor(errThresh,residuals[iResidual]);
         residuals[iResidual] *= T(1. - pair.dists[iMatch]);
         iResidual++;
       }
