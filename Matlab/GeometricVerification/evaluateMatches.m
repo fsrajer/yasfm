@@ -5,7 +5,15 @@ addpath ..
 dataDir = 'C:\Users\Filip\Dropbox\pairs\0.8';
 allFn = 'tentatively_matched_all.txt';
 gtFn = [allFn(1:end-4) '_ground_truth.mat'];
-methods = {'ratio','ratio-unique','gv','H-EG-greedy','seq-loprosac','seq-loprosac-opt'};
+methods={};
+methods{end+1} = 'ratio';
+methods{end+1} = 'ratio-unique';
+% methods{end+1} = 'seq-loprosac';
+% methods{end+1} = 'seq-loprosac-opt';
+methods{end+1} = 'H-EG-greedy';
+% methods{end+1} = 'H-EG-greedy-';
+methods{end+1} = 'gv';
+% methods{end+1} = 'gv-fast';
 
 colsMap = containers.Map;
 colsMap('ratio') = [230 159 0]/255; % orange
@@ -15,7 +23,8 @@ colsMap('H-EG-greedy') = [0 0 0]; % black
 % colsMap('') = [220 208 66]/255; % dark yellow
 colsMap('seq-loprosac-opt') = [204 121 167]/255; % pink
 % colsMap('') = [86 180 233]/255; % sky blue
-% colsMap('') = [0 158 115]/255; % bluish green
+colsMap('H-EG-greedy-') = [0 158 115]/255; % bluish green
+colsMap('gv-fast') = [0 158 115]/255; % bluish green
 colsMap('seq-loprosac') = [.8 0 .8]; % magenta
 % colsMap('') = [0.6 0.5 0.1]; % brown
 % colsMap('') = [0 .8 .8]; % cyan
@@ -40,6 +49,7 @@ end
 cd(matlabDir);
 
 %% read data
+disp(['reading: features and gt']);
 ignoreFeats = false;
 data = readResults(allFn,ignoreFeats);
 allPairs = data.pairs;
@@ -51,10 +61,11 @@ labels = ld.labels;
 ignoreFeats = true;
 estPairs = cell(1,nMethods);
 for i=1:nMethods
+    disp(['reading: ' methods{i}]);
     estPairs{i} = cell(1,numel(fns{i}));
     for j=1:numel(fns{i})
-        data = readResults(fullfile(dataDir,methods{i},fns{i}{j}),ignoreFeats);
-        estPairs{i}{j} = data.pairs;
+        tmp = readResults(fullfile(dataDir,methods{i},fns{i}{j}),ignoreFeats);
+        estPairs{i}{j} = tmp.pairs;
     end
 end
 
@@ -124,7 +135,7 @@ for i=1:nImgs
     end
 end
 %% show main curves
-figure(1); hold on;
+figure(1); clf(1); hold on;
 plotHandles = zeros(1,nMethods);
 for im=1:nMethods
     pr = mean(prNoGroups{im},2);
@@ -138,7 +149,7 @@ ylabel('precision');
 xlim([0 1]);
 ylim([0 1]);
 
-figure(2); hold on;
+figure(2); clf(2); hold on;
 plotHandles = zeros(1,nMethods);
 for im=1:nMethods
     pr = mean(cell2mat(prGroups{im}),2);
@@ -151,8 +162,6 @@ xlabel('recall');
 ylabel('precision');
 xlim([0 1]);
 ylim([0 1]);
-
-waitforbuttonpress;
 
 %% show per group curves
 separatorWidthScale = 0.03125;
@@ -220,4 +229,30 @@ for pairIdx=1:size(pairsIdxs,2)
         end
     end
 end
+%% show gt matches
+pairsToShow = pairsIdxs(:,end);
+i = pairsToShow(1);
+j = pairsToShow(2);
 
+gt = labels{i,j};
+pairsCurr = allPairs;
+keep = (gt==2) & (pairsCurr(i,j).dists < 0.7);
+pairsCurr(i,j).matches(:,~keep) = [];
+showLines=1;
+showMatches(data.cams,{pairsCurr},0,showLines,pairsToShow,2,1);
+    
+%% show matches
+im=4;
+nFns = numel(fns{im});
+for k=1:nFns
+    pairsCurr = divideMatchesByGroups(estPairs{im}{k});
+    showLines=1;
+    showMatches(data.cams,pairsCurr,0,showLines,pairsToShow,2,1);
+    disp(['k=' num2str(k)]);
+    key = '';
+    while ~strcmp('space',key)
+        waitforbuttonpress;
+        key=get(gcf,'CurrentKey');
+    end
+%     close(gcf);
+end

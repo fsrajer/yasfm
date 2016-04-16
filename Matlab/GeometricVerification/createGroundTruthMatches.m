@@ -1,7 +1,7 @@
 %% setup
 addpath ..
 
-dataDir = 'C:\Users\Filip\Dropbox\pairs';
+dataDir = 'C:\Users\Filip\Dropbox\pairs\0.8';
 inFn = 'tentatively_matched_all.txt';
 outFn = [inFn(1:end-4) '_ground_truth.mat'];
 
