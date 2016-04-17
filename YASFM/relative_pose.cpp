@@ -667,6 +667,19 @@ struct RefineFCostFunctor
     return true;
   }
 
+  static ceres::CostFunction* createCostFunction(
+    const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const vector<IntPair>& matches,const vector<int>& matchesToUse)
+  {
+    auto costFun =
+      new ceres::DynamicAutoDiffCostFunction<RefineFCostFunctor>(
+      new RefineFCostFunctor(keys1,keys2,matches,matchesToUse));
+    costFun->SetNumResiduals((int)matchesToUse.size());
+    costFun->AddParameterBlock(9);
+    costFun->AddParameterBlock(3);
+    return costFun;
+  }
+
   const vector<Vector2d> &keys1,&keys2;
   const vector<IntPair>& matches;
   const vector<int> matchesToUse;
@@ -688,13 +701,7 @@ void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
   //solverOpt.max_num_iterations = 200;
   ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
 
-  auto costFun =
-    new ceres::DynamicAutoDiffCostFunction<RefineFCostFunctor>(
-    new RefineFCostFunctor(pts1,pts2,matches,matchesToUse));
-
-  costFun->SetNumResiduals((int)matchesToUse.size());
-  costFun->AddParameterBlock(9);
-  costFun->AddParameterBlock(3);
+  auto costFun = RefineFCostFunctor::createCostFunction(pts1,pts2,matches,matchesToUse);
   problem.AddResidualBlock(costFun,lossFun,H.data(),v.data());
 
   ceres::Solver::Summary summary;
@@ -1059,18 +1066,6 @@ bool estimateRelativePose7ptKnownHsLOPROSAC(const OptionsRANSAC& opt,
   return (nInliers > 0);
 }
 
-/**
-Robustifier taken from TDV course lectures of Radim Sara.
-*/
-template<typename T>
-T robustifyRefineFKnownHsCostFunctor(double softThresh,T x)
-{
-  const double t = 0.25;
-  const double sigma = softThresh / sqrt(-log(t*t));
-
-  return -log(exp(-(x*x)/T(2*sigma*sigma))+T(t)) + T(log(1+t));
-}
-
 struct RefineFKnownHsCostFunctor
 {
   RefineFKnownHsCostFunctor(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
@@ -1109,7 +1104,7 @@ struct RefineFKnownHsCostFunctor
       {
         residuals[iResidual] += T(alpha) * avgErr;
         residuals[iResidual] = 
-          robustifyRefineFKnownHsCostFunctor(errThresh,residuals[iResidual]);
+          robustify(errThresh,residuals[iResidual]);
         residuals[iResidual] *= T(1. - pair.dists[iMatch]);
         iResidual++;
       }
@@ -1121,7 +1116,7 @@ struct RefineFKnownHsCostFunctor
       const auto& x1 = keys1[match.first];
       const auto& x2 = keys2[match.second];
 
-      residuals[iResidual] = robustifyRefineFKnownHsCostFunctor(errThresh,
+      residuals[iResidual] = robustify(errThresh,
         sqrt(computeFundMatSampsonDistSquared(x2,F,x1)));
       residuals[iResidual] *= T(1. - pair.dists[others[io]]);
       iResidual++;
