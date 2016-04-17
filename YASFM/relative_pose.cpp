@@ -947,10 +947,51 @@ void estimateFundamentalMatrixParallax(const vector<Vector2d>& keys1,
   F.noalias() = e2x * H;
 }
 
+struct RefineHRobustCostFunctor
+{
+  RefineHRobustCostFunctor(const Vector2d& x1,const Vector2d& x2,
+    double softThresh)
+    : x1(x1),x2(x2),softThresh(softThresh)
+  {
+  }
+
+  template<typename T>
+  bool operator()(const T* const parameters,T* residuals) const
+  {
+    Map<const Matrix<T,3,3>> H(parameters);
+    Matrix<T,3,1> pt = H * x1.homogeneous().cast<T>();
+
+    T errX = x2(0) - pt(0)/pt(2);
+    T errY = x2(1) - pt(1)/pt(2);
+
+    T errSq = errX*errX+errY*errY;
+    // Avoid division by zero in derivatives computation
+    T err = (errSq==0.) ? errSq : sqrt(errSq);
+    residuals[0] = robustify(softThresh,err);
+    return true;
+  }
+
+  static ceres::CostFunction* createCostFunction(const Vector2d& x1,const Vector2d& x2,
+    double softThresh)
+  {
+    return new ceres::AutoDiffCostFunction<RefineHRobustCostFunctor,1,9>(
+      new RefineHRobustCostFunctor(x1,x2,softThresh));
+  }
+
+  const Vector2d &x1,&x2;
+  double softThresh;
+};
+
 void growHomographies(const OptionsGeometricVerification& opt,
-  const Camera& cam1,const Camera& cam2,const vector<IntPair>& allMatches,
+  const Camera& cam1,const Camera& cam2,const CameraPair& camPair,
   vector<vector<int>> *pgroups,vector<Matrix3d> *pHs)
 {
+  vector<IntPair> allMatches(camPair.matches.size());
+  vector<int> orderedToInputOrder;
+  yasfm::quicksort(camPair.dists,&orderedToInputOrder);
+  for(size_t i = 0; i < allMatches.size(); i++)
+    allMatches[i] = camPair.matches[orderedToInputOrder[i]];
+
   auto& groups = *pgroups;
   auto& Hs = *pHs;
 
@@ -968,9 +1009,12 @@ void growHomographies(const OptionsGeometricVerification& opt,
   for(int iTransform = 0; iTransform < opt.get<int>("maxHs"); iTransform++)
   {
     bestInliers.clear();
+    vector<bool> matchUsed(remainingMatches.size(),false);
 
     for(size_t iMatch = 0; iMatch < remainingMatches.size(); iMatch++)
     {
+      if(matchUsed[iMatch])
+        continue;
       int k1 = remainingMatches[iMatch].first;
       int k2 = remainingMatches[iMatch].second;
       currInliers.clear();
@@ -1009,12 +1053,36 @@ void growHomographies(const OptionsGeometricVerification& opt,
           break;
       }
 
+      for(int idx : currInliers)
+        matchUsed[idx] = true;
+
       if(currInliers.size() > bestInliers.size())
       {
         bestInliers = currInliers;
         bestH = currH;
       }
     }
+
+    ceres::Problem problem;
+    ceres::Solver::Options solverOpt;
+    solverOpt.max_num_iterations = 10;
+    ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
+
+    for(IntPair match : remainingMatches)
+    {
+      const auto& x1 = cam1.key(match.first);
+      const auto& x2 = cam2.key(match.second);
+      auto costFun = RefineHRobustCostFunctor::createCostFunction(
+        x1,x2,opt.get<double>("homographyThresh"));
+      problem.AddResidualBlock(costFun,lossFun,bestH.data());
+    }
+
+    ceres::Solver::Summary summary;
+    ceres::Solve(solverOpt,&problem,&summary);
+    
+    bestInliers.clear();
+    findHomographyInliers(opt.get<double>("homographyThresh"),cam1.keys(),cam2.keys(),
+      remainingMatches,bestH,&bestInliers);
 
     if(bestInliers.size() < opt.get<int>("minInliersPerH"))
       break;
@@ -1030,6 +1098,10 @@ void growHomographies(const OptionsGeometricVerification& opt,
     if(remainingMatches.size() < opt.get<int>("minInliersPerH"))
       break;
   }
+
+  for(auto& g : groups)
+    for(int& idx : g)
+      idx = orderedToInputOrder[idx];
 }
 
 Mediator7ptKnownHsRANSAC::Mediator7ptKnownHsRANSAC(const vector<Vector2d>& keys1,
@@ -1329,7 +1401,7 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
 
   vector<vector<int>> groupsH;
   vector<Matrix3d> Hs;
-  growHomographies(opt,cam1,cam2,pair.matches,&groupsH,&Hs);
+  growHomographies(opt,cam1,cam2,pair,&groupsH,&Hs);
 
   vector<vector<int>> groupsEG;
   vector<Matrix3d> Fs;

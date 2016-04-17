@@ -649,7 +649,7 @@ YASFM_API void refineFKnownHs(const OptionsGeometricVerification& opt,
 \param[out] Hs Homographies.
 */
 YASFM_API void growHomographies(const OptionsGeometricVerification& opt,
-  const Camera& cam1,const Camera& cam2,const vector<IntPair>& matches,
+  const Camera& cam1,const Camera& cam2,const CameraPair& camPair,
   vector<vector<int>> *groups,vector<Matrix3d> *Hs);
 
 /// Compute similarity transform given one feature match.
