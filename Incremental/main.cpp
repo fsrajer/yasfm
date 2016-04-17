@@ -272,19 +272,27 @@ int main(int argc,const char* argv[])
   }
   bool useCalibratedEpipolarVerif = true;
 
+#define DDEBUG
+
   float& ratioThresh = opt.getOpt<OptionsFLANN>("matchingFLANN").get<float>("ratioThresh");
+#ifdef DDEBUG
+  ratioThresh = 0.7f;
+  int nSteps = 1;
+#else
   ratioThresh = 0.f;
-  //int nSteps = 1;
   int nSteps = 33;
+#endif
   float stepSize = 0.025f;
-  string name = "0.8/gv-fast";
+  string name = "0.8/Hfast-EG";
   _mkdir(joinPaths(dir,name).c_str());
   pair_umap<CameraPair> allPairs = data.pairs();
   
-  /*IntPair curr(6,7);
+#ifdef DDEBUG
+  /*IntPair curr(76,77);
   allPairs.clear();
   allPairs[curr] = data.pairs()[curr];
   data.pairs() = allPairs;*/
+#endif
   
   for(int i = 0; i < nSteps; i++,ratioThresh += stepSize)
   {
@@ -311,8 +319,10 @@ int main(int argc,const char* argv[])
     //verifyMatchesEpipolar(opt.getOpt<OptionsRANSAC>("epipolarVerification"),
     //  useCalibratedEpipolarVerif,data.cams(),&data.pairs());
 
+#ifndef DDEBUG
     data.writeASCII(name + "/matched_" + std::to_string(i+1) + ".txt");
     opt.write(joinPaths(dir,name + "/options_" + std::to_string(i+1) + ".txt"));
+#endif
     data.pairs() = allPairs;
   }
 

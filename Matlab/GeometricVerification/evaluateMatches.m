@@ -8,24 +8,25 @@ gtFn = [allFn(1:end-4) '_ground_truth.mat'];
 methods={};
 methods{end+1} = 'ratio';
 methods{end+1} = 'ratio-unique';
+% methods{end+1} = 'gv';
+methods{end+1} = 'gv-fast';
 % methods{end+1} = 'seq-loprosac';
 % methods{end+1} = 'seq-loprosac-opt';
-methods{end+1} = 'H-EG-greedy';
-% methods{end+1} = 'H-EG-greedy-';
-methods{end+1} = 'gv';
-% methods{end+1} = 'gv-fast';
+% methods{end+1} = 'H-EG-greedy';
+methods{end+1} = 'Hfast-EG';
 
 colsMap = containers.Map;
 colsMap('ratio') = [230 159 0]/255; % orange
 colsMap('ratio-unique') = [213 94 0]/255; % red-ish (vermilion)
-colsMap('gv') = [0 114 178]/255; % blue
-colsMap('H-EG-greedy') = [0 0 0]; % black
 % colsMap('') = [220 208 66]/255; % dark yellow
-colsMap('seq-loprosac-opt') = [204 121 167]/255; % pink
-% colsMap('') = [86 180 233]/255; % sky blue
-colsMap('H-EG-greedy-') = [0 158 115]/255; % bluish green
-colsMap('gv-fast') = [0 158 115]/255; % bluish green
 colsMap('seq-loprosac') = [.8 0 .8]; % magenta
+colsMap('seq-loprosac-opt') = [204 121 167]/255; % pink
+colsMap('H-EG-greedy-') = [0 158 115]/255; % bluish green
+colsMap('H-EG-greedy') = [0 0 0]; % black
+colsMap('Hfast-EG') = [0 158 115]/255; % bluish green
+colsMap('gv') = [0 114 178]/255; % blue
+colsMap('gv-fast') = [0 114 178]/255; % blue
+% colsMap('gv-fast-noopt') = [86 180 233]/255; % sky blue
 % colsMap('') = [0.6 0.5 0.1]; % brown
 % colsMap('') = [0 .8 .8]; % cyan
 
@@ -227,6 +228,70 @@ for pairIdx=1:size(pairsIdxs,2)
             waitforbuttonpress;
             key=get(gcf,'CurrentKey');
         end
+    end
+end
+
+%% show per image pair curves
+separatorWidthScale = 0.03125;
+cams=data.cams;
+for pairIdx=1:size(pairsIdxs,2)
+    i=pairsIdxs(1,pairIdx);
+    j=pairsIdxs(2,pairIdx);
+    
+    im1 = imread(cams(i).fn);
+    im2 = imread(cams(j).fn);
+    w1 = size(im1,2);
+    h1 = size(im1,1);
+    w2 = size(im2,2);
+    h2 = size(im2,1);
+    offset = w1+ceil(separatorWidthScale*w1);
+    img = uint8(zeros(max(h1,h2),offset+w2,size(im1,3)));
+    img(1:h1,1:w1,:) = im1;
+    img(1:h2,(offset+1):(offset+w2),:) = im2;
+    
+    matches = data.pairs(i,j).matches;
+    keys2 = cams(j).keys;
+    for k=1:numel(keys2)
+        keys2(k).coord(1) = keys2(k).coord(1)+offset;
+    end
+    
+    figure(5);clf(5);hold on;
+    for im=1:nMethods
+        nGroups = cellfun(@(p)(numel(p(i,j).groups)),estPairs{im}); 
+        plot(1:numel(estPairs{im}),nGroups,'color',colsMap(methods{im}));
+    end
+    legend(methods);
+    
+    gt = labels{i,j};
+    
+    figure(3); clf(3); hold on
+    plotHandles = zeros(1,nMethods);
+    for im=1:nMethods
+        pr = prNoGroups{im}(:,pairIdx);
+        rc = rcNoGroups{im}(:,pairIdx);
+        plotHandles(im) = plotPrecisionRecall(pr,rc,colsMap(methods{im}));
+    end
+    legend(plotHandles,methods,'location','southeast');
+    title(['precision-recall for pair: ' num2str(i) '-' num2str(j)]);
+    xlabel('recall');
+    ylabel('precision');
+    xlim([0 1]);
+    ylim([0 1]);
+    
+    figure(4); clf(4);
+    image(img);
+    hold on;
+    set(gca,'YDir','reverse');
+    axis equal;
+    axis([0 size(img,2) 0 size(img,1)]);
+    
+    plotMatches(cams(i).keys,keys2,matches(:,gt>0),1,[0 1 0],[0 1 0])
+    title(['label: ' num2str(ig)]);
+    
+    key = '';
+    while ~strcmp('space',key)
+        waitforbuttonpress;
+        key=get(gcf,'CurrentKey');
     end
 end
 %% show gt matches
