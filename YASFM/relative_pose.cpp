@@ -660,9 +660,24 @@ struct RefineFCostFunctor
       const auto& x1 = keys1[match.first];
       const auto& x2 = keys2[match.second];
 
-      residuals[iResidual] = computeSymmetricEpipolarDist(x2,F,x1);
+      T err = computeFundMatSampsonDistSquared(x2,F,x1);
+      // avoiding division by 0 when computing the derivatives
+      residuals[iResidual] = (err == 0.) ? err : sqrt(err); 
     }
     return true;
+  }
+
+  static ceres::CostFunction* createCostFunction(
+    const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const vector<IntPair>& matches,const vector<int>& matchesToUse)
+  {
+    auto costFun =
+      new ceres::DynamicAutoDiffCostFunction<RefineFCostFunctor>(
+      new RefineFCostFunctor(keys1,keys2,matches,matchesToUse));
+    costFun->SetNumResiduals((int)matchesToUse.size());
+    costFun->AddParameterBlock(9);
+    costFun->AddParameterBlock(3);
+    return costFun;
   }
 
   const vector<Vector2d> &keys1,&keys2;
@@ -686,13 +701,7 @@ void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
   //solverOpt.max_num_iterations = 200;
   ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
 
-  auto costFun =
-    new ceres::DynamicAutoDiffCostFunction<RefineFCostFunctor>(
-    new RefineFCostFunctor(pts1,pts2,matches,matchesToUse));
-
-  costFun->SetNumResiduals((int)matchesToUse.size());
-  costFun->AddParameterBlock(9);
-  costFun->AddParameterBlock(3);
+  auto costFun = RefineFCostFunctor::createCostFunction(pts1,pts2,matches,matchesToUse);
   problem.AddResidualBlock(costFun,lossFun,H.data(),v.data());
 
   ceres::Solver::Summary summary;
@@ -713,7 +722,7 @@ int findFundamentalMatrixInliers(double thresh,const vector<Vector2d>& pts1,
   inliers.reserve(nMatches);
   for(int iMatch = 0; iMatch < nMatches; iMatch++)
   {
-    double sqDist = computeSymmetricEpipolarDistSquared(
+    double sqDist = computeFundMatSampsonDistSquared(
       pts2[matches[iMatch].second],
       F,
       pts1[matches[iMatch].first]);
@@ -794,7 +803,7 @@ void refineEssentialMatrixNonLinear(const vector<Vector2d>& pts1,
   vector<double> residuals(numPoints);
 
   Matrix3d tmp = *E;
-  nonLinearOptimLMCMINPACK(computeSymmetricEpipolarDistanceEssenMatCMINPACK,
+  nonLinearOptimLMCMINPACK(computeEssenMatSampsonDistCMINPACK,
     &data,numPoints,numParams,tolerance,tmp.data(),&residuals[0]);
 
   closestEssentialMatrix(tmp,E);
@@ -938,10 +947,51 @@ void estimateFundamentalMatrixParallax(const vector<Vector2d>& keys1,
   F.noalias() = e2x * H;
 }
 
+struct RefineHRobustCostFunctor
+{
+  RefineHRobustCostFunctor(const Vector2d& x1,const Vector2d& x2,
+    double softThresh)
+    : x1(x1),x2(x2),softThresh(softThresh)
+  {
+  }
+
+  template<typename T>
+  bool operator()(const T* const parameters,T* residuals) const
+  {
+    Map<const Matrix<T,3,3>> H(parameters);
+    Matrix<T,3,1> pt = H * x1.homogeneous().cast<T>();
+
+    T errX = x2(0) - pt(0)/pt(2);
+    T errY = x2(1) - pt(1)/pt(2);
+
+    T errSq = errX*errX+errY*errY;
+    // Avoid division by zero in derivatives computation
+    T err = (errSq==0.) ? errSq : sqrt(errSq);
+    residuals[0] = robustify(softThresh,err);
+    return true;
+  }
+
+  static ceres::CostFunction* createCostFunction(const Vector2d& x1,const Vector2d& x2,
+    double softThresh)
+  {
+    return new ceres::AutoDiffCostFunction<RefineHRobustCostFunctor,1,9>(
+      new RefineHRobustCostFunctor(x1,x2,softThresh));
+  }
+
+  const Vector2d &x1,&x2;
+  double softThresh;
+};
+
 void growHomographies(const OptionsGeometricVerification& opt,
-  const Camera& cam1,const Camera& cam2,const vector<IntPair>& allMatches,
+  const Camera& cam1,const Camera& cam2,const CameraPair& camPair,
   vector<vector<int>> *pgroups,vector<Matrix3d> *pHs)
 {
+  vector<IntPair> allMatches(camPair.matches.size());
+  vector<int> orderedToInputOrder;
+  yasfm::quicksort(camPair.dists,&orderedToInputOrder);
+  for(size_t i = 0; i < allMatches.size(); i++)
+    allMatches[i] = camPair.matches[orderedToInputOrder[i]];
+
   auto& groups = *pgroups;
   auto& Hs = *pHs;
 
@@ -959,9 +1009,12 @@ void growHomographies(const OptionsGeometricVerification& opt,
   for(int iTransform = 0; iTransform < opt.get<int>("maxHs"); iTransform++)
   {
     bestInliers.clear();
+    vector<bool> matchUsed(remainingMatches.size(),false);
 
     for(size_t iMatch = 0; iMatch < remainingMatches.size(); iMatch++)
     {
+      if(matchUsed[iMatch])
+        continue;
       int k1 = remainingMatches[iMatch].first;
       int k2 = remainingMatches[iMatch].second;
       currInliers.clear();
@@ -1000,12 +1053,36 @@ void growHomographies(const OptionsGeometricVerification& opt,
           break;
       }
 
+      for(int idx : currInliers)
+        matchUsed[idx] = true;
+
       if(currInliers.size() > bestInliers.size())
       {
         bestInliers = currInliers;
         bestH = currH;
       }
     }
+
+    ceres::Problem problem;
+    ceres::Solver::Options solverOpt;
+    solverOpt.max_num_iterations = 10;
+    ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
+
+    for(IntPair match : remainingMatches)
+    {
+      const auto& x1 = cam1.key(match.first);
+      const auto& x2 = cam2.key(match.second);
+      auto costFun = RefineHRobustCostFunctor::createCostFunction(
+        x1,x2,opt.get<double>("homographyThresh"));
+      problem.AddResidualBlock(costFun,lossFun,bestH.data());
+    }
+
+    ceres::Solver::Summary summary;
+    ceres::Solve(solverOpt,&problem,&summary);
+    
+    bestInliers.clear();
+    findHomographyInliers(opt.get<double>("homographyThresh"),cam1.keys(),cam2.keys(),
+      remainingMatches,bestH,&bestInliers);
 
     if(bestInliers.size() < opt.get<int>("minInliersPerH"))
       break;
@@ -1021,6 +1098,10 @@ void growHomographies(const OptionsGeometricVerification& opt,
     if(remainingMatches.size() < opt.get<int>("minInliersPerH"))
       break;
   }
+
+  for(auto& g : groups)
+    for(int& idx : g)
+      idx = orderedToInputOrder[idx];
 }
 
 Mediator7ptKnownHsRANSAC::Mediator7ptKnownHsRANSAC(const vector<Vector2d>& keys1,
@@ -1057,18 +1138,6 @@ bool estimateRelativePose7ptKnownHsLOPROSAC(const OptionsRANSAC& opt,
   return (nInliers > 0);
 }
 
-/**
-Robustifier taken from TDV course lectures of Radim Sara.
-*/
-template<typename T>
-T robustifyRefineFKnownHsCostFunctor(double softThresh,T x)
-{
-  const double t = 0.25;
-  const double sigma = softThresh / sqrt(-log(t*t));
-
-  return -log(exp(-(x*x)/T(2*sigma*sigma))+T(t)) + T(log(1+t));
-}
-
 struct RefineFKnownHsCostFunctor
 {
   RefineFKnownHsCostFunctor(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
@@ -1095,19 +1164,19 @@ struct RefineFKnownHsCostFunctor
         const auto& x1 = keys1[match.first];
         const auto& x2 = keys2[match.second];
 
-        T err = sqrt(computeSampsonSquaredDistanceFundMat(x2,F,x1));
-        residuals[iResidual] =
-          T(1. - alpha) * robustifyRefineFKnownHsCostFunctor(errThresh,err);
+        T err = sqrt(computeFundMatSampsonDistSquared(x2,F,x1));
+        residuals[iResidual] = T(1. - alpha) * err;
         avgErr += err;
         iResidual++;
       }
       avgErr /= T(double(groupsH[iH].size()));
-      T robAvgErr = robustifyRefineFKnownHsCostFunctor(errThresh,avgErr);
 
       iResidual -= (int)groupsH[iH].size();
       for(int iMatch : groupsH[iH])
       {
-        residuals[iResidual] += T(alpha) * robAvgErr;
+        residuals[iResidual] += T(alpha) * avgErr;
+        residuals[iResidual] = 
+          robustify(errThresh,residuals[iResidual]);
         residuals[iResidual] *= T(1. - pair.dists[iMatch]);
         iResidual++;
       }
@@ -1119,8 +1188,8 @@ struct RefineFKnownHsCostFunctor
       const auto& x1 = keys1[match.first];
       const auto& x2 = keys2[match.second];
 
-      residuals[iResidual] = robustifyRefineFKnownHsCostFunctor(errThresh,
-        sqrt(computeSampsonSquaredDistanceFundMat(x2,F,x1)));
+      residuals[iResidual] = robustify(errThresh,
+        sqrt(computeFundMatSampsonDistSquared(x2,F,x1)));
       residuals[iResidual] *= T(1. - pair.dists[others[io]]);
       iResidual++;
     }
@@ -1208,7 +1277,7 @@ void refineFKnownHs(const OptionsGeometricVerification& opt,
       const auto& x1 = keys1[match.first];
       const auto& x2 = keys2[match.second];
 
-      avgErr += sqrt(computeSampsonSquaredDistanceFundMat(x2,F,x1));
+      avgErr += sqrt(computeFundMatSampsonDistSquared(x2,F,x1));
     }
     avgErr /= double(groupsH[iH].size());
     if(avgErr < errThresh)
@@ -1227,7 +1296,7 @@ void refineFKnownHs(const OptionsGeometricVerification& opt,
     const auto& x1 = keys1[match.first];
     const auto& x2 = keys2[match.second];
 
-    double err = sqrt(computeSampsonSquaredDistanceFundMat(x2,F,x1));
+    double err = sqrt(computeFundMatSampsonDistSquared(x2,F,x1));
 
     if(err < errThresh)
       inliersF.push_back(others[io]);
@@ -1332,7 +1401,7 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
 
   vector<vector<int>> groupsH;
   vector<Matrix3d> Hs;
-  growHomographies(opt,cam1,cam2,pair.matches,&groupsH,&Hs);
+  growHomographies(opt,cam1,cam2,pair,&groupsH,&Hs);
 
   vector<vector<int>> groupsEG;
   vector<Matrix3d> Fs;
@@ -1504,7 +1573,7 @@ void Mediator7ptRANSAC::computeTransformation(const vector<int>& idxs,vector<Mat
 double Mediator7ptRANSAC::computeSquaredError(const Matrix3d& F,int matchIdx) const
 {
   IntPair match = matches_[matchIdx];
-  return computeSymmetricEpipolarDistSquared(
+  return computeFundMatSampsonDistSquared(
     keys2_[match.second],
     F,
     keys1_[match.first]);
@@ -1550,7 +1619,7 @@ void Mediator5ptRANSAC::computeTransformation(const vector<int>& idxs,vector<Mat
 
 double Mediator5ptRANSAC::computeSquaredError(const Matrix3d& F,int matchIdx) const
 {
-  return computeSymmetricEpipolarDistSquared(
+  return computeFundMatSampsonDistSquared(
     cam2_.key(matches_[matchIdx].second),
     F,
     cam1_.key(matches_[matchIdx].first));
@@ -1612,7 +1681,7 @@ void MediatorHomographyRANSAC::refine(double tolerance,const vector<int>& inlier
 namespace
 {
 
-int computeSymmetricEpipolarDistanceEssenMatCMINPACK(void *pdata,
+int computeEssenMatSampsonDistCMINPACK(void *pdata,
   int nPoints,int nParams,const double* params,double* residuals,int iflag)
 {
   const auto& data = *static_cast<EssentialMatrixRefineData *>(pdata);
@@ -1625,8 +1694,8 @@ int computeSymmetricEpipolarDistanceEssenMatCMINPACK(void *pdata,
   for(int iInlier = 0; iInlier < nPoints; iInlier++)
   {
     IntPair match = (*data.matches)[(*data.matchesToUse)[iInlier]];
-    residuals[iInlier] = computeSymmetricEpipolarDist(
-      (*data.keys2)[match.second],F,(*data.keys1)[match.first]);
+    residuals[iInlier] = sqrt(computeFundMatSampsonDistSquared(
+      (*data.keys2)[match.second],F,(*data.keys1)[match.first]));
   }
   return 0; // Negative value would terminate the optimization.
 }

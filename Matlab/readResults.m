@@ -209,7 +209,7 @@ for i=1:nFields
        end
     end
 end
-pairs = repmat(struct('matches',zeros(2,0)),nCams,nCams);
+pairs = repmat(struct('matches',zeros(2,0),'dists',[],'groups',[]),nCams,nCams);
 for i=1:nPairs
     line = fgetl(fid);
     tokens = str2double(strsplit(line));

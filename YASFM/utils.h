@@ -220,6 +220,19 @@ direction.
 YASFM_API void approximateInverseRadialDistortion(int nForwardParams,int nInverseParams,
   double maxRadius,const double* const radParams,double* invRadParams);
 
+/// Transforms x in a way that large values get mapped to some constant value.
+/**
+Robustifier taken from TDV course lectures of Radim Sara.
+
+\param[in] softThresh Changes the shape of the function. The larger softThresh is the
+larger values get mapped to non-constant values. Empirically, it is good to set this to
+hard threshold value you use later.
+\param[in] x Value to be robustified.
+\return Robustified x. Note that the units of this variable are meaningless.
+*/
+template<typename T>
+T robustify(double softThresh,T x);
+
 /// Driver for the cminpack function lmdif1.
 /**
 Brief description of lmdif1:
@@ -348,6 +361,15 @@ void filterOutOutliers(const vector<int>& outliers,vector<T> *parr)
     keep[i] = false;
 
   filterVector(keep,parr);
+}
+
+template<typename T>
+T robustify(double softThresh,T x)
+{
+  const double t = 0.25;
+  const double sigma = softThresh / sqrt(-log(t*t));
+
+  return -log(exp(-(x*x)/T(2*sigma*sigma))+T(t)) + T(log(1+t));
 }
 
 template<unsigned int N>
