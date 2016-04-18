@@ -125,19 +125,23 @@ void findClosestVisualWords(const ptr_vector<Camera>& cams,const MatrixXf& visua
     start = clock();
     if(verbose)
       cout << "  " << iCam << "/" << cams.size() << " ... ";
-    size_t nKeys = cams[iCam]->keys().size();
+    int nKeys = (int)cams[iCam]->keys().size();
     closestVisualWord[iCam].resize(nKeys);
-    for(size_t iKey = 0; iKey < nKeys; iKey++)
+#pragma omp parallel
     {
-      float maxVal = FLT_MIN;
-      for(int iVW = 0; iVW < visualWords.cols(); iVW++)
+#pragma omp for schedule(static)
+      for(int iKey = 0; iKey < nKeys; iKey++)
       {
-        float val = computeDotSIMD(visualWords.rows(),&visualWords(0,iVW),
-          &cams[iCam]->descr()(0,iKey));
-        if(val > maxVal)
+        float maxVal = FLT_MIN;
+        for(int iVW = 0; iVW < visualWords.cols(); iVW++)
         {
-          maxVal = val;
-          closestVisualWord[iCam][iKey] = iVW;
+          float val = computeDotSIMD(visualWords.rows(),&visualWords(0,iVW),
+            &cams[iCam]->descr()(0,iKey));
+          if(val > maxVal)
+          {
+            maxVal = val;
+            closestVisualWord[iCam][iKey] = iVW;
+          }
         }
       }
     }
