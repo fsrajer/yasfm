@@ -174,7 +174,12 @@ void computeTFIDF(size_t nVisualWords,const vector<vector<int>>& closestVisualWo
   }
 
   tfidf.noalias() = (tf.array().colwise() * idf.array()).matrix();
-  tfidf.colwise().normalize();
+  for(int iCam = 0; iCam < nCams; iCam++)
+  {
+    float norm = tfidf.col(iCam).norm();
+    if(norm != 0.)
+      tfidf.col(iCam) /= norm;
+  }
 }
 
 } // namespace yasfm
