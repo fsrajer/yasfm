@@ -175,9 +175,6 @@ int main(int argc,const char* argv[])
   // ======================================
 
   IncrementalOptions opt;
-  opt.getOpt<OptionsBundleAdjustment>("bundleAdjust")
-    .get<ceres::Solver::Options>("solverOptions")
-    .num_threads = 8;
   if(argc >= 4)
     opt.getOpt<OptionsSIFTGPU>("sift").get<int>("firstOctave") = atoi(argv[3]);
 
