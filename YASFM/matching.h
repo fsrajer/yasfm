@@ -94,6 +94,7 @@ public:
       make_unique<OptTypeWithVal<flann::IndexParams>>(flann::KDTreeIndexParams()));
     opt.emplace("searchParams",
       make_unique<OptTypeWithVal<flann::SearchParams>>(flann::SearchParams()));
+    get<flann::SearchParams>("searchParams").cores = 8;
     opt.emplace("ratioThresh",make_unique<OptTypeWithVal<float>>(0.6f));
     opt.emplace("onlyUniques",make_unique<OptTypeWithVal<bool>>(true));
     opt.emplace("verbose",make_unique<OptTypeWithVal<bool>>(true));

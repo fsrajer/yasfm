@@ -48,7 +48,7 @@ public:
 
     auto& solverOptions = get<ceres::Solver::Options>("solverOptions");
     solverOptions.max_num_iterations = 10;
-    solverOptions.num_threads = 1;
+    solverOptions.num_threads = 8;
     solverOptions.function_tolerance = 1e-3;
     solverOptions.parameter_tolerance = 1e-3;
     solverOptions.gradient_tolerance = 1e-3;

@@ -61,7 +61,7 @@ void matchFeatFLANN(const OptionsFLANN& opt,const ptr_vector<Camera>& cams,
   int numQueries = static_cast<int>(queries.size());
   for(int j = 0; j < numQueries; j++)
   {
-    if(queries[j].empty())
+    if(queries[j].empty() || cams[j]->keys().empty())
       continue; // no reason to build the trees
 
     // Make sure that we own these descriptors and they do not get deleted.
