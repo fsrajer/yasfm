@@ -38,6 +38,7 @@ Dataset& Dataset::operator = (const Dataset& o)
 void Dataset::copyIn(const Dataset& o)
 {
   dir_ = o.dir_;
+  cams_.clear();
   cams_.reserve(o.cams_.size());
   for(const auto& cam : o.cams_)
   {
