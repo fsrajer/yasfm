@@ -30,6 +30,7 @@ for i=idxs
     
     title(['img: ', num2str(i), ' # keys: ', num2str(numel(cams(i).keys))]);
     hold off
+    drawnow
 end
 
 end
