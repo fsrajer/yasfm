@@ -22,15 +22,26 @@ for i=idxs
     
     hold on;
     image(img);
-    set(gca,'YDir','reverse');
+    axis ij
     axis equal;
-    axis([0 size(img,2) 0 size(img,1)]);
-    
+    axis tight
+%     
     plotKeys(cams(i).keys, justPts);
     
     title(['img: ', num2str(i), ' # keys: ', num2str(numel(cams(i).keys))]);
     hold off
     drawnow
+    
+%     axis off
+%     title('');
+%     % printing
+%     set(gca,'Position',get(gca,'OuterPosition'));
+%     set(gcf,'PaperUnits','points');
+%     sz = size(img);
+%     set(gcf,'PaperPosition',[0 0 sz(2) sz(1)]);
+%     set(gcf,'PaperSize',[sz(2) sz(1)]);
+%     fn = 'sift';
+%     print(gcf,fullfile('C:\Users\Filip\Dropbox\Diplomka\cmpthesis\imgs',fn),'-dpdf');
 end
 
 end

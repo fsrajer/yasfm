@@ -63,9 +63,10 @@ for pair=pairsToShow
 
     hold on;
     image(img);
-    set(gca,'YDir','reverse');
     axis equal;
-    axis([0 size(img,2) 0 size(img,1)]);
+    axis ij;
+    axis tight;
+    axis off;
 
     keys2 = cams(j).keys;
     for k=1:numel(keys2)
@@ -106,9 +107,18 @@ for pair=pairsToShow
     tit(end) = [];
     title(tit);
     
-    axis off
     hold off
     drawnow;
+    
+%     title('');
+%     % printing
+%     set(gca,'Position',get(gca,'OuterPosition'));
+%     set(gcf,'PaperUnits','points');
+%     sz = size(img)/2;
+%     set(gcf,'PaperPosition',[0 0 sz(2) sz(1)]);
+%     set(gcf,'PaperSize',[sz(2) sz(1)]);
+%     fn = 'dalib-pair-matches';
+%     print(gcf,fullfile('C:\Users\Filip\Dropbox\Diplomka\cmpthesis\imgs',fn),'-dpdf');
 end
 
 end
