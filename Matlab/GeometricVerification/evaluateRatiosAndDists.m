@@ -3,15 +3,16 @@ addpath ..
 run('../vlfeat-0.9.20/toolbox/vl_setup');
 
 dataDir = 'C:\Users\Filip\Dropbox\pairs';
-allFn = 'tentatively_matched_all.txt';
-outFn = [allFn(1:end-4) '_ground_truth.mat'];
+allFn = 'tentatively_matched_all_with_gt.txt';
+outFn = 'tentatively_matched_all_ground_truth.mat';
 
 allFn = fullfile(dataDir,allFn);
 outFn = fullfile(dataDir,outFn);
 
 %% read results
-% ignoreFeats = true;
-% data = readResults(allFn,ignoreFeats);
+% ignoreFeats = false;
+% readDesc = true;
+% data = readResults(allFn,ignoreFeats,readDesc);
 % nImgs = numel(data.cams);
 % 
 % ld = load(outFn);
@@ -44,11 +45,28 @@ for i=1:nImgs
             end
             dists = -dists;
             
+            
             figure;
-            vl_pr(labels,ratios);
-            figure;
-            vl_pr(labels,dists);
+            hold on ;
             [rc, pr, info] = vl_pr(labels,dists);
+            plot(rc,pr,'linewidth',2,'color', [213 94 0]/255) ;
+            [rc, pr, info] = vl_pr(labels,ratios);
+            plot(rc,pr,'linewidth',2,'color', [0 114 178]/255) ;
+%             randomPrecision = p / (p + n) ;
+%             spline([0 1], [1 1] * randomPrecision, 'r--', 'linewidth', 2) ;
+            axis square ; grid on ;
+            xlim([0 1]) ; xlabel('recall','fontsize',18) ;
+            ylim([0 1]) ; ylabel('precision','fontsize',18) ;
+            set(gca,'fontsize',18)
+%             title(sprintf('PR (AUC: %.2f%%, AP: %.2f%%, AP11: %.2f%%)', ...
+%                 info.auc * 100, ...
+%                 info.ap * 100, ...
+%                 info.ap_interp_11 * 100)) ;
+            legend('descriptor distance','Lowe ratio');
+%             vl_pr(labels,ratios);
+%             figure;
+%             vl_pr(labels,dists);
+%             [rc, pr, info] = vl_pr(labels,dists);
         end
     end
 end
