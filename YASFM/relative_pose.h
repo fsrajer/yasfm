@@ -553,7 +553,6 @@ public:
     opt.emplace("minInliersPerH",make_unique<OptTypeWithVal<int>>(10));
     opt.emplace("nRefineIterations",make_unique<OptTypeWithVal<int>>(8));
     opt.emplace("minInliersToRefine",make_unique<OptTypeWithVal<int>>(4));
-    opt.emplace("stopInlierFraction",make_unique<OptTypeWithVal<double>>(0.7));
 
     opt.emplace("maxFs",make_unique<OptTypeWithVal<int>>(5));
     opt.emplace("minInliersPerF",make_unique<OptTypeWithVal<int>>(16));

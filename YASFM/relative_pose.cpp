@@ -1047,10 +1047,6 @@ void growHomographies(const OptionsGeometricVerification& opt,
 
         if(currInliers.size() < opt.get<int>("minInliersToRefine"))
           break;
-
-        if(currInliers.size() >
-          opt.get<double>("stopInlierFraction")*remainingMatches.size())
-          break;
       }
 
       for(int idx : currInliers)
