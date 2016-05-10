@@ -251,7 +251,8 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
     YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
       << nMatches << " given but " << minMatches << " needed.");
     M.setZero();
-    inliers->clear();
+    if(inliers)
+      inliers->clear();
     return -1;
   }
 
@@ -307,7 +308,8 @@ int estimateTransformRANSAC(const MediatorRANSAC<MatType>& m,const OptionsRANSAC
   } else
   {
     M.setZero();
-    inliers->clear();
+    if(inliers)
+      inliers->clear();
     return 0;
   }
 }
@@ -325,7 +327,8 @@ int _commonEstimateTransformLOPROSAC(const MediatorRANSAC<MatType>& m,const Opti
     YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
       << nMatches << " given but " << minMatches << " needed.");
     M.setZero();
-    inliers->clear();
+    if(inliers)
+      inliers->clear();
     return -1;
   }
 
@@ -417,7 +420,8 @@ int _commonEstimateTransformLOPROSAC(const MediatorRANSAC<MatType>& m,const Opti
   } else
   {
     M.setZero();
-    inliers->clear();
+    if(inliers)
+      inliers->clear();
     return 0;
   }
 }
