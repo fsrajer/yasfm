@@ -32,6 +32,8 @@ end
 pairsToShow(:,nMatchesTotal==0) = [];
 nMatchesTotal(nMatchesTotal==0) = [];
 
+HsGT = repmat(struct('H1',[],'H2',[],'i',[],'j',[],'ig',[],'jg',[]),0,1);
+
 imgs = cell(1,nCams);
 imgsToRead = unique(pairsToShow(:))';
 for i=imgsToRead
@@ -77,6 +79,55 @@ for pair=pairsToShow
         plotKeys(cams(i).keys,true,'y');
         plotKeys(keys2,true,'y');
     end
+    
+%     for ig=1:numel(pairs)
+%         for jg=(ig+1):numel(pairs)
+%             
+%             iMatches = pairs{ig}(i,j).matches;
+%             jMatches = pairs{jg}(i,j).matches;
+%             
+%             if(size(iMatches,2) == 0 || size(jMatches,2) == 0)
+%                 continue;
+%             end
+%             
+%             plotMatches(cams(i).keys,keys2,iMatches,showLines,...
+%                 cols{1,1},cols{2,1});
+%             
+%             plotMatches(cams(i).keys,keys2,jMatches,showLines,...
+%                 cols{1,2},cols{2,2});
+%             
+%             while true
+%                 isKeyboard = waitforbuttonpress;
+%                 if isKeyboard
+%                     keyPressed = get(gcf,'CurrentCharacter');
+%                     if ismember(keyPressed,'0123456789')
+%                         label = str2double(keyPressed);
+%                         break;
+%                     elseif strcmp('escape',get(gcf,'CurrentKey'))
+%                         label = Inf;
+%                         break;
+%                     end
+%                 end
+%             end
+%             HsGT(end+1).H1 = pairs{ig}(i,j).groups.T;
+%             HsGT(end).H2 = pairs{jg}(i,j).groups.T;
+%             HsGT(end).i = i;
+%             HsGT(end).j = j;
+%             HsGT(end).ig = ig;
+%             HsGT(end).jg = jg;
+%             HsGT(end).isOneMotion = label;
+%             
+%             save('HsGT.mat','HsGT');
+%             
+%             clf
+%             hold on;
+%             image(img);
+%             axis equal;
+%             axis ij;
+%             axis tight;
+%             axis off;
+%         end
+%     end
     
     tit = ['pair: ' num2str(i) '-' num2str(j) ', # matches:'];
     for iData=1:numel(pairs)
