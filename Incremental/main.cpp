@@ -33,6 +33,7 @@
 #include "YASFM/utils_io.h"
 #include "YASFM/image_similarity.h"
 #include "Eigen/Dense"
+#include "ceres/ceres.h"
 
 using namespace yasfm;
 using std::cin;
@@ -195,6 +196,62 @@ void readPairsGV(const string& fn,Dataset *pdata)
 
 int main(int argc,const char* argv[])
 {
+  vector<Matrix3d> Hs;
+  {
+    ifstream file("C:/Users/Filip/Dropbox/exp/Hs.txt");
+    int n;
+    file >> n;
+    Hs.resize(n);
+    for(int i = 0; i < n; i++)
+    {
+      auto& H = Hs[i];
+      file >> H(0,0) >> H(1,0) >> H(2,0)
+        >> H(0,1) >> H(1,1) >> H(2,1)
+        >> H(0,2) >> H(1,2) >> H(2,2);
+    }
+    file.close();
+  }
+  {
+    //ofstream file("C:/Users/Filip/Dropbox/exp/Hs-cpplabels.txt");
+    //file.flags(std::ios::scientific);
+    FILE *file = fopen("C:/Users/Filip/Dropbox/exp/Hs-cpplabels_.txt","w");
+    fprintf(file,"%i\n",(int)Hs.size());
+    //file << Hs.size() << "\n";
+    Vector3d randVec(Vector3d::Random());
+    for(const auto& H : Hs)
+    {
+      Eigen::EigenSolver<Matrix3d> solver(H.inverse().transpose());
+      if(solver.info() != Eigen::Success)
+      {
+        YASFM_PRINT_ERROR("Eigen vectors computation failed");
+        //file << -1 << "\n";
+        continue;
+      }
+      Eigen::Vector3cd vals = solver.eigenvalues();
+      Eigen::Matrix3cd vec = solver.eigenvectors();
+      double score = -1.;
+      double dist;
+      for(int i = 0; i < 3; i++)
+      {
+        if(vals(i).imag() == 0)
+        {
+          Vector3d line0 = vec.col(i).real();
+          Vector3d line = line0;
+          double scoreCurr = optimizeLine(H,randVec,&line);
+          if(score < scoreCurr)
+          {
+            score = scoreCurr;
+            dist = (line0-line).norm();
+          }
+        }
+      }
+      fprintf(file,"%.100e\n",dist);
+      //file << score << "\n";
+    }
+    fclose(file);
+    //file.close();
+  }
+
   // ======================================
   // See the description of this variable.
   // Camera::maxDescrInMemoryTotal_ = 5000000;

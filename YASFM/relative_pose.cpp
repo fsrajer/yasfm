@@ -24,6 +24,113 @@ using std::list;
 namespace yasfm
 {
 
+
+struct LineNumericCostFunctor2
+{
+  LineNumericCostFunctor2(const Vector3d& line,const Vector3d& x0,const Matrix3d& H)
+    : line(line),x0(x0),H(H)
+  {
+  }
+
+  template<typename T>
+  bool operator()(const T* const alpha,T* residual) const
+  {
+    Eigen::AngleAxis<T> aa(*alpha,line.cast<T>());
+    Matrix<T,3,1> x = aa * x0.cast<T>();
+    Matrix<T,3,1> y = H.cast<T>() * x;
+    T err = x.dot(y) / y.norm();
+    *residual = err;
+    return true;
+  }
+
+  Matrix3d H;
+  Vector3d line,x0;
+};
+
+
+struct LineNumericCostFunctor
+{
+  LineNumericCostFunctor(const Matrix3d& H,const Vector3d& randVec)
+    : H(H),randVec(randVec)
+  {
+  }
+
+  bool operator()(const double* const thetaPhi,double *residual) const
+  {
+    double theta = thetaPhi[0];
+    double phi = thetaPhi[1];
+    Vector3d line(sin(theta)*cos(phi),sin(theta)*sin(phi),cos(theta));
+
+    Vector3d x0 = line.cross(randVec).normalized();
+    double alpha = 0.;
+
+    ceres::Problem problem;
+    auto costFun = new ceres::AutoDiffCostFunction<
+      LineNumericCostFunctor2,1,1>(
+      new LineNumericCostFunctor2(line,x0,H));
+    problem.AddResidualBlock(costFun,nullptr,&alpha);
+
+    ceres::Solver::Options solverOpt;
+    //solverOpt.minimizer_progress_to_stdout = true;
+    ceres::Solver::Summary summary;
+    ceres::Solve(solverOpt,&problem,&summary);
+
+    //cout << summary.FullReport();
+    *residual = 1. - summary.final_cost;
+    return true;
+
+    /*auto& score = *residual;
+    score = 1;
+
+    double theta = thetaPhi[0];
+    double phi = thetaPhi[1];
+    Vector3d line(sin(theta)*cos(phi),sin(theta)*sin(phi),cos(theta));
+
+    Vector3d x0 = line.cross(randVec).normalized();
+
+    for(double alpha = 0.; alpha < M_PI; alpha += 0.01)
+    {
+      AngleAxisd aa(alpha,line);
+      Vector3d x = aa * x0;
+      Vector3d y = H * x;
+      double err = abs(x.dot(y) / y.norm());
+      score = std::min(score,err);
+    }
+    score = 1 - score;*/
+    return true;
+  }
+
+  Matrix3d H;
+  Vector3d randVec;
+};
+
+double optimizeLine(const Matrix3d& H,const Vector3d& randVec,Vector3d *pline)
+{
+  auto& line = *pline;
+  double thetaPhi[2];
+  thetaPhi[0] = acos(line(2));
+  thetaPhi[1] = atan(line(1)/line(0));
+
+  ceres::Problem problem;
+  auto costFun = new ceres::NumericDiffCostFunction<
+    LineNumericCostFunctor,ceres::CENTRAL,1,2>(
+    new LineNumericCostFunctor(H,randVec));
+  problem.AddResidualBlock(costFun,nullptr,&thetaPhi[0]);
+
+  ceres::Solver::Options solverOpt;
+  //solverOpt.minimizer_progress_to_stdout = true;
+  ceres::Solver::Summary summary;
+  ceres::Solve(solverOpt,&problem,&summary);
+
+  //cout << summary.FullReport();
+
+  double theta = thetaPhi[0];
+  double phi = thetaPhi[1];
+  line = Vector3d(sin(theta)*cos(phi),sin(theta)*sin(phi),cos(theta));
+
+  return (1 - summary.final_cost);
+}
+
 void decomposeF(const Matrix3d& F,Matrix3d *H,Vector3d *v)
 {
   JacobiSVD<Matrix3d> svd(F,Eigen::ComputeFullU | Eigen::ComputeFullV);
