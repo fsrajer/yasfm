@@ -1,4 +1,4 @@
-function score = computeScoreMySecond(H)
+function score = computeSameEigenvalueDistImproved(H)
 
 e = eig(H);
 

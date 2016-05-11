@@ -1,4 +1,4 @@
-function score = computeScoreMyFirst(H)
+function score = computeSameEigenvalueDist(H)
 
 e = eig(H);
 

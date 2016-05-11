@@ -27,19 +27,19 @@ end
 labels = cell2mat({gt(:).isOneMotion});
 labels(labels==0) = -1;
 methods={};
-methods{end+1}='my first';
+methods{end+1}='same eigenvalue dist';
 methods{end+1}='eigenvector line fixedness score';
 % methods{end+1}='eigenvector point fixedness score';
 % methods{end+1}='eigenvector line fixedness score optimized';
-methods{end+1}='my second';
+methods{end+1}='same eigenvalue dist improved';
 
 scores = zeros(numel(methods),numel(labels));
 for iH=1:numel(gt)
     H = inv(gt(iH).H2) * gt(iH).H1;
-    scores(1,iH) = -computeScoreMyFirst(H);
+    scores(1,iH) = -computeSameEigenvalueDist(H);
     scores(2,iH) = computeEigenvectorLineFixedness(H);
 %     scores(3,iH) = computeEigenvectorPointFixedness(H);
-    scores(3,iH) = -computeScoreMySecond(H);
+    scores(3,iH) = -computeSameEigenvalueDistImproved(H);
 end
 
 % fid=fopen('Hs-cpplabels_.txt','r');
