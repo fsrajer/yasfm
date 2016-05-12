@@ -167,32 +167,6 @@ void runSFM(const IncrementalOptions& opt,const string& outDir,
   const uset<int>& camsToIgnoreForInitialization,uset<int> *pexploredCams,
   Dataset *pdata);
 
-void readPairsGV(const string& fn,Dataset *pdata)
-{
-  auto& data = *pdata;
-  ifstream file(fn);
-  if(!file.is_open())
-  {
-    return;
-  }
-  string fn1,fn2;
-  int iCam = 0;
-  while(!file.eof())
-  {
-    file >> fn1 >> fn2;
-    string dummy;
-    std::getline(file,dummy);
-    std::getline(file,dummy);
-    data.addCamera<StandardCameraRadial>(fn1);
-    data.addCamera<StandardCameraRadial>(fn2);
-    data.queries().emplace_back();
-    data.queries().emplace_back();
-    data.queries().back().insert(iCam);
-    iCam += 2;
-  }
-  file.close();
-}
-
 int main(int argc,const char* argv[])
 {
   // ======================================
@@ -213,10 +187,9 @@ int main(int argc,const char* argv[])
   string outDir = joinPaths(dir,"models");
   makeDirRecursive(outDir);
 
-  //opt.write(joinPaths(dir,"options.txt"));
+  opt.write(joinPaths(dir,"options.txt"));
 
   Dataset data(dir);
-  /*readPairsGV(joinPaths(dir,"pairs.txt"),&data);
   data.addCameras<StandardCameraRadial>(imgsSubdir);
   // -> the principal point is always set to the
   // image center in StandardCamera
@@ -241,7 +214,7 @@ int main(int argc,const char* argv[])
   data.readKeysColors();
   data.writeASCII("init.txt");
   //data.readASCII("init.txt");
-  
+  /*
   cout << "Looking for similar camera pairs.\n";
   bool verbose = true;
   findSimilarCameraPairs(data.cams(),opt.get<int>("maxVocabularySize"),
@@ -249,89 +222,25 @@ int main(int argc,const char* argv[])
 
   data.writeASCII("similar.txt");
   //data.readASCII("similar.txt");
-
+  
   matchFeatFLANN(opt.getOpt<OptionsFLANN>("matchingFLANN"),data.cams(),
-    data.queries(),&data.pairs());
-  //matchFeatFLANN(opt.getOpt<OptionsFLANN>("matchingFLANN"),data.cams(),&data.pairs());
+    data.queries(),&data.pairs());*/
+  matchFeatFLANN(opt.getOpt<OptionsFLANN>("matchingFLANN"),data.cams(),&data.pairs());
   removePoorlyMatchedPairs(opt.get<int>("minNumPairwiseMatches"),&data.pairs());
   data.clearDescriptors();
 
-  data.writeASCII("tentatively_matched_all.txt");*/
-  //data.readASCII("0.8/tentatively_matched_all.txt");
-  data.readASCII("0.8/tentatively_matched_all_with_gt.txt");
+  data.writeASCII("tentatively_matched.txt");
+  //data.readASCII("tentatively_matched.txt");
 
-  for(int i = 0; i < data.numCams(); i++)
-  {
-    auto& cam = data.cam(i);
-    double maxDim = std::max(cam.imgWidth(),cam.imgHeight());
-    double focalPx = opt.get<double>("defaultFocalDividedBySensorSize") * maxDim;
-    cam.setFocal(focalPx);
-  }
-  bool useCalibratedEpipolarVerif = true;
-
-#define DDEBUG
-
-  float& ratioThresh = opt.getOpt<OptionsFLANN>("matchingFLANN").get<float>("ratioThresh");
-#ifdef DDEBUG
-  ratioThresh = 0.7f;
-  int nSteps = 1;
-#else
-  ratioThresh = 0.f;
-  int nSteps = 33;
-#endif
-  float stepSize = 0.025f;
-  string name = "0.8/Hfast-EG";
-  _mkdir(joinPaths(dir,name).c_str());
-  pair_umap<CameraPair> allPairs = data.pairs();
-  
-#ifdef DDEBUG
-  /*IntPair curr(76,77);
-  allPairs.clear();
-  allPairs[curr] = data.pairs()[curr];
-  data.pairs() = allPairs;*/
-#endif
-  
-  for(int i = 0; i < nSteps; i++,ratioThresh += stepSize)
-  {
-    cout << "Processing " << i << "-th out of " << nSteps << "\n";
-    for(auto& entry : data.pairs())
-    {
-      auto& pair = entry.second;
-      vector<bool> keep(pair.matches.size());
-      for(size_t i = 0; i < pair.dists.size(); i++)
-      {
-        keep[i] = pair.dists[i] < ratioThresh;
-      }
-      filterVector(keep,&pair.matches);
-      filterVector(keep,&pair.dists);
-
-      keep.clear();
-      size_t numKeys2 = data.cam(entry.first.second).keys().size();
-      findUniqueMatches(pair.matches,numKeys2,&keep);
-      filterVector(keep,&pair.matches);
-      filterVector(keep,&pair.dists);
-    }
-    verifyMatchesGeometrically(opt.getOpt<OptionsGeometricVerification>("geometricVerification"),
-      data.cams(),&data.pairs());
-    //verifyMatchesEpipolar(opt.getOpt<OptionsRANSAC>("epipolarVerification"),
-    //  useCalibratedEpipolarVerif,data.cams(),&data.pairs());
-
-#ifndef DDEBUG
-    data.writeASCII(name + "/matched_" + std::to_string(i+1) + ".txt");
-    opt.write(joinPaths(dir,name + "/options_" + std::to_string(i+1) + ".txt"));
-#endif
-    data.pairs() = allPairs;
-  }
-
-  /*verifyMatchesGeometrically(opt.getOpt<OptionsGeometricVerification>("geometricVerification"),
+  verifyMatchesGeometrically(opt.getOpt<OptionsGeometricVerification>("geometricVerification"),
     data.cams(),&data.pairs());
   //verifyMatchesEpipolar(opt.getOpt<OptionsRANSAC>("epipolarVerification"),
   //  data.cams(),&data.pairs());
   
-  data.writeASCII("matched.txt");*/
+  data.writeASCII("matched.txt");
   //data.readASCII("matched.txt");
 
-  /*cout << "Computing homographies of verified pairs.\n";
+  cout << "Computing homographies of verified pairs.\n";
   ArrayXXd homographyProportion;
   computeHomographyInliersProportion(opt.getOpt<OptionsRANSAC>("homography"),
     data.cams(),data.pairs(),
@@ -395,7 +304,7 @@ int main(int argc,const char* argv[])
     << "Final report:\n"
     << "  " << modelId << " models reconstructed.\n"
     << "  " << data.cams().size() - exploredCams.size()
-    << " out of " << data.cams().size() << " cameras left unexplored.\n";*/
+    << " out of " << data.cams().size() << " cameras left unexplored.\n";
 }
 
 void runSFM(const IncrementalOptions& opt,const string& outDir,
