@@ -38,14 +38,14 @@ while ~feof(fid)
                 res.nViewMatches = readNViewMatches(fid,nMatches);
             elseif strcmp(name,'pts_')
                 nPts = str2double(tokens{2});
-                nFields = str2double(tokens{3});
-                res.pts = readPts(fid,nPts,nFields);
+                nFieldsPts = str2double(tokens{3});
+                res.pts = readPts(fid,nPts,nFieldsPts);
             elseif strcmp(name,'points_')
                 [res.nViewMatches,res.pts] = readPointsOld(fid);
             elseif strcmp(name,'pairs_')
                 nPairs = str2double(tokens{2});
-                nFields = str2double(tokens{3});
-                res.pairs = readPairs(fid,nPairs,nFields,numel(res.cams));
+                nFieldsPairs = str2double(tokens{3});
+                res.pairs = readPairs(fid,nPairs,nFieldsPairs,numel(res.cams));
             end
         end
     end
@@ -84,8 +84,8 @@ queries = cell(nQueries,1);
 for i=1:nQueries
     n = fscanf(fid,'%i',1);
     queries{i} = fscanf(fid,'%i',n);
+    fgetl(fid);
 end
-fgetl(fid);
 end
 
 function pts = readPts(fid,nPts,nFields)
