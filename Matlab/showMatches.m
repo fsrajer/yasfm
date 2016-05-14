@@ -100,7 +100,7 @@ for pair=pairsToShow
 %                 isKeyboard = waitforbuttonpress;
 %                 if isKeyboard
 %                     keyPressed = get(gcf,'CurrentCharacter');
-%                     if ismember(keyPressed,'0123456789')
+%                     if ismember(keyPressed,'01')
 %                         label = str2double(keyPressed);
 %                         break;
 %                     elseif strcmp('escape',get(gcf,'CurrentKey'))
@@ -171,7 +171,7 @@ for pair=pairsToShow
 %     fn = 'dalib-pair-matches';
 %     print(gcf,fullfile('C:\Users\Filip\Dropbox\Diplomka\cmpthesis\imgs',fn),'-dpdf');
 end
-
+% save('HsGT.mat','HsGT','cams','pairs');
 end
 
 function cols = initColors()
