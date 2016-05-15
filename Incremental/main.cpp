@@ -196,7 +196,7 @@ void readPairsGV(const string& fn,Dataset *pdata)
 
 int main(int argc,const char* argv[])
 {
-  vector<Matrix3d> Hs;
+  /*vector<Matrix3d> Hs;
   {
     ifstream file("C:/Users/Filip/Dropbox/exp/Hs.txt");
     int n;
@@ -250,7 +250,7 @@ int main(int argc,const char* argv[])
     }
     fclose(file);
     //file.close();
-  }
+  }*/
 
   // ======================================
   // See the description of this variable.
