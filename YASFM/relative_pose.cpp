@@ -1511,23 +1511,15 @@ double computePairwiseEigScore(const Matrix3d& H1,const Matrix3d& H2)
   double score = 1e30;
   if(e.imag().any())
   {
-    int iReal,iImag;
+    int iImag;
     if(e(0).imag() == 0)
-    {
-      iReal = 0;
       iImag = 1;
-    } else if(e(2).imag() == 0)
-    {
-      iReal = 2;
+    else if(e(2).imag() == 0)
       iImag = 0;
-    }else
-    {
-      iReal = 1;
+    else
       iImag = 0;
-    }
 
-    if((e(iReal).real() / e(iImag).real()) > 0.)
-      score = 2*abs(e(iImag).imag() / e(iImag).real());
+    score = 2*abs(e(iImag).imag() / e(iImag).real());
 
   } else
   {
@@ -1535,26 +1527,19 @@ double computePairwiseEigScore(const Matrix3d& H1,const Matrix3d& H2)
 
     int i = 0,j = 1,k = 2;
     er = er/(0.5*(er(i)+er(j)));
-    if(er(k) > 0.)
-      score = abs(1. - er(i)) + abs(1. - er(j));
+    score = abs(1. - er(i)) + abs(1. - er(j));
 
     i = 1; j = 2; k = 0;
     er = er/(0.5*(er(i)+er(j)));
-    if(er(k) > 0.)
-    {
-      double scoreCurr = abs(1. - er(i)) + abs(1. - er(j));
-      if(scoreCurr < score)
-        score = scoreCurr;
-    }
+    double scoreCurr = abs(1. - er(i)) + abs(1. - er(j));
+    if(scoreCurr < score)
+      score = scoreCurr;
 
     i = 0; j = 2; k = 1;
     er = er/(0.5*(er(i)+er(j)));
-    if(er(k) > 0.)
-    {
-      double scoreCurr = abs(1. - er(i)) + abs(1. - er(j));
-      if(scoreCurr < score)
-        score = scoreCurr;
-    }
+    scoreCurr = abs(1. - er(i)) + abs(1. - er(j));
+    if(scoreCurr < score)
+      score = scoreCurr;
   }
 
   return score;
