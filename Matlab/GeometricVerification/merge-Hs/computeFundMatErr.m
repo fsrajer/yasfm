@@ -1,4 +1,4 @@
-function score = computeFundMatErr(H1,H2,u11,u12,u21,u22,u31,u32)
+function [score,score2] = computeFundMatErr(H1,H2,u11,u12,u21,u22,u31,u32)
 
 % H = inv(H2)*H1;
 % [V,D] = eig(H);
@@ -30,8 +30,16 @@ function score = computeFundMatErr(H1,H2,u11,u12,u21,u22,u31,u32)
 % score2 = sum(err < 20.);
 
 err = fds(Fbest,[e2p(u31);e2p(u32)]);
-% score2 = sum(err(err < 20.));
-score = sum(err < 20.);
+score = sum(err(err < 5.));
+% score = sum(err < 5.);
 % score = mean(err);
+score2 = sum(inl);
 
+
+softThresh=5.;
+t = 0.25;
+sigma = softThresh / sqrt(-log(t*t));
+
+% err = fds(Fbest,[e2p(u11) e2p(u21) e2p(u31);e2p(u12) e2p(u22) e2p(u32)]);
+% score=sum(-log(exp(-(err.^2)./(2*sigma*sigma))+t) + log(1+t));
 end

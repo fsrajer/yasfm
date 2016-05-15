@@ -36,42 +36,45 @@ methods={};
 methods{end+1}='same eigenvalue dist improved';
 methods{end+1}='new';
 methods{end+1}='new - combined';
+% methods{end+1}='new - combined2';
 
 scores = zeros(numel(methods),numel(labels));
 for iH=1:numel(gt)
     H = inv(gt(iH).H2) * gt(iH).H1;
-%     scores(1,iH) = -computeSameEigenvalueDist(H);
+    scores(1,iH) = -computeSameEigenvalueDist(H);
 %     scores(2,iH) = computeEigenvectorLineFixedness(H);
 %     scores(3,iH) = computeEigenvectorPointFixedness(H);
-    scores(1,iH) = -computeSameEigenvalueDistImproved(H);
+%     scores(1,iH) = -computeSameEigenvalueDistImproved(H);
     
     i = gt(iH).i;
     j = gt(iH).j;
     keys1=cell2mat({ld.cams(i).keys(:).coord});
     keys2=cell2mat({ld.cams(j).keys(:).coord});
-    m = ld.pairs{gt(iH).ig}(i,j).matches;
-    u11 = keys1(:,m(1,:));
-    u12 = keys2(:,m(2,:));
-    m = ld.pairs{gt(iH).jg}(i,j).matches;
-    u21 = keys1(:,m(1,:));
-    u22 = keys2(:,m(2,:));
-    m = tent(i,j).matches;
-%     m=zeros(2,0);
-%     for ig=1:numel(ld.pairs)
-%         if ig == gt(iH).ig || ig == gt(iH).jg
-%             continue;
-%         end
-%         m = [m ld.pairs{ig}(i,j).matches];
-%     end
-%     normalizer = 0;
-%     for ig=1:numel(ld.pairs)
-%         normalizer = normalizer + size(ld.pairs{ig}(i,j).matches,2);
-%     end
+    m1 = ld.pairs{gt(iH).ig}(i,j).matches;
+    u11 = keys1(:,m1(1,:));
+    u12 = keys2(:,m1(2,:));
+    m2 = ld.pairs{gt(iH).jg}(i,j).matches;
+    u21 = keys1(:,m2(1,:));
+    u22 = keys2(:,m2(2,:));
+    m = tent(i,j).matches(:,tent(i,j).dists<0.7);
+    m(:,ismember(m',[m1 m2]','rows'))=[];
+    normalizer = 0;%-size(m2,2)-size(m1,2);
+    szs = [];
+    for ig=1:numel(ld.pairs)
+        szs = [szs size(ld.pairs{ig}(i,j).matches,2)];
+        normalizer = normalizer + size(ld.pairs{ig}(i,j).matches,2);
+    end
     u31 = keys1(:,m(1,:));
     u32 = keys2(:,m(2,:));
-    scoreF=computeFundMatErr(gt(iH).H1,gt(iH).H2,u11,u12,u21,u22,u31,u32);
-    scores(2,iH) = (scoreF-size(u11,2)-size(u21,2)) / (size(u11,2)+size(u21,2));
+    [scoreF,scoreG]=computeFundMatErr(gt(iH).H1,gt(iH).H2,u11,u12,u21,u22,u31,u32);
+    nn=size(u11,2)+size(u21,2);
+%     scores(2,iH) = scoreF/nn;
+    scores(2,iH) = (scoreF+scoreG)/nn;%log(scoreF+1)+scoreG/(size(u11,2)+size(u21,2));% * (scoreG / (size(u11,2)+size(u21,2)));
+%     scores(2,iH) = (scoreF+scoreG) / ((size(u11,2)+size(u21,2)) / size(tent(i,j).matches,2));% / (size(u11,2)+size(u21,2));
+%     scores(2,iH) = (scoreF-size(u11,2)-size(u21,2)) / (size(u11,2)+size(u21,2));
+    
     scores(3,iH) = -scores(2,iH)/scores(1,iH);
+%     scores(4,iH) = ((scores(2,iH)>10)+0.0000001) * scores(1,iH);
 end
 
 % fid=fopen('Hs-cpplabels_.txt','r');
@@ -79,16 +82,23 @@ end
 % scores(4,:) = fscanf(fid,'%lf',[n 1]);
 % fclose(fid);
 
+% figure;
+% hold on ;
 figure;
-hold on ;
-
+vl_roc(labels,scores(2,:))
+figure;
+vl_roc(labels,scores(end,:))
+[tpr,tnr,info] = vl_roc(labels,scores(end,:));
 tit = [];
 for is=1:size(scores,1)
-    [rc, pr, info] = vl_pr(labels,scores(is,:));
-    plot(rc,pr,'linewidth',2,'color', cols(:,is));
-    tit = [tit sprintf('auc%i=%.2f; ',is,info.auc)];
+    figure;
+    vl_roc(labels,scores(is,:))
+    [tpr,tnr,info] = vl_roc(labels,scores(is,:));
+%     [rc, pr, info] = vl_pr(labels,scores(is,:));
+%     plot(rc,pr,'linewidth',2,'color', cols(:,is));
+%     tit = [tit sprintf('auc%i=%.2f; ',is,info.auc)];
 end
-title(tit);
+% title(tit);
 
 p = sum(labels>0);
 n = sum(labels<0);
