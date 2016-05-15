@@ -1574,20 +1574,13 @@ double computePairwiseEigScore(const OptionsGeometricVerification& opt,
   return double(nInliers) / double(bothGroups.size());
 }
 
-int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
-  const Camera& cam1,const Camera& cam2,const CameraPair& pair,
-  vector<int> *poutInliers,vector<MatchGroup> *poutGroups)
+void estimateFundamentalMatricesMerging(const OptionsGeometricVerification& opt,
+  const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const vector<IntPair>& matches,
+  const vector<vector<int>>& groupsH,const vector<Matrix3d>& Hs,
+  vector<vector<int>> *pgroupsF,vector<Matrix3d> *pFs)
 {
-  auto& outInliers = *poutInliers;
-  auto& outGroups = *poutGroups;
-
-  vector<vector<int>> groupsH;
-  vector<Matrix3d> Hs;
-  growHomographies(opt,cam1,cam2,pair,&groupsH,&Hs);
-
-  vector<vector<int>> groupsEG;
-  vector<Matrix3d> Fs;
-
+  auto& groupsF = *pgroupsF;
+  auto& Fs = *pFs;
 
   double mergeThresh = opt.get<double>("mergeThresh");
   vector<bool> visited(groupsH.size(),false);
@@ -1612,8 +1605,8 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
         if(!visited[j])
         {
           double eigScore = computePairwiseEigScore(Hs[i],Hs[j]);
-          double egThresh = computePairwiseEigScore(opt,cam1.keys(),
-            cam2.keys(),pair.matches,groupsH[i],groupsH[j]);
+          double egThresh = computePairwiseEigScore(opt,keys1,
+            keys2,matches,groupsH[i],groupsH[j]);
           double score = egThresh / eigScore;
           if(score > mergeThresh)
           {
@@ -1625,21 +1618,64 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
     }
   }
 
+  vector<bool> matchUsed(matches.size(),false);
+  for(const auto& groupH : groupsH)
+    for(int iMatch : groupH)
+      matchUsed[iMatch] = true;
+
+  vector<IntPair> remainingMatches;
+  vector<int> remainingToAll;
+  for(int iMatch = 0; iMatch < int(matches.size()); iMatch++)
+  {
+    if(!matchUsed[iMatch])
+    {
+      remainingMatches.push_back(matches[iMatch]);
+      remainingToAll.push_back(iMatch);
+    }
+  }
+
   for(const auto& groupIdxs : toMerge)
   {
-    groupsEG.emplace_back();
+    if(groupIdxs.size() <= 1)
+      continue;
+    groupsF.emplace_back();
     for(int igH : groupIdxs)
     {
-      groupsEG.back().insert(groupsEG.back().end(),
+      groupsF.back().insert(groupsF.back().end(),
         groupsH[igH].begin(),groupsH[igH].end());
     }
     Fs.emplace_back();
-    estimateFundamentalMatrix(cam1.keys(),cam2.keys(),pair.matches,
-      groupsEG.back(),opt.get<double>("refineTolerance"),
+    estimateFundamentalMatrix(keys1,keys2,matches,
+      groupsF.back(),opt.get<double>("refineTolerance"),
       opt.get<int>("nOptIterations"),&Fs.back());
+
+    vector<int> inliers;
+    findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
+      keys1,keys2,remainingMatches,Fs.back(),&inliers);
+
+    for(int remainingIdx : inliers)
+      groupsF.back().push_back(remainingToAll[remainingIdx]);
+    filterOutOutliers(inliers,&remainingMatches);
+    filterOutOutliers(inliers,&remainingToAll);
   }
-  
+}
+
+int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  const Camera& cam1,const Camera& cam2,const CameraPair& pair,
+  vector<int> *poutInliers,vector<MatchGroup> *poutGroups)
+{
+  auto& outInliers = *poutInliers;
+  auto& outGroups = *poutGroups;
+
+  vector<vector<int>> groupsH;
+  vector<Matrix3d> Hs;
+  growHomographies(opt,cam1,cam2,pair,&groupsH,&Hs);
+
+  vector<vector<int>> groupsEG;
+  vector<Matrix3d> Fs;
   //estimateFundamentalMatrices(opt,cam1.keys(),cam2.keys(),pair,groupsH,&groupsEG,&Fs);
+  estimateFundamentalMatricesMerging(opt,cam1.keys(),cam2.keys(),pair.matches,
+    groupsH,Hs,&groupsEG,&Fs);
 
   // == Remove Hs modelled by EG ==
   vector<bool> isModelledByEG(pair.matches.size(),false);
