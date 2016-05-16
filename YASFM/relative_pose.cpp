@@ -1647,7 +1647,7 @@ void estimateFundamentalMatricesMerging(const OptionsGeometricVerification& opt,
     Fs.emplace_back();
     estimateFundamentalMatrix(keys1,keys2,matches,
       groupsF.back(),opt.get<double>("refineTolerance"),
-      opt.get<int>("nOptIterations"),&Fs.back());
+      opt.get<int>("nOptIterations")*3,&Fs.back());
 
     vector<int> inliers;
     findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
