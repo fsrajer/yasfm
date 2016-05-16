@@ -162,15 +162,12 @@ for pair=pairsToShow
     drawnow;
     
 %     title('');
-%     % printing
-%     set(gca,'Position',get(gca,'OuterPosition'));
-%     set(gcf,'PaperUnits','points');
-%     sz = size(img)/2;
-%     set(gcf,'PaperPosition',[0 0 sz(2) sz(1)]);
-%     set(gcf,'PaperSize',[sz(2) sz(1)]);
-%     fn = 'dalib-pair-matches';
-%     fn = sprintf('pair-%i-%i-gv-fast',i,j);
-%     print(gcf,fullfile('C:\Users\Filip\Dropbox\Diplomka\cmpthesis\imgs',fn),'-dpdf');
+%     set(gca, 'Color', 'none');
+%     addpath export_fig
+%     fn = sprintf('seq-ransac-F-%i-%i.pdf',i,j);
+%     fn = fullfile('C:\Users\Filip\Dropbox\Diplomka\cmpthesis\imgs',fn);
+%     export_fig(fn,'-native','-transparent');
+
 end
 % save('HsGT.mat','HsGT','cams','pairs');
 end
@@ -183,14 +180,14 @@ cols={};
 % cols{2,end} = [0 0 0];
 cols{1,end+1} = [0 1 0];
 cols{2,end} = [0 0.5 0];
+cols{1,end+1} = [1 0 1];
+cols{2,end} = [0.5 0 0.5];
 cols{1,end+1} = [0 0 1];
 cols{2,end} = [0 0 0.75];
 cols{1,end+1} = [1 0 0];
 cols{2,end} = [0.5 0 0];
 cols{1,end+1} = [1 1 0];
 cols{2,end} = [0.5 0.5 0];
-cols{1,end+1} = [1 0 1];
-cols{2,end} = [0.5 0 0.5];
 cols{1,end+1} = [0 1 1];
 cols{2,end} = [0 0.5 0.5];
 cols{1,end+1} = 'k';
