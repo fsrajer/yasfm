@@ -1545,7 +1545,7 @@ double computePairwiseEigScore(const Matrix3d& H1,const Matrix3d& H2)
   return score;
 }
 
-double computePairwiseEigScore(const OptionsGeometricVerification& opt,
+double computePairwiseEGScore(const OptionsGeometricVerification& opt,
   const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
   const vector<IntPair>& matches,const vector<int>& group1,
   const vector<int>& group2)
@@ -1605,7 +1605,7 @@ void estimateFundamentalMatricesMerging(const OptionsGeometricVerification& opt,
         if(!visited[j])
         {
           double eigScore = computePairwiseEigScore(Hs[i],Hs[j]);
-          double egThresh = computePairwiseEigScore(opt,keys1,
+          double egThresh = computePairwiseEGScore(opt,keys1,
             keys2,matches,groupsH[i],groupsH[j]);
           double score = egThresh / eigScore;
           if(score > mergeThresh)

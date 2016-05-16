@@ -642,6 +642,13 @@ YASFM_API void estimateFundamentalMatrices(const OptionsGeometricVerification& o
   const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const CameraPair& pair,
   const vector<vector<int>>& groupsH,vector<vector<int>> *groupsEG,vector<Matrix3d> *Fs);
 
+YASFM_API double computePairwiseEigScore(const Matrix3d& H1,const Matrix3d& H2);
+
+YASFM_API double computePairwiseEGScore(const OptionsGeometricVerification& opt,
+  const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
+  const vector<IntPair>& matches,const vector<int>& group1,
+  const vector<int>& group2);
+
 /// Estimate fundamental matrix using known homographies in the scene to avoid 
 /// degeneracies.
 YASFM_API bool estimateRelativePose7ptKnownHsLOPROSAC(const OptionsRANSAC& opt,
