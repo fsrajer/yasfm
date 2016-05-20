@@ -33,6 +33,7 @@
 #include "YASFM/utils_io.h"
 #include "YASFM/image_similarity.h"
 #include "Eigen/Dense"
+#include "ceres/ceres.h"
 
 using namespace yasfm;
 using std::cin;
@@ -195,6 +196,45 @@ void readPairsGV(const string& fn,Dataset *pdata)
 
 int main(int argc,const char* argv[])
 {
+  /*string dir2("C:/Users/Filip/Dropbox/pairs/gv-fast-all");
+  Dataset data2(dir2);
+  data2.readASCII("matched_2.txt");
+  int nHs = 160;
+  {
+    IncrementalOptions optt;
+    FILE *file = fopen("C:/Users/Filip/Workspace/YASFM/matlab/GeometricVerification/merge-Hs/scores-cpp.txt","w");
+    fprintf(file,"%i\n",nHs);
+    
+    for(const auto& entry : data2.pairs())
+    {
+      IntPair camsIdx = entry.first;
+      const auto& pair = entry.second;
+      const auto& groups = pair.groups;
+
+      vector<vector<int>> groupsMatches(groups.size());
+      int iMatch = 0;
+      for(size_t ig = 0; ig < groups.size(); ig++)
+        for(int i = 0; i < groups[ig].size; i++)
+          groupsMatches[ig].push_back(iMatch++);
+
+      for(int ig = 0; ig < int(groups.size()); ig++)
+      {
+        for(int jg = ig+1; jg < int(groups.size()); jg++)
+        {
+          const auto& H1 = groups[ig].T;
+          const auto& H2 = groups[jg].T;
+          double eigScore = computePairwiseEigScore(H1,H2);
+          double egScore = computePairwiseEGScore(optt.getOpt<OptionsGeometricVerification>("geometricVerification"),
+            data2.cam(camsIdx.first).keys(),data2.cam(camsIdx.second).keys(),
+            pair.matches,groupsMatches[ig],groupsMatches[jg]);
+
+          fprintf(file,"%i %i %i %i %.100e %.100e\n",camsIdx.first,camsIdx.second,ig,jg,eigScore,egScore);
+        }
+      }
+    }
+    fclose(file);
+  }*/
+
   // ======================================
   // See the description of this variable.
   // Camera::maxDescrInMemoryTotal_ = 5000000;

@@ -7,10 +7,15 @@ if ~exist('color','var')
     color = [1 1 0];
 end
 if ~exist('lineWidth','var')
-    lineWidth = 2;
+    lineWidth = 0.7;
 end
 if ~exist('markerSize','var')
-    markerSize = 10;%15;25;50
+%     markerSize = 10;%keys 1
+%     markerSize = 7; %keys 1 2
+    markerSize = 20; %default
+%     markerSize = 10;
+%     markerSize = 12;
+%     markerSize = 17;
 end
 
 if justPts
