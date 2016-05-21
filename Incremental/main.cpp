@@ -1,4 +1,4 @@
-/*
+﻿/*
 * Filip Srajer
 * filip.srajer (at) fel.cvut.cz
 * Center for Machine Perception
@@ -240,18 +240,6 @@ int main(int argc,const char* argv[])
   data.writeASCII("matched.txt");
   //data.readASCII("matched.txt");
 
-  cout << "Computing homographies of verified pairs.\n";
-  ArrayXXd homographyProportion;
-  computeHomographyInliersProportion(opt.getOpt<OptionsRANSAC>("homography"),
-    data.cams(),data.pairs(),
-    &homographyProportion);
-
-  cout << "Searching for N view matches ... ";
-  twoViewMatchesToNViewMatches(data.cams(),data.pairs(),
-    &data.nViewMatches());
-  cout << "found " << data.nViewMatches().size() << "\n";
-  data.pairs().clear(); // No need for 2 view matches anymore.
-
   vector<bool> isCalibrated(data.numCams(),false);
   for(int i = 0; i < data.numCams(); i++)
   {
@@ -259,52 +247,82 @@ int main(int argc,const char* argv[])
     isCalibrated[i] = cam->f() > 0.;
   }
 
-  ArrayXXd homographyScores(homographyProportion.rows(),homographyProportion.cols());
-  for(int c = 0; c < homographyProportion.cols(); c++)
+  ArrayXXd homographyScores(data.numCams(),data.numCams());
+  homographyScores.fill(DBL_MAX);
+  
+  cout << "Searching for N view matches ... ";
+  vector<int> nViewMatchesAllGroups;
+  twoViewMatchesToNViewMatches(data.cams(),data.pairs(),
+    &data.nViewMatches(),&nViewMatchesAllGroups);
+  cout << "found " << data.nViewMatches().size() << "\n";
+  data.pairs().clear(); // No need for 2 view matches anymore.
+
+  int nGroups = 0;
+  for(int ig : nViewMatchesAllGroups)
+    if(nGroups < ig)
+      nGroups = ig;
+  nGroups++;
+  cout << "found " << nGroups << " groups\n";
+
+  vector<NViewMatch> nViewMatchesAll = data.nViewMatches();
+  for(int ig = 0; ig < nGroups; ig++)
   {
-    for(int r = 0; r < homographyProportion.rows(); r++)
+    data.pairs().clear();
+    vector<bool> toKeep(nViewMatchesAll.size());
+    for(int im = 0; im < nViewMatchesAll.size(); im++)
     {
-      if(homographyProportion(r,c) == 0.)
-        homographyScores(r,c) = DBL_MAX;
-      else
-        homographyScores(r,c) = 1. / homographyProportion(r,c);
+      toKeep[im] = (nViewMatchesAllGroups[im]==ig);
     }
-  }
+    data.nViewMatches() = nViewMatchesAll;
+    filterVector(toKeep,&data.nViewMatches());
 
-  int modelId = 0;
-  uset<int> exploredCams;
-  while(data.cams().size() - exploredCams.size() >= 2)
-  {
-    size_t nExploredPrev = exploredCams.size();
-    string appendix = "model" + std::to_string(modelId);
-    string currOutDir = joinPaths(outDir,appendix);
-    makeDirRecursive(currOutDir);
-
-    Dataset currData = data;
-    uset<int> exploredCamsCurr;
-    runSFM(opt,currOutDir,isCalibrated,homographyScores,exploredCams,
-      &exploredCamsCurr,&currData);
-    exploredCams.insert(exploredCamsCurr.begin(),exploredCamsCurr.end());
-
-    if(nExploredPrev >= exploredCams.size())
-      break;
-
-    modelId++;
-
-    if(currData.reconstructedCams().size() > 3)
+    /*for(int i = 0; i < data.numCams(); i++)
     {
-      currData.nViewMatches().clear(); // We don't need unused n-view matches
-      writeSFMBundlerFormat(joinPaths(currData.dir(),"bundle_final_"
-        + appendix + ".out"),currData);
-      currData.writeASCII("final_" + appendix + ".txt");
+      for(int j = i+1; j < data.numCams(); j++)
+      {
+        vector<int> tmp;
+        nViewMatchesToTwoViewMatches(data.nViewMatches(),IntPair(i,j),
+          &data.pairs()[IntPair(i,j)].matches,&tmp);
+      }
     }
-  }
 
-  cout << "\n"
-    << "Final report:\n"
-    << "  " << modelId << " models reconstructed.\n"
-    << "  " << data.cams().size() - exploredCams.size()
-    << " out of " << data.cams().size() << " cameras left unexplored.\n";
+    data.writeASCII("nview_matches_" + std::to_string(ig) + ".txt");*/
+
+    int modelId = ig*100;
+    uset<int> exploredCams;
+    while(data.cams().size() - exploredCams.size() >= 2)
+    {
+      size_t nExploredPrev = exploredCams.size();
+      string appendix = "model" + std::to_string(modelId);
+      string currOutDir = joinPaths(outDir,appendix);
+      makeDirRecursive(currOutDir);
+
+      Dataset currData = data;
+      uset<int> exploredCamsCurr;
+      runSFM(opt,currOutDir,isCalibrated,homographyScores,exploredCams,
+        &exploredCamsCurr,&currData);
+      exploredCams.insert(exploredCamsCurr.begin(),exploredCamsCurr.end());
+
+      if(nExploredPrev >= exploredCams.size())
+        break;
+
+      modelId++;
+
+      if(currData.reconstructedCams().size() > 3)
+      {
+        currData.nViewMatches().clear(); // We don't need unused n-view matches
+        writeSFMBundlerFormat(joinPaths(currData.dir(),"bundle_final_"
+          + appendix + ".out"),currData);
+        currData.writeASCII("final_" + appendix + ".txt");
+      }
+    }
+
+    cout << "\n"
+      << "Final report:\n"
+      << "  " << modelId << " models reconstructed.\n"
+      << "  " << data.cams().size() - exploredCams.size()
+      << " out of " << data.cams().size() << " cameras left unexplored.\n";
+  }
 }
 
 void runSFM(const IncrementalOptions& opt,const string& outDir,

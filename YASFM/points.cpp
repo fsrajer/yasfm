@@ -20,12 +20,13 @@ namespace yasfm
 
 void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
   const pair_umap<CameraPair>& pairs,
-  vector<NViewMatch> *nViewMatches, 
+  vector<NViewMatch> *nViewMatches,vector<int> *pnViewMatchesGroups,
   FindNVMCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
-  pair_umap<vector<int>> matches;
+  auto& nViewMatchesGroups = *pnViewMatchesGroups;
+  pair_umap<vector<int>> matches,pairwiseGroups;
   vector<uset<int>> matchedCams;
-  convertMatchesToLocalRepresentation(cams,pairs,&matchedCams,&matches);
+  convertMatchesToLocalRepresentation(cams,pairs,&matchedCams,&matches,&pairwiseGroups);
 
   vector<vector<bool>> visitedFeats;
   visitedFeats.resize(cams.size());
@@ -34,6 +35,8 @@ void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
     visitedFeats[i].resize(cams[i]->keys().size(),false);
   }
 
+  vector<pair_umap<int>> groups;
+  nViewMatchesGroups.clear();
   int nCams = static_cast<int>(cams.size());
   for(int camIdx = 0; camIdx < nCams; camIdx++)
   {
@@ -42,13 +45,157 @@ void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
     {
       if(!visitedFeats[camIdx][featIdx])
       {
-        findNViewMatch(matchedCams,matches,camIdx,featIdx,&visitedFeats,nViewMatches);
-		if (callbackFunction != NULL&&callbackObjectPtr != NULL){
-			callbackFunction(callbackObjectPtr, camIdx / double(nCams));
-		}
+        pair_umap<int> group;
+        findNViewMatch(matchedCams,matches,pairwiseGroups,camIdx,featIdx,&group,&visitedFeats,nViewMatches);
+        if(!group.empty())
+        {
+          bool merge = false;
+          for(int ig = 0; ig < int(groups.size()); ig++)
+          {
+            merge = false;
+            if(groups[ig].size() != group.size())
+              continue;
+            for(const auto& entry : groups[ig])
+            {
+              if(group.count(entry.first) > 0 && group.at(entry.first) == entry.second)
+              {
+                merge = true;
+              }else
+              {
+                merge = false;
+                break;
+              }
+            }
+            if(merge)
+            {
+              nViewMatchesGroups.push_back(ig);
+              break;
+            } 
+          }
+          if(!merge)
+          {
+            nViewMatchesGroups.push_back(int(groups.size()));
+            groups.push_back(group);
+          }
+        }
+        if(callbackFunction != NULL&&callbackObjectPtr != NULL)
+        {
+          callbackFunction(callbackObjectPtr,camIdx / double(nCams));
+        }
       }
     }
   }
+  cout << " " << groups.size() << "/" << nViewMatches->size();
+  umap<int,umap<int,int>> s;
+  for(int ig = 0; ig < int(groups.size()); ig++)
+  {
+    for(int jg = ig+1; jg < int(groups.size()); jg++)
+    {
+      int cnt = 0;
+      for(const auto& entry : groups[ig])
+      {
+        if(groups[jg].count(entry.first) > 0)
+        {
+          if(groups[jg].at(entry.first) == entry.second)
+          {
+            cnt += 1;
+          } else
+          {
+            cnt = 0;
+            break;
+          }
+        }
+      }
+      if(cnt > 0)
+        s[ig][jg] = cnt;
+    }
+  }
+
+  int iter = 0;
+  while(true)
+  {
+    cout << iter++ << "/" << nViewMatches->size() << "\n";
+    int iMax = 0,jMax = 1;
+    double max = 0;
+    for(const auto& entry : s)
+    {
+      for(const auto& entry_ : entry.second)
+      {
+        if(entry_.second > max)
+        {
+          iMax = entry.first;
+          jMax = entry_.first;
+          max = entry_.second;
+        }
+      }
+    }
+    if(max == 0.)
+      break;
+
+    for(const auto& entry : groups[jMax])
+      groups[iMax][entry.first] = entry.second;
+    groups[jMax].clear();
+    for(size_t iMatch = 0; iMatch < nViewMatchesGroups.size(); iMatch++)
+      if(nViewMatchesGroups[iMatch] == int(jMax))
+        nViewMatchesGroups[iMatch] = int(iMax);
+
+    uset<int> candidates;
+    for(auto& entry : s[iMax])
+      candidates.insert(entry.first);
+    for(auto& entry : s[jMax])
+      candidates.insert(entry.first);
+    s.erase(s.find(jMax));
+    s.erase(s.find(iMax));
+    for(auto& entry : s)
+    {
+      auto itI = entry.second.find(iMax);
+      if(itI != entry.second.end())
+      {
+        candidates.insert(entry.first);
+        entry.second.erase(itI);
+      }
+      auto itJ = entry.second.find(jMax);
+      if(itJ != entry.second.end())
+      {
+        candidates.insert(entry.first);
+        entry.second.erase(itJ);
+      }
+    }
+
+    for(int jg : candidates)
+    {
+      int cnt = 0;
+      for(const auto& entry : groups[iMax])
+      {
+        if(groups[jg].count(entry.first) > 0)
+        {
+          if(groups[jg].at(entry.first) == entry.second)
+          {
+            cnt += 1;
+          } else
+          {
+            cnt = 0;
+            break;
+          }
+        }
+      }
+      if(cnt > 0)
+        s[iMax][jg] = cnt;
+    }
+  }
+
+  vector<int> groupSizes(groups.size(),0);
+  for(int ig : nViewMatchesGroups)
+    groupSizes[ig]--;
+
+  vector<int> newToOld,oldToNew(groups.size());
+  quicksort(groupSizes,&newToOld);
+  for(int ing = 0; ing < newToOld.size(); ing++)
+    oldToNew[newToOld[ing]] = ing;
+  for(int& ig : nViewMatchesGroups)
+    ig = oldToNew[ig];
+
+  
 }
 
 void nViewMatchesToTwoViewMatches(const vector<NViewMatch>& nViewMatches,
@@ -431,10 +578,12 @@ namespace
 {
 
 void findNViewMatch(const vector<uset<int>>& matchedCams,
-  const pair_umap<vector<int>>& matches,int startCamIdx,int startFeatIdx,
+  const pair_umap<vector<int>>& matches,const pair_umap<vector<int>>& pairwiseGroups,
+  int startCamIdx,int startFeatIdx,pair_umap<int> *pgroup,
   vector<vector<bool>> *pvisitedFeats,vector<NViewMatch> *nViewMatches)
 {
   auto& visitedFeats = *pvisitedFeats;
+  auto& group = *pgroup;
   bool isConsistent = true; // no two different features in the same image
   nViewMatches->emplace_back();
   auto& nViewMatch = nViewMatches->back();
@@ -461,26 +610,35 @@ void findNViewMatch(const vector<uset<int>>& matchedCams,
 
     for(int cam2 : matchedCams[cam1])
     {
-      int feat2 = matches.at(IntPair(cam1,cam2))[feat1];
+      IntPair camsIdx(cam1,cam2);
+      int feat2 = matches.at(camsIdx)[feat1];
       if(feat2 >= 0 && !visitedFeats[cam2][feat2])
       {
         q.emplace(cam2,feat2);
         visitedFeats[cam2][feat2] = true;
+        
+        int pairwiseGroup = pairwiseGroups.at(camsIdx)[feat1];
+        if(cam1 < cam2)
+          group[camsIdx] = pairwiseGroup;
+        else
+          group[IntPair(cam2,cam1)] = pairwiseGroup;
       }
     }
   }
   if(!isConsistent || nViewMatch.size() < 2)
   {
     nViewMatches->pop_back();
+    group.clear();
   }
 }
 
 void convertMatchesToLocalRepresentation(const ptr_vector<Camera>& cams,
   const pair_umap<CameraPair>& pairs,vector<uset<int>> *pmatchedCams,
-  pair_umap<vector<int>> *pmatches)
+  pair_umap<vector<int>> *pmatches,pair_umap<vector<int>> *ppairwiseGroups)
 {
   auto& matchedCams = *pmatchedCams;
   auto& matches = *pmatches;
+  auto& pairwiseGroups = *ppairwiseGroups;
   matchedCams.resize(cams.size());
   for(const auto& pair : pairs)
   {
@@ -493,11 +651,24 @@ void convertMatchesToLocalRepresentation(const ptr_vector<Camera>& cams,
     matchedCams[cam2].insert(cam1);
     matches[idx].resize(cams[cam1]->keys().size(),-1);
     matches[reversedIdx].resize(cams[cam2]->keys().size(),-1);
+    pairwiseGroups[idx].resize(cams[cam1]->keys().size(),-1);
+    pairwiseGroups[reversedIdx].resize(cams[cam2]->keys().size(),-1);
 
     for(const auto& origMatch : pair.second.matches)
     {
       matches[idx][origMatch.first] = origMatch.second;
       matches[reversedIdx][origMatch.second] = origMatch.first;
+    }
+    int iMatch = 0;
+    for(int ig = 0; ig < int(pair.second.groups.size()); ig++)
+    {
+      const auto& group = pair.second.groups[ig];
+      for(int i = 0; i < group.size; i++)
+      {
+        IntPair match = pair.second.matches[iMatch++];
+        pairwiseGroups[idx][match.first] = ig;
+        pairwiseGroups[reversedIdx][match.second] = ig;
+      }
     }
   }
 }

@@ -49,7 +49,7 @@ from img1 should match to feature0.
 */
 YASFM_API void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
   const pair_umap<CameraPair>& pairs,
-  vector<NViewMatch> *nViewMatches, FindNVMCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
+  vector<NViewMatch> *nViewMatches,vector<int> *nViewMatchesGroups,FindNVMCallbackFunctionPtr callbackFunction = NULL,void * callbackObjectPtr = NULL);
 
 /// Creates matches for one camera pair from n-view matches.
 /**
@@ -251,7 +251,8 @@ any image. Updates visitedFeats. Pushes back the track into tracks if a track is
 succesfully found.
 */
 void findNViewMatch(const vector<uset<int>>& matchedCams,
-  const pair_umap<vector<int>>& matches,int startCamIdx,int startFeatIdx,
+  const pair_umap<vector<int>>& matches,const pair_umap<vector<int>>& pairwiseGroups,
+  int startCamIdx,int startFeatIdx,pair_umap<int> *group,
   vector<vector<bool>> *visitedFeats,vector<NViewMatch> *nViewMatches);
 
 /**
@@ -262,6 +263,6 @@ matched from/to i-th camera.
 */
 void convertMatchesToLocalRepresentation(const ptr_vector<Camera>& cams,
   const pair_umap<CameraPair>& pairs,vector<uset<int>> *matchedCams,
-  pair_umap<vector<int>> *matches);
+  pair_umap<vector<int>> *matches,pair_umap<vector<int>> *pairwiseGroups);
 
 } // namespace
