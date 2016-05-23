@@ -20,9 +20,10 @@ end
 
 if justPts
     tmp=cell2mat({keys.coord});
-    plot(tmp(1,:), tmp(2,:), 'g.',...
-        'MarkerSize', markerSize, 'Color', color);
-    
+    if ~isempty(tmp)
+        plot(tmp(1,:), tmp(2,:), 'g.',...
+            'MarkerSize', markerSize, 'Color', color);
+    end
 else
     nPoints = 40;
     nKeys = numel(keys);

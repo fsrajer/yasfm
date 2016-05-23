@@ -28,6 +28,7 @@ fs.ShowAllKeys       = false;
 fs.ShowMatches       = @fguiButtonShowMatches;
 fs.MaxEpLinesInImage = 40;
 fs.ShowEpipolarLines = @fguiButtonShowEpipolarLines;
+fs.ShowNViewMatches  = @fguiButtonShowNViewMatches;
 fs.SfmToolsExe        = 'C:\Users\Filip\Workspace\SFMTools\gui.exe';
 fs.FinalBundleFile    = 'bundle_final_model0.out';
 fs.SfMTools          = @fguiButtonShowInSfMTools;
