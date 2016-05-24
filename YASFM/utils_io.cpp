@@ -35,6 +35,7 @@ using std::ofstream;
 using std::setprecision;
 using std::getline;
 using std::istringstream;
+using std::ostringstream;
 
 namespace yasfm
 {
@@ -575,6 +576,104 @@ void writeSFMBundlerFormat(const string& filename,const uset<int>& reconstructed
 void writeSFMBundlerFormat(const string& filename,const Dataset& data)
 {
   writeSFMBundlerFormat(filename,data.reconstructedCams(),data.cams(),data.pts());
+}
+
+void writeCMPMVSIni(const string& filename,const string& outDataDir,
+  int nImgs,int width,int height)
+{
+  ofstream file(filename);
+
+  file
+    << "[global]\n"
+    << ("dirName='" + outDataDir + "\\'\n")
+    << "prefix=''\n"
+    << "imgExt='jpg'\n"
+    << "ncams=" << nImgs << "\n"
+    << "width=" << width << "\n"
+    << "height=" << height << "\n"
+    << "scale=1\n"
+    << "workDirName='_tmp'\n"
+    << "doPrepareData=TRUE\n"
+    << "doPrematchSifts=TRUE\n"
+    << "doPlaneSweepingSGM=TRUE\n"
+    << "doFuse=TRUE\n"
+    << "nTimesSimplify=10\n"
+    << "\n"
+    << "[uvatlas]\n"
+    << "texSide=4096\n"
+    << "scale=1\n"
+    << "\n"
+    << "[prematching]\n"
+    << "minAngle=3.0\n"
+    << "\n"
+    << "[grow]\n"
+    << "minNumOfConsistentCams=6\n"
+    << "\n"
+    << "[filter]\n"
+    << "minNumOfConsistentCams=2\n"
+    << "\n"
+    << "[hallucinationsFiltering]\n"
+    << "useSkyPrior=FALSE\n"
+    << "doLeaveLargestFullSegmentOnly=FALSE\n"
+    << "doRemoveHugeTriangles=TRUE\n"
+    << "\n"
+    << "[largeScale]\n"
+    << "doGenerateAndReconstructSpaceMaxPts=TRUE\n"
+    << "doGenerateSpace=TRUE\n"
+    << "planMaxPts=3000000\n"
+    << "\n"
+    << "[generateVideoFrames]\n"
+    << "nintermed=20\n"
+    << "\n"
+    << "[DEM]\n"
+    << "demW=8000\n"
+    << "demH=8000\n"
+    << "\n"
+    << "#EOF\n";
+
+  file.close();
+}
+
+void writeCMPMVSInput(const string& outDataDir,const string& outIniFilename,
+  const uset<int>& reconstructedCams,const ptr_vector<Camera>& cams)
+{
+  makeDirRecursive(outDataDir);
+  
+  int iNewCam = 1; // has to start from 1
+  for(int ic = 0; ic < int(cams.size()); ic++)
+  {
+    if(reconstructedCams.count(ic) == 0)
+      continue;
+
+    ostringstream oss;
+    oss << std::setw(5) << std::setfill('0') << iNewCam;
+    string camFn = joinPaths(outDataDir,oss.str() + "_P.txt");
+    string imgFn = joinPaths(outDataDir,oss.str() + ".jpg");
+
+    Matrix34d P = cams[ic]->P();
+    ofstream camFile(camFn);
+    for(int r = 0; r < 3; r++)
+    {
+      for(int c = 0; c < 4; c++)
+      {
+        camFile << std::scientific << std::setprecision(16) << P(r,c) << " ";
+      }
+      camFile << "\n";
+    }
+    camFile.close();
+
+    ifstream imgInFile(cams[ic]->imgFilename(),std::ios::binary);
+    ofstream imgOutFile(imgFn,std::ios::binary);
+    imgOutFile << imgInFile.rdbuf();
+    imgInFile.close();
+    imgOutFile.close();
+
+    iNewCam++;
+  }
+
+  const auto& someCam = *cams[*reconstructedCams.begin()];
+  writeCMPMVSIni(outIniFilename,outDataDir,int(reconstructedCams.size()),
+    someCam.imgWidth(),someCam.imgHeight());
 }
 
 ostream& operator<<(ostream& file,const NViewMatch& m)

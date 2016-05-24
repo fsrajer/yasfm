@@ -187,6 +187,9 @@ int main(int argc,const char* argv[])
   string outDir = joinPaths(dir,"models");
   makeDirRecursive(outDir);
 
+  string cmpmvsDir = joinPaths(dir,"cmpmvs");
+  makeDirRecursive(cmpmvsDir);
+
   opt.write(joinPaths(dir,"options.txt"));
 
   Dataset data(dir);
@@ -306,15 +309,18 @@ int main(int argc,const char* argv[])
       if(nExploredPrev >= exploredCams.size())
         break;
 
-      modelId++;
-
       if(currData.reconstructedCams().size() > 3)
       {
         currData.nViewMatches().clear(); // We don't need unused n-view matches
         writeSFMBundlerFormat(joinPaths(currData.dir(),"bundle_final_"
           + appendix + ".out"),currData);
         currData.writeASCII("final_" + appendix + ".txt");
+        string cmpmvsDataDir = joinPaths(cmpmvsDir,"data" + std::to_string(modelId));
+        string cmpmvsIniFn = joinPaths(cmpmvsDir,"mvs" + std::to_string(modelId) + ".ini");
+        writeCMPMVSInput(cmpmvsDataDir,cmpmvsIniFn,currData.reconstructedCams(),currData.cams());
       }
+
+      modelId++;
     }
 
     cout << "\n"

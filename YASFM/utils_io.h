@@ -240,6 +240,9 @@ YASFM_API void writeSFMBundlerFormat(const string& filename,
 /// Calls overloaded fuction.
 YASFM_API void writeSFMBundlerFormat(const string& filename,const Dataset& data);
 
+YASFM_API void writeCMPMVSInput(const string& outDataDir,const string& outIniFilename,
+  const uset<int>& reconstructedCams,const ptr_vector<Camera>& cams);
+
 YASFM_API ostream& operator<<(ostream& file,const NViewMatch& m);
 YASFM_API istream& operator>>(istream& file,NViewMatch& m);
 
