@@ -796,8 +796,9 @@ void initDevIL()
   if(!devilLoaded)
   {
     ilInit();
-    ilOriginFunc(IL_ORIGIN_UPPER_LEFT);
     ilEnable(IL_ORIGIN_SET);
+    ilOriginFunc(IL_ORIGIN_UPPER_LEFT);
+    ilEnable(IL_FILE_OVERWRITE);
     devilLoaded = true;
   }
 }
