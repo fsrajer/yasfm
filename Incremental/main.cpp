@@ -276,17 +276,7 @@ int main(int argc,const char* argv[])
     data.nViewMatches() = nViewMatchesAll;
     filterVector(toKeep,&data.nViewMatches());
 
-    /*for(int i = 0; i < data.numCams(); i++)
-    {
-      for(int j = i+1; j < data.numCams(); j++)
-      {
-        vector<int> tmp;
-        nViewMatchesToTwoViewMatches(data.nViewMatches(),IntPair(i,j),
-          &data.pairs()[IntPair(i,j)].matches,&tmp);
-      }
-    }
-
-    data.writeASCII("nview_matches_" + std::to_string(ig) + ".txt");*/
+    data.writeASCII("nview_matches_" + std::to_string(ig) + ".txt");
 
     int modelId = ig*100;
     uset<int> exploredCams;
