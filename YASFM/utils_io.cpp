@@ -634,6 +634,76 @@ void writeCMPMVSIni(const string& filename,const string& outDataDir,
   file.close();
 }
 
+void undistortImage(const string& distImgFilename,const string& undistImgFilename,
+  const Matrix3d& K,double k1,double k2)
+{
+  initDevIL();
+
+  ILuint distImId,undistImId; // will be used to store image name
+  ilGenImages(1,&distImId); //this is what DevIL uses to keep track of image object
+  ilGenImages(1,&undistImId);
+  ilBindImage(distImId); // setting the current working image
+
+  ILboolean success = ilLoadImage((const ILstring)distImgFilename.c_str());
+  if(success)
+  {
+    int width = ilGetInteger(IL_IMAGE_WIDTH);
+    int height = ilGetInteger(IL_IMAGE_HEIGHT);
+    int depth = 0;
+    int bytesPerPixel = 3;
+
+    Matrix<Vector3uc,-1,-1,Eigen::RowMajor> outCols(height,width);
+    ilBindImage(undistImId);
+    Matrix3d invK = K.inverse();
+    ilBindImage(distImId);
+    for(int y = 0; y < height; y++)
+    {
+      for(int x = 0; x < width; x++)
+      {
+        Vector3d u = invK*Vector2d(x,y).homogeneous();
+        double r2 = u.hnormalized().squaredNorm();
+        double factor = (1. + k1 * r2 + k2 * r2 * r2);
+        Vector2d v = (K*(factor*u)).hnormalized();
+        int x0 = static_cast<int>(floor(v(0)));
+        int y0 = static_cast<int>(floor(v(1)));
+
+        Vector3uc outCol;
+        if(x0 >= 0 && x0 < width && y0 >= 0 && y0 < height)
+        {
+          Matrix<ILubyte,3,4> inColsUByte;
+          ilCopyPixels(
+            x0,y0,0, // returned block offset
+            2,2,1, // returned block size
+            IL_RGB,IL_UNSIGNED_BYTE,&inColsUByte(0,0));
+          Matrix34d inCols = inColsUByte.cast<double>();
+
+          double dx = v(0) - x0;
+          double dy = v(1) - y0;
+          // devil is for an unknown reason using lower left corner as the origin for !saving! 
+          outCols(height-y-1,x) = ((1.0 - (dy)) * ((1.0 - (dx)) * (inCols.col(0))+(dx)* (inCols.col(1))) + (dy)* ((1.0 - (dx)) * (inCols.col(2))+(dx)* (inCols.col(3)))).cast<ILubyte>();
+
+        } else
+        {
+          outCols(height-y-1,x).setZero();
+        }
+      }
+    }
+
+    ilBindImage(undistImId);
+    success = ilTexImage(width,height,depth,bytesPerPixel,
+      IL_RGB,IL_UNSIGNED_BYTE,&outCols(0,0)(0));
+    
+    success = ilSaveImage((const ILstring)undistImgFilename.c_str());
+    if(!success)
+      YASFM_PRINT_ERROR("Could not write image:\n" << undistImgFilename);
+  } else
+  {
+    YASFM_PRINT_ERROR("Could not load image:\n" << distImgFilename);
+  }
+  ilDeleteImages(1,&distImId);
+  ilDeleteImages(1,&undistImId);
+}
+
 void writeCMPMVSInput(const string& outDataDir,const string& outIniFilename,
   const uset<int>& reconstructedCams,const ptr_vector<Camera>& cams)
 {
@@ -650,7 +720,8 @@ void writeCMPMVSInput(const string& outDataDir,const string& outIniFilename,
     string camFn = joinPaths(outDataDir,oss.str() + "_P.txt");
     string imgFn = joinPaths(outDataDir,oss.str() + ".jpg");
 
-    Matrix34d P = cams[ic]->P();
+    const auto& cam = *static_cast<StandardCameraRadial *>(&(*cams[ic]));
+    Matrix34d P = cam.P();
     ofstream camFile(camFn);
     for(int r = 0; r < 3; r++)
     {
@@ -662,11 +733,8 @@ void writeCMPMVSInput(const string& outDataDir,const string& outIniFilename,
     }
     camFile.close();
 
-    ifstream imgInFile(cams[ic]->imgFilename(),std::ios::binary);
-    ofstream imgOutFile(imgFn,std::ios::binary);
-    imgOutFile << imgInFile.rdbuf();
-    imgInFile.close();
-    imgOutFile.close();
+    undistortImage(cam.imgFilename(),imgFn,cam.K(),cam.radParams()[0],
+      cam.radParams()[1]);
 
     iNewCam++;
   }
