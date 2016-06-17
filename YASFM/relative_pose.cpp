@@ -586,7 +586,8 @@ void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
 
 void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,
-  const vector<int>& matchesToUse,double tolerance,Matrix3d *pF)
+  const vector<int>& matchesToUse,double tolerance,int maxOptIters,
+  Matrix3d *pF)
 {
   auto& F = *pF;
   int nUseful = static_cast<int>(matchesToUse.size());
@@ -637,7 +638,7 @@ void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
   // Un-normalize
   F = C2.transpose() * F * C1;
 
-  refineFundamentalMatrixNonLinear(pts1,pts2,matches,matchesToUse,tolerance,&F);
+  refineFundamentalMatrixNonLinear(pts1,pts2,matches,matchesToUse,tolerance,maxOptIters,&F);
 }
 
 struct RefineFCostFunctor
@@ -687,7 +688,7 @@ struct RefineFCostFunctor
 
 void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,
-  const vector<int>& matchesToUse,double tolerance,Matrix3d *F)
+  const vector<int>& matchesToUse,double tolerance,int maxIters,Matrix3d *F)
 {
   Matrix3d H;
   Vector3d v;
@@ -698,7 +699,7 @@ void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
   solverOpt.function_tolerance = tolerance;
   solverOpt.gradient_tolerance = tolerance;
   solverOpt.parameter_tolerance = tolerance;
-  //solverOpt.max_num_iterations = 200;
+  solverOpt.max_num_iterations = maxIters;
   ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
 
   auto costFun = RefineFCostFunctor::createCostFunction(pts1,pts2,matches,matchesToUse);
@@ -709,6 +710,13 @@ void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
   //cout << summary.FullReport();
 
   composeF(H.data(),v.data(),F);
+}
+
+void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,Matrix3d *F)
+{
+  refineFundamentalMatrixNonLinear(pts1,pts2,matches,matchesToUse,1e-12,50,F);
 }
 
 int findFundamentalMatrixInliers(double thresh,const vector<Vector2d>& pts1,
@@ -1046,10 +1054,6 @@ void growHomographies(const OptionsGeometricVerification& opt,
           remainingMatches,currH,&currInliers);
 
         if(currInliers.size() < opt.get<int>("minInliersToRefine"))
-          break;
-
-        if(currInliers.size() >
-          opt.get<double>("stopInlierFraction")*remainingMatches.size())
           break;
       }
 
@@ -1392,6 +1396,163 @@ void estimateFundamentalMatrices(const OptionsGeometricVerification& opt,
   }
 }
 
+double computePairwiseEigScore(const Matrix3d& H1,const Matrix3d& H2)
+{
+  Matrix3d H = H2.inverse() * H1;
+  Vector3cd e = H.eigenvalues();
+
+  double score = 1e30;
+  if(e.imag().any())
+  {
+    int iImag;
+    if(e(0).imag() == 0)
+      iImag = 1;
+    else if(e(2).imag() == 0)
+      iImag = 0;
+    else
+      iImag = 0;
+
+    score = 2*abs(e(iImag).imag() / e(iImag).real());
+
+  } else
+  {
+    Vector3d er = e.real();
+
+    int i = 0,j = 1,k = 2;
+    er = er/(0.5*(er(i)+er(j)));
+    score = abs(1. - er(i)) + abs(1. - er(j));
+
+    i = 1; j = 2; k = 0;
+    er = er/(0.5*(er(i)+er(j)));
+    double scoreCurr = abs(1. - er(i)) + abs(1. - er(j));
+    if(scoreCurr < score)
+      score = scoreCurr;
+
+    i = 0; j = 2; k = 1;
+    er = er/(0.5*(er(i)+er(j)));
+    scoreCurr = abs(1. - er(i)) + abs(1. - er(j));
+    if(scoreCurr < score)
+      score = scoreCurr;
+  }
+
+  return score;
+}
+
+double computePairwiseEGScore(const OptionsGeometricVerification& opt,
+  const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
+  const vector<IntPair>& matches,const vector<int>& group1,
+  const vector<int>& group2)
+{
+  vector<int> bothGroups;
+  bothGroups.insert(bothGroups.end(),group1.begin(),group1.end());
+  bothGroups.insert(bothGroups.end(),group2.begin(),group2.end());
+  Matrix3d F;
+  estimateFundamentalMatrix(pts1,pts2,matches,bothGroups,
+    opt.get<double>("refineTolerance"),
+    opt.get<int>("nOptIterations"),&F);
+  
+  vector<bool> useMatch(matches.size(),true);
+  for(int iMatch : bothGroups)
+    useMatch[iMatch] = false;
+  vector<IntPair> otherMatches;
+  otherMatches.reserve(matches.size() - bothGroups.size());
+  for(size_t iMatch = 0; iMatch < matches.size(); iMatch++)
+    if(useMatch[iMatch])
+      otherMatches.push_back(matches[iMatch]);
+
+  vector<int> inliers;
+  int nInliers = findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
+    pts1,pts2,matches,F,&inliers);
+
+  return double(nInliers) / double(bothGroups.size());
+}
+
+void estimateFundamentalMatricesMerging(const OptionsGeometricVerification& opt,
+  const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const vector<IntPair>& matches,
+  const vector<vector<int>>& groupsH,const vector<Matrix3d>& Hs,
+  vector<vector<int>> *pgroupsF,vector<Matrix3d> *pFs)
+{
+  auto& groupsF = *pgroupsF;
+  auto& Fs = *pFs;
+
+  double mergeThresh = opt.get<double>("mergeThresh");
+  vector<bool> visited(groupsH.size(),false);
+  vector<set<int>> toMerge;
+  for(int iStart = 0; iStart < int(groupsH.size()); iStart++)
+  {
+    if(visited[iStart])
+      continue;
+
+    list<int> queue;
+    queue.push_back(iStart);
+    visited[iStart] = true;
+    toMerge.emplace_back();
+
+    while(!queue.empty())
+    {
+      int i = queue.front();
+      queue.pop_front();
+      toMerge.back().insert(i);
+      for(int j = 0; j < (int)groupsH.size(); j++)
+      {
+        if(!visited[j])
+        {
+          double eigScore = computePairwiseEigScore(Hs[i],Hs[j]);
+          double egThresh = computePairwiseEGScore(opt,keys1,
+            keys2,matches,groupsH[i],groupsH[j]);
+          double score = egThresh / eigScore;
+          if(score > mergeThresh)
+          {
+            visited[j] = true;
+            queue.push_back(j);
+          }
+        }
+      }
+    }
+  }
+
+  vector<bool> matchUsed(matches.size(),false);
+  for(const auto& groupH : groupsH)
+    for(int iMatch : groupH)
+      matchUsed[iMatch] = true;
+
+  vector<IntPair> remainingMatches;
+  vector<int> remainingToAll;
+  for(int iMatch = 0; iMatch < int(matches.size()); iMatch++)
+  {
+    if(!matchUsed[iMatch])
+    {
+      remainingMatches.push_back(matches[iMatch]);
+      remainingToAll.push_back(iMatch);
+    }
+  }
+
+  for(const auto& groupIdxs : toMerge)
+  {
+    if(groupIdxs.size() <= 1)
+      continue;
+    groupsF.emplace_back();
+    for(int igH : groupIdxs)
+    {
+      groupsF.back().insert(groupsF.back().end(),
+        groupsH[igH].begin(),groupsH[igH].end());
+    }
+    Fs.emplace_back();
+    estimateFundamentalMatrix(keys1,keys2,matches,
+      groupsF.back(),opt.get<double>("refineTolerance"),
+      opt.get<int>("nOptIterations")*3,&Fs.back());
+
+    vector<int> inliers;
+    findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
+      keys1,keys2,remainingMatches,Fs.back(),&inliers);
+
+    for(int remainingIdx : inliers)
+      groupsF.back().push_back(remainingToAll[remainingIdx]);
+    filterOutOutliers(inliers,&remainingMatches);
+    filterOutOutliers(inliers,&remainingToAll);
+  }
+}
+
 int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   const Camera& cam1,const Camera& cam2,const CameraPair& pair,
   vector<int> *poutInliers,vector<MatchGroup> *poutGroups)
@@ -1405,7 +1566,9 @@ int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
 
   vector<vector<int>> groupsEG;
   vector<Matrix3d> Fs;
-  estimateFundamentalMatrices(opt,cam1.keys(),cam2.keys(),pair,groupsH,&groupsEG,&Fs);
+  //estimateFundamentalMatrices(opt,cam1.keys(),cam2.keys(),pair,groupsH,&groupsEG,&Fs);
+  estimateFundamentalMatricesMerging(opt,cam1.keys(),cam2.keys(),pair.matches,
+    groupsH,Hs,&groupsEG,&Fs);
 
   // == Remove Hs modelled by EG ==
   vector<bool> isModelledByEG(pair.matches.size(),false);
@@ -1582,7 +1745,7 @@ double Mediator7ptRANSAC::computeSquaredError(const Matrix3d& F,int matchIdx) co
 void Mediator7ptRANSAC::refine(double tolerance,const vector<int>& inliers,
   Matrix3d *F) const
 {
-  refineFundamentalMatrixNonLinear(keys1_,keys2_,matches_,inliers,tolerance,F);
+  refineFundamentalMatrixNonLinear(keys1_,keys2_,matches_,inliers,tolerance,50,F);
 }
 
 Mediator5ptRANSAC::Mediator5ptRANSAC(const Camera& cam1,const Camera& cam2,

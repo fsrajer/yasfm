@@ -16,6 +16,8 @@ for iT=1:maxTrans
                 cnt = sizes(iT);
                 pairs{iT}(i,j).matches = ...
                     pairsIn(i,j).matches(:,(off+1):(off+cnt));
+                pairs{iT}(i,j).groups = ...
+                    pairsIn(i,j).groups(iT);
             end
         end
     end

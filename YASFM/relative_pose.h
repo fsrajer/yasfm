@@ -38,6 +38,8 @@ using namespace yasfm;
 namespace yasfm
 {
 
+YASFM_API double optimizeLine(const Matrix3d& H,const Vector3d& randVec,Vector3d *line);
+
 /// Callback function for EG verification progress notifying
 /**
 \param[in] void pointer to the callee object.
@@ -389,7 +391,22 @@ MIND THE ORDER of the input points.
 */
 YASFM_API void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,
-  const vector<int>& matchesToUse,double tolerance,Matrix3d *F);
+  const vector<int>& matchesToUse,double tolerance,int maxOptIters,Matrix3d *F);
+
+/// Refines fundamental matrix using levenberg-marquardt.
+/**
+Finds a solution for pts2'*F*pts1 = 0.
+MIND THE ORDER of the input points.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] matches Points matches.
+\param[in] matchesToUse Matches which should be used.
+\param[in,out] F Fundamental matrix.
+*/
+YASFM_API void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,Matrix3d *F);
 
 /// Refines fundamental matrix using levenberg-marquardt.
 /**
@@ -401,11 +418,12 @@ MIND THE ORDER of the input points.
 \param[in] matches Points matches.
 \param[in] matchesToUse Matches which should be used.
 \param[in] tolerance Tolerance for optimization termination (try e.g. 1e-12).
+\param[in] maxIters Maximum number of refine iterations
 \param[in,out] F Fundamental matrix.
 */
 YASFM_API void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const vector<IntPair>& matches,
-  const vector<int>& matchesToUse,double tolerance,Matrix3d *F);
+  const vector<int>& matchesToUse,double tolerance,int maxIters,Matrix3d *F);
 
 /// Find fundamental matrix inliers.
 /**
@@ -553,15 +571,12 @@ public:
     opt.emplace("minInliersPerH",make_unique<OptTypeWithVal<int>>(10));
     opt.emplace("nRefineIterations",make_unique<OptTypeWithVal<int>>(8));
     opt.emplace("minInliersToRefine",make_unique<OptTypeWithVal<int>>(4));
-    opt.emplace("stopInlierFraction",make_unique<OptTypeWithVal<double>>(0.7));
 
-    opt.emplace("maxFs",make_unique<OptTypeWithVal<int>>(5));
-    opt.emplace("minInliersPerF",make_unique<OptTypeWithVal<int>>(16));
-    opt.emplace("fundMatThresh",make_unique<OptTypeWithVal<double>>(3));
-    opt.emplace("maxRansacRounds",make_unique<OptTypeWithVal<int>>(2000));
-    opt.emplace("nOptIterations",make_unique<OptTypeWithVal<int>>(5));
-    opt.emplace("maxHProportionInF",make_unique<OptTypeWithVal<double>>(0.95));
-    opt.emplace("minOffHInliersInF",make_unique<OptTypeWithVal<int>>(5));
+    opt.emplace("nOptIterations",make_unique<OptTypeWithVal<int>>(10));
+    opt.emplace("refineTolerance",make_unique<OptTypeWithVal<double>>(1e-12));
+    opt.emplace("fundMatThresh",make_unique<OptTypeWithVal<double>>(3.));
+
+    opt.emplace("mergeThresh",make_unique<OptTypeWithVal<double>>(5.5));
   }
 };
 
@@ -626,6 +641,13 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
 YASFM_API void estimateFundamentalMatrices(const OptionsGeometricVerification& opt,
   const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const CameraPair& pair,
   const vector<vector<int>>& groupsH,vector<vector<int>> *groupsEG,vector<Matrix3d> *Fs);
+
+YASFM_API double computePairwiseEigScore(const Matrix3d& H1,const Matrix3d& H2);
+
+YASFM_API double computePairwiseEGScore(const OptionsGeometricVerification& opt,
+  const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
+  const vector<IntPair>& matches,const vector<int>& group1,
+  const vector<int>& group2);
 
 /// Estimate fundamental matrix using known homographies in the scene to avoid 
 /// degeneracies.

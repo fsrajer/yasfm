@@ -22,14 +22,27 @@ for i=idxs
     
     hold on;
     image(img);
-    set(gca,'YDir','reverse');
+    axis ij
     axis equal;
-    axis([0 size(img,2) 0 size(img,1)]);
+    axis tight
     
-    plotKeys(cams(i).keys, justPts);
+%     s=cell2mat({cams(i).keys(:).scale});
+%     keys = cams(i).keys(s>5);
+%     plotKeys(keys, justPts);
+%     plotKeys(cams(i).keys, justPts);
     
     title(['img: ', num2str(i), ' # keys: ', num2str(numel(cams(i).keys))]);
     hold off
+    drawnow
+    
+    axis off
+%     title('');
+%     set(gca, 'Color', 'none');
+%     addpath export_fig
+%     fn = sprintf('keys-%i.pdf',i);
+%     fn = fullfile('C:\Users\Filip\Dropbox\Diplomka\cmpthesis\imgs',fn);
+%     export_fig(fn,'-native','-transparent');
+    
 end
 
 end

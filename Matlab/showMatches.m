@@ -49,7 +49,7 @@ for pair=pairsToShow
     h2 = size(imgs{j},1);
     offset = w1+ceil(separatorWidthScale*w1);
     
-    img = uint8(zeros(max(h1,h2),offset+w2,size(imgs{i},3)));
+    img = uint8(255+zeros(max(h1,h2),offset+w2,size(imgs{i},3)));
     img(1:h1,1:w1,:) = imgs{i};
     img(1:h2,(offset+1):(offset+w2),:) = imgs{j};
     
@@ -58,9 +58,10 @@ for pair=pairsToShow
 
     hold on;
     image(img);
-    set(gca,'YDir','reverse');
     axis equal;
-    axis([0 size(img,2) 0 size(img,1)]);
+    axis ij;
+    axis tight;
+    axis off;
 
     keys2 = cams(j).keys;
     for k=1:numel(keys2)
@@ -84,33 +85,39 @@ for pair=pairsToShow
     tit(end) = [];
     title(tit);
     
-    axis off
     hold off
     drawnow;
-end
+    
+%     title('');
+%     set(gca, 'Color', 'none');
+%     addpath export_fig
+%     fn = sprintf('seq-ransac-F-%i-%i.pdf',i,j);
+%     fn = fullfile('C:\Users\Filip\Dropbox\Diplomka\cmpthesis\imgs',fn);
+%     export_fig(fn,'-native','-transparent');
 
+end
 end
 
 function cols = initColors()
-cols=cell(2,9);
-% cols{1,1} = [0.5 0.5 0.5];
-% cols{2,1} = [0.5 0.5 0.5];
-cols{1,1} = [0 0 0];
-cols{2,1} = [0 0 0];
-cols{1,2} = [0 1 0];
-cols{2,2} = [0 0.5 0];
-cols{1,3} = [0 0 1];
-cols{2,3} = [0 0 0.75];
-cols{1,4} = [1 0 0];
-cols{2,4} = [0.5 0 0];
-cols{1,5} = [1 1 0];
-cols{2,5} = [0.5 0.5 0];
-cols{1,6} = [1 0 1];
-cols{2,6} = [0.5 0 0.5];
-cols{1,7} = [0 1 1];
-cols{2,7} = [0 0.5 0.5];
-cols{1,8} = 'k';
-cols{2,8} = 'w';
-cols{1,9} = 'm';
-cols{2,9} = 'm';
+cols={};
+% cols{1,end+1} = [0.5 0.5 0.5];
+% cols{2,end} = [0.5 0.5 0.5];
+% cols{1,end+1} = [0 0 0];
+% cols{2,end} = [0 0 0];
+cols{1,end+1} = [0 1 0];
+cols{2,end} = [0 0.5 0];
+cols{1,end+1} = [1 0 1];
+cols{2,end} = [0.5 0 0.5];
+cols{1,end+1} = [0 0 1];
+cols{2,end} = [0 0 0.75];
+cols{1,end+1} = [1 0 0];
+cols{2,end} = [0.5 0 0];
+cols{1,end+1} = [1 1 0];
+cols{2,end} = [0.5 0.5 0];
+cols{1,end+1} = [0 1 1];
+cols{2,end} = [0 0.5 0.5];
+cols{1,end+1} = 'k';
+cols{2,end} = 'w';
+cols{1,end+1} = 'm';
+cols{2,end} = 'm';
 end
