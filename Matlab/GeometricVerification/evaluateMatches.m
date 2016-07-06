@@ -2,31 +2,22 @@
 addpath ..
 
 % to be set by the user
-dataDir = 'C:\Users\Filip\Dropbox\pairs\0.8';
+dataDir = 'C:\Users\Uzivatel\Dropbox\cvpr17\0.8';
 allFn = 'tentatively_matched_all.txt';
 gtFn = [allFn(1:end-4) '_ground_truth.mat'];
 methods={};
-methods{end+1} = 'ratio';
-methods{end+1} = 'ratio-unique';
-% methods{end+1} = 'gv';
-methods{end+1} = 'gv-fast';
-% methods{end+1} = 'seq-loprosac';
-% methods{end+1} = 'seq-loprosac-opt';
-% methods{end+1} = 'H-EG-greedy';
-methods{end+1} = 'Hfast-EG';
+methods{end+1} = 'prosac-F';
 
 colsMap = containers.Map;
-colsMap('ratio') = [230 159 0]/255; % orange
-colsMap('ratio-unique') = [213 94 0]/255; % red-ish (vermilion)
+% colsMap('') = [230 159 0]/255; % orange
+% colsMap('') = [213 94 0]/255; % red-ish (vermilion)
 % colsMap('') = [220 208 66]/255; % dark yellow
-colsMap('seq-loprosac') = [.8 0 .8]; % magenta
-colsMap('seq-loprosac-opt') = [204 121 167]/255; % pink
-colsMap('H-EG-greedy-') = [0 158 115]/255; % bluish green
-colsMap('H-EG-greedy') = [0 0 0]; % black
-colsMap('Hfast-EG') = [0 158 115]/255; % bluish green
-colsMap('gv') = [0 114 178]/255; % blue
-colsMap('gv-fast') = [0 114 178]/255; % blue
-% colsMap('gv-fast-noopt') = [86 180 233]/255; % sky blue
+colsMap('prosac-F') = [.8 0 .8]; % magenta
+% colsMap('') = [204 121 167]/255; % pink
+% colsMap('') = [0 158 115]/255; % bluish green
+% colsMap('') = [0 0 0]; % black
+% colsMap('') = [0 114 178]/255; % blue
+% colsMap('') = [86 180 233]/255; % sky blue
 % colsMap('') = [0.6 0.5 0.1]; % brown
 % colsMap('') = [0 .8 .8]; % cyan
 

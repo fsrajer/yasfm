@@ -297,8 +297,8 @@ int main(int argc,const char* argv[])
   data.clearDescriptors();
 
   data.writeASCII("tentatively_matched_all.txt");*/
-  //data.readASCII("0.8/tentatively_matched_all.txt");
-  data.readASCII("0.8/tentatively_matched_all_with_gt.txt");
+  data.readASCII("0.8/tentatively_matched_all.txt");
+  //data.readASCII("0.8/tentatively_matched_all_with_gt.txt");
 
   for(int i = 0; i < data.numCams(); i++)
   {
@@ -309,18 +309,18 @@ int main(int argc,const char* argv[])
   }
   bool useCalibratedEpipolarVerif = true;
 
-#define DDEBUG
+//#define DDEBUG
 
   float& ratioThresh = opt.getOpt<OptionsFLANN>("matchingFLANN").get<float>("ratioThresh");
 #ifdef DDEBUG
   ratioThresh = 0.7f;
   int nSteps = 1;
 #else
-  ratioThresh = 0.f;
-  int nSteps = 33;
+  ratioThresh = 0.6f;
+  int nSteps = 3;
 #endif
-  float stepSize = 0.025f;
-  string name = "0.8/Hfast-EG";
+  float stepSize = 0.1f;
+  string name = "0.8/prosac-F";
   _mkdir(joinPaths(dir,name).c_str());
   pair_umap<CameraPair> allPairs = data.pairs();
   

@@ -165,7 +165,7 @@ for pair=pairsToShow
 %     set(gca, 'Color', 'none');
 %     addpath export_fig
 %     fn = sprintf('seq-ransac-F-%i-%i.pdf',i,j);
-%     fn = fullfile('C:\Users\Filip\Dropbox\Diplomka\cmpthesis\imgs',fn);
+%     fn = fullfile('C:\Users\Uzivatel\Dropbox\cvpr17\figs',fn);
 %     export_fig(fn,'-native','-transparent');
 
 end

@@ -2,8 +2,8 @@ clear fs;
 closeall
 
 % Dataset path
-fs.DataDirectory      = 'C:\Users\Filip\Dropbox\';
-fs.DatasetSubdirectory      = 'pairs';
+fs.DataDirectory      = 'C:\Users\Uzivatel\Dropbox\';
+fs.DatasetSubdirectory      = 'cvpr17\0.8\';
 fs.imgsSubdir        = 'imgs';
 
 % Running sfm and reading results
