@@ -1574,6 +1574,176 @@ double computePairwiseEGScore(const OptionsGeometricVerification& opt,
   return double(nInliers) / double(bothGroups.size());
 }
 
+// Cameras have to be calibrated
+// vi is a scaled normal of a plane in dual basis of the first camera
+void decomposeHs(const Camera& cam1,
+  const Camera& cam2,const vector<IntPair>& matches,
+  const OptionsRANSAC& ransacOpt,const Matrix3d& H1,const Matrix3d& H2,
+  Vector3d *paaVec,Vector3d *pepipole,Vector3d *pv1,Vector3d *pv2)
+{
+  auto& aaVec = *paaVec;
+  auto& epipole = *pepipole;
+  auto& v1 = *pv1;
+  auto& v2 = *pv2;
+
+  Matrix3d E;
+  bool success = estimateRelativePose5ptRANSAC(ransacOpt,
+    cam1,cam2,matches,&E);
+
+  if(success)
+  {
+    Matrix3d R;
+    Vector3d C2;
+    E2RC(E,cam1.K(),cam2.K(),matches,cam1.keys(),cam2.keys(),&R,&C2);
+
+    epipole = cam1.K() * C2; // R1 is identity
+
+    Matrix3d M = cam1.K() * R.transpose() * cam2.K().inverse();
+    Matrix3d MH1 = M*H1;
+    Matrix3d MH2 = M*H2;
+
+    MatrixXd A(9,4);
+    A << 1,epipole(0),0,0,
+      0,epipole(1),0,0,
+      0,epipole(2),0,0,
+      0,0,epipole(0),0,
+      1,0,epipole(1),0,
+      0,0,epipole(2),0,
+      0,0,0,epipole(0),
+      0,0,0,epipole(1),
+      1,0,0,epipole(2);
+    Map<VectorXd> b1(&MH1(0,0),9);
+    Map<VectorXd> b2(&MH2(0,0),9);
+
+    Vector4d x1 = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b1);
+    Vector4d x2 = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b2);
+    v1 = x1.bottomRows(3) / x1(0);
+    v2 = x2.bottomRows(3) / x2(0);
+
+    AngleAxisd aa(R);
+    aaVec = aa.angle() * aa.axis();
+  } else
+  {
+    aaVec.setZero();
+    epipole.setZero();
+    v1.setZero();
+    v2.setZero();
+  }
+}
+
+struct OptimizeHomologyCostFunctor
+{
+  OptimizeHomologyCostFunctor(
+    const Matrix3d& K1,const Matrix3d& K2,
+    const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const vector<IntPair>& matches1,const vector<IntPair>& matches2)
+    : invK1(K1.inverse()),K2(K2),keys1(keys1),keys2(keys2),
+    matches1(matches1),matches2(matches2)
+  {
+  }
+
+  template<typename T>
+  bool operator()(T const* const* parameters,T* residuals) const
+  {
+    Map<const Matrix<T,3,1>> aaVec(parameters[0]),epipole(parameters[1]),
+      v1(parameters[2]),v2(parameters[3]);
+
+    T angle = aaVec.norm();
+    AngleAxis<T> aa(angle,aaVec/angle);
+    Matrix<T,3,3> R = aa.toRotationMatrix();
+
+    Matrix<T,3,3> H1,H2;
+    H1 = K2.cast<T>()*R*invK1.cast<T>()*
+      (Matrix<T,3,3>::Identity() + epipole * v1.transpose());
+    H2 = K2.cast<T>()*R*invK1.cast<T>()*
+      (Matrix<T,3,3>::Identity() + epipole * v2.transpose());
+
+    for(size_t iMatch1 = 0; iMatch1 < matches1.size(); iMatch1++)
+    {
+      IntPair match = matches1[iMatch1];
+      const auto& x1 = keys1[match.first];
+      const auto& x2 = keys2[match.second];
+
+      Matrix<T,3,1> pt = H1 * x1.cast<T>().homogeneous();
+      Matrix<T,2,1> diff = x2.cast<T>() - pt.hnormalized();
+      residuals[2*iMatch1] = diff(0);
+      residuals[2*iMatch1+1] = diff(1);
+    }
+
+    for(size_t iMatch2 = 0; iMatch2 < matches1.size(); iMatch2++)
+    {
+      IntPair match = matches2[iMatch2];
+      const auto& x1 = keys1[match.first];
+      const auto& x2 = keys2[match.second];
+
+      Matrix<T,3,1> pt = H2 * x1.cast<T>().homogeneous();
+      Matrix<T,2,1> diff = x2.cast<T>() - pt.hnormalized();
+      residuals[matches1.size() + 2*iMatch2] = diff(0);
+      residuals[matches1.size() + 2*iMatch2+1] = diff(1);
+    }
+
+    return true;
+  }
+
+  static ceres::CostFunction* createCostFunction(
+    const Matrix3d& K1,const Matrix3d& K2,
+    const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const vector<IntPair>& matches1,const vector<IntPair>& matches2)
+  {
+    auto costFun =
+      new ceres::DynamicAutoDiffCostFunction<OptimizeHomologyCostFunctor>(
+      new OptimizeHomologyCostFunctor(K1,K2,keys1,keys2,matches1,matches2));
+    costFun->SetNumResiduals(2*(int)matches1.size()+2*(int)matches2.size());
+    costFun->AddParameterBlock(3);
+    costFun->AddParameterBlock(3);
+    costFun->AddParameterBlock(3);
+    costFun->AddParameterBlock(3);
+    return costFun;
+  }
+
+  Matrix3d invK1,K2;
+  const vector<Vector2d> &keys1,&keys2;
+  const vector<IntPair>& matches1,matches2;
+};
+
+void optimizeHomology(const Camera& cam1,
+  const Camera& cam2,const vector<IntPair>& matches1,
+  const vector<IntPair>& matches2,
+  const OptionsRANSAC& ransacOpt,Matrix3d *pH1,Matrix3d *pH2)
+{
+  auto& H1 = *pH1;
+  auto& H2 = *pH2;
+
+  vector<IntPair> matches;
+  matches.insert(matches.end(),matches1.begin(),matches2.begin());
+  matches.insert(matches.end(),matches2.begin(),matches2.end());
+
+  Vector3d aaVec,epipole,v1,v2;
+  decomposeHs(cam1,cam2,matches,ransacOpt,H1,H2,
+    &aaVec,&epipole,&v1,&v2);
+
+  ceres::Problem problem;
+  ceres::Solver::Options solverOpt;
+  //solverOpt.max_num_iterations = maxIters;
+  ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
+
+  auto costFun = OptimizeHomologyCostFunctor::createCostFunction(
+    cam1.K(),cam2.K(),cam1.keys(),cam2.keys(),matches1,matches2);
+  problem.AddResidualBlock(costFun,lossFun,aaVec.data(),epipole.data(),
+    v1.data(),v2.data());
+
+  ceres::Solver::Summary summary;
+  ceres::Solve(solverOpt,&problem,&summary);
+  cout << summary.FullReport();
+
+  double angle = aaVec.norm();
+  AngleAxisd aa(angle,aaVec/angle);
+  Matrix3d R = aa.toRotationMatrix();
+
+  H1 = cam2.K()*R*cam1.K().inverse()*(Matrix3d::Identity() + epipole * v1.transpose());
+  H2 = cam2.K()*R*cam1.K().inverse()*(Matrix3d::Identity() + epipole * v2.transpose());
+}
+
 void estimateFundamentalMatricesMerging(const OptionsGeometricVerification& opt,
   const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const vector<IntPair>& matches,
   const vector<vector<int>>& groupsH,const vector<Matrix3d>& Hs,
