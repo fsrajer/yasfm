@@ -196,45 +196,54 @@ void readPairsGV(const string& fn,Dataset *pdata)
 
 int main(int argc,const char* argv[])
 {
-  /*string dir2("C:/Users/Filip/Dropbox/pairs/gv-fast-all");
-  Dataset data2(dir2);
-  data2.readASCII("matched_2.txt");
-  int nHs = 160;
+#define PRINT_ROC_DATA
+#ifdef PRINT_ROC_DATA
+  string dir("c:/Users/Uzivatel/Dropbox/cvpr17/0.8/Hs");
+  Dataset data(dir);
+  string dataName = "matched_2";
+  data.readASCII(dataName + ".txt");
+
+  IncrementalOptions opt;
+  string name = "thesis";
+  //string name = "decomp-avgall";
+  string outFn = "c:/Users/Uzivatel/Dropbox/cvpr17/0.8/Hs/" +
+    dataName + "-labels-" + name + ".txt";
+  FILE *file = fopen(outFn.c_str(),"w");
+  
+  for(const auto& entry : data.pairs())
   {
-    IncrementalOptions optt;
-    FILE *file = fopen("C:/Users/Filip/Workspace/YASFM/matlab/GeometricVerification/merge-Hs/scores-cpp.txt","w");
-    fprintf(file,"%i\n",nHs);
-    
-    for(const auto& entry : data2.pairs())
+    int iCam = entry.first.first;
+    int jCam = entry.first.second;
+    const auto& pair = entry.second;
+    const auto& groups = pair.groups;
+
+    vector<vector<int>> groupsMatches(groups.size());
+    int iMatch = 0;
+    for(size_t ig = 0; ig < groups.size(); ig++)
+      for(int i = 0; i < groups[ig].size; i++)
+        groupsMatches[ig].push_back(iMatch++);
+
+    for(int ig = 0; ig < int(groups.size()); ig++)
     {
-      IntPair camsIdx = entry.first;
-      const auto& pair = entry.second;
-      const auto& groups = pair.groups;
-
-      vector<vector<int>> groupsMatches(groups.size());
-      int iMatch = 0;
-      for(size_t ig = 0; ig < groups.size(); ig++)
-        for(int i = 0; i < groups[ig].size; i++)
-          groupsMatches[ig].push_back(iMatch++);
-
-      for(int ig = 0; ig < int(groups.size()); ig++)
+      for(int jg = ig+1; jg < int(groups.size()); jg++)
       {
-        for(int jg = ig+1; jg < int(groups.size()); jg++)
-        {
-          const auto& H1 = groups[ig].T;
-          const auto& H2 = groups[jg].T;
-          double eigScore = computePairwiseEigScore(H1,H2);
-          double egScore = computePairwiseEGScore(optt.getOpt<OptionsGeometricVerification>("geometricVerification"),
-            data2.cam(camsIdx.first).keys(),data2.cam(camsIdx.second).keys(),
-            pair.matches,groupsMatches[ig],groupsMatches[jg]);
+        const auto& H1 = groups[ig].T;
+        const auto& H2 = groups[jg].T;
+        double eigScore = -computePairwiseEigScore(H1,H2);
+        double egScore = computePairwiseEGScore(
+          opt.getOpt<OptionsGeometricVerification>("geometricVerification"),
+          data.cam(iCam).keys(),data.cam(jCam).keys(),
+          pair.matches,groupsMatches[ig],groupsMatches[jg]);
+        
+        double score = -egScore/eigScore;
 
-          fprintf(file,"%i %i %i %i %.100e %.100e\n",camsIdx.first,camsIdx.second,ig,jg,eigScore,egScore);
-        }
+        fprintf(file,"%i %i %i %i %.100e\n",iCam,jCam,ig,jg,score);
       }
     }
-    fclose(file);
-  }*/
-
+  }
+  fclose(file);
+  
+#else
   // ======================================
   // See the description of this variable.
   // Camera::maxDescrInMemoryTotal_ = 5000000;
@@ -436,6 +445,7 @@ int main(int argc,const char* argv[])
     << "  " << modelId << " models reconstructed.\n"
     << "  " << data.cams().size() - exploredCams.size()
     << " out of " << data.cams().size() << " cameras left unexplored.\n";*/
+#endif
 }
 
 void runSFM(const IncrementalOptions& opt,const string& outDir,

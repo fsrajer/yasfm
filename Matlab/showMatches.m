@@ -32,7 +32,8 @@ end
 pairsToShow(:,nMatchesTotal==0) = [];
 nMatchesTotal(nMatchesTotal==0) = [];
 
-HsGT = repmat(struct('H1',[],'H2',[],'i',[],'j',[],'ig',[],'jg',[]),0,1);
+gt = repmat(struct('H1',[],'H2',[],'i',[],'j',[],'ig',[],'jg',[],...
+    'isOneMotion',[]),0,1);
 
 imgs = cell(1,nCams);
 imgsToRead = unique(pairsToShow(:))';
@@ -109,15 +110,15 @@ for pair=pairsToShow
 %                     end
 %                 end
 %             end
-%             HsGT(end+1).H1 = pairs{ig}(i,j).groups.T;
-%             HsGT(end).H2 = pairs{jg}(i,j).groups.T;
-%             HsGT(end).i = i;
-%             HsGT(end).j = j;
-%             HsGT(end).ig = ig;
-%             HsGT(end).jg = jg;
-%             HsGT(end).isOneMotion = label;
+%             gt(end+1).H1 = pairs{ig}(i,j).groups.T;
+%             gt(end).H2 = pairs{jg}(i,j).groups.T;
+%             gt(end).i = i;
+%             gt(end).j = j;
+%             gt(end).ig = ig;
+%             gt(end).jg = jg;
+%             gt(end).isOneMotion = label;
 %             
-%             save('HsGT.mat','HsGT');
+%             save('c:\Users\Uzivatel\Dropbox\cvpr17\0.8\Hs\matched_2-merge_gt.mat','gt');
 %             
 %             clf
 %             hold on;
