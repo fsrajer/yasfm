@@ -21,6 +21,10 @@ methods=[];
 methods{end+1} = 'thesis-eig';
 methods{end+1} = 'thesis-eg';
 methods{end+1} = 'thesis';
+methods{end+1} = 'decomp-avgall';
+methods{end+1} = 'decomp-opt-avgall';
+methods{end+1} = 'decomp-avgboth';
+methods{end+1} = 'decomp-opt-avgboth';
 
 for ir=1:numel(methods)
     fid=fopen([baseFn '-labels-' methods{ir} '.txt'],'r');

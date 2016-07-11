@@ -38,6 +38,11 @@ using namespace yasfm;
 namespace yasfm
 {
 
+YASFM_API double computeHomologyDataFitScore(const Camera& cam1,
+  const Camera& cam2,const vector<IntPair>& matches1,
+  const vector<IntPair>& matches2,
+  const OptionsRANSAC& ransacOpt,Matrix3d *H1,Matrix3d *H2);
+
 YASFM_API double optimizeLine(const Matrix3d& H,const Vector3d& randVec,Vector3d *line);
 
 /// Callback function for EG verification progress notifying

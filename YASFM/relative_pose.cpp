@@ -1670,7 +1670,8 @@ struct OptimizeHomologyCostFunctor
       residuals[2*iMatch1+1] = diff(1);
     }
 
-    for(size_t iMatch2 = 0; iMatch2 < matches1.size(); iMatch2++)
+    int offset = int(2*matches1.size());
+    for(size_t iMatch2 = 0; iMatch2 < matches2.size(); iMatch2++)
     {
       IntPair match = matches2[iMatch2];
       const auto& x1 = keys1[match.first];
@@ -1678,8 +1679,8 @@ struct OptimizeHomologyCostFunctor
 
       Matrix<T,3,1> pt = H2 * x1.cast<T>().homogeneous();
       Matrix<T,2,1> diff = x2.cast<T>() - pt.hnormalized();
-      residuals[matches1.size() + 2*iMatch2] = diff(0);
-      residuals[matches1.size() + 2*iMatch2+1] = diff(1);
+      residuals[offset + 2*iMatch2] = diff(0);
+      residuals[offset + 2*iMatch2+1] = diff(1);
     }
 
     return true;
@@ -1706,25 +1707,34 @@ struct OptimizeHomologyCostFunctor
   const vector<IntPair>& matches1,matches2;
 };
 
-void optimizeHomology(const Camera& cam1,
+double computeHomologyDataFitScore(const Camera& cam1,
   const Camera& cam2,const vector<IntPair>& matches1,
   const vector<IntPair>& matches2,
   const OptionsRANSAC& ransacOpt,Matrix3d *pH1,Matrix3d *pH2)
 {
+//#define HOMOLOGY_PRINT_ERR
+#define HOMOLOGY_OPT
+#if 0
+#define HOMOLOGY_AVG_ERR_ALL
+#else
+#define HOMOLOGY_AVG_ERR_BOTH_GROUPS
+#endif
+
   auto& H1 = *pH1;
   auto& H2 = *pH2;
 
   vector<IntPair> matches;
-  matches.insert(matches.end(),matches1.begin(),matches2.begin());
+  matches.insert(matches.end(),matches1.begin(),matches1.end());
   matches.insert(matches.end(),matches2.begin(),matches2.end());
 
   Vector3d aaVec,epipole,v1,v2;
   decomposeHs(cam1,cam2,matches,ransacOpt,H1,H2,
     &aaVec,&epipole,&v1,&v2);
 
+#ifdef HOMOLOGY_OPT
   ceres::Problem problem;
   ceres::Solver::Options solverOpt;
-  //solverOpt.max_num_iterations = maxIters;
+  solverOpt.max_num_iterations = 50;
   ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
 
   auto costFun = OptimizeHomologyCostFunctor::createCostFunction(
@@ -1734,7 +1744,10 @@ void optimizeHomology(const Camera& cam1,
 
   ceres::Solver::Summary summary;
   ceres::Solve(solverOpt,&problem,&summary);
+#ifdef HOMOLOGY_PRINT_ERR
   cout << summary.FullReport();
+#endif
+#endif
 
   double angle = aaVec.norm();
   AngleAxisd aa(angle,aaVec/angle);
@@ -1742,6 +1755,44 @@ void optimizeHomology(const Camera& cam1,
 
   H1 = cam2.K()*R*cam1.K().inverse()*(Matrix3d::Identity() + epipole * v1.transpose());
   H2 = cam2.K()*R*cam1.K().inverse()*(Matrix3d::Identity() + epipole * v2.transpose());
+
+  double err1 = 0., err2 = 0.;
+  for(size_t iMatch1 = 0; iMatch1 < matches1.size(); iMatch1++)
+  {
+    IntPair match = matches1[iMatch1];
+    const auto& x1 = cam1.key(match.first);
+    const auto& x2 = cam2.key(match.second);
+
+    Vector3d pt = H1 * x1.homogeneous();
+    Vector2d diff = x2 - pt.hnormalized();
+    err1 += diff.norm();
+  }
+
+  int offset = int(2*matches1.size());
+  for(size_t iMatch2 = 0; iMatch2 < matches2.size(); iMatch2++)
+  {
+    IntPair match = matches2[iMatch2];
+    const auto& x1 = cam1.key(match.first);
+    const auto& x2 = cam2.key(match.second);
+
+    Vector3d pt = H2 * x1.homogeneous();
+    Vector2d diff = x2 - pt.hnormalized();
+    err2 += diff.norm();
+  }
+  double err = err1+err2;
+  err1 /= matches1.size();
+  err2 /= matches2.size();
+  err /= matches.size();
+#ifdef HOMOLOGY_PRINT_ERR
+  cout << "\navgerr group1: " << err1;
+  cout << "\navgerr group2: " << err2;
+  cout << "\navgerr: " << err << "\n";
+#endif
+#ifdef HOMOLOGY_AVG_ERR_ALL
+  return err;
+#elif defined HOMOLOGY_AVG_ERR_BOTH_GROUPS
+  return err1+err2;
+#endif
 }
 
 void estimateFundamentalMatricesMerging(const OptionsGeometricVerification& opt,

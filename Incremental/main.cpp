@@ -204,8 +204,11 @@ int main(int argc,const char* argv[])
   data.readASCII(dataName + ".txt");
 
   IncrementalOptions opt;
-  string name = "thesis";
+  //string name = "thesis";
   //string name = "decomp-avgall";
+  //string name = "decomp-opt-avgall";
+  //string name = "decomp-avgboth";
+  string name = "decomp-opt-avgboth";
   string outFn = "c:/Users/Uzivatel/Dropbox/cvpr17/0.8/Hs/" +
     dataName + "-labels-" + name + ".txt";
   FILE *file = fopen(outFn.c_str(),"w");
@@ -227,7 +230,7 @@ int main(int argc,const char* argv[])
     {
       for(int jg = ig+1; jg < int(groups.size()); jg++)
       {
-        const auto& H1 = groups[ig].T;
+        /*const auto& H1 = groups[ig].T;
         const auto& H2 = groups[jg].T;
         double eigScore = -computePairwiseEigScore(H1,H2);
         double egScore = computePairwiseEGScore(
@@ -235,7 +238,17 @@ int main(int argc,const char* argv[])
           data.cam(iCam).keys(),data.cam(jCam).keys(),
           pair.matches,groupsMatches[ig],groupsMatches[jg]);
         
-        double score = -egScore/eigScore;
+        double score = -egScore/eigScore;*/
+
+        vector<IntPair> matches1,matches2;
+        Matrix3d H1 = groups[ig].T,
+          H2 = groups[jg].T;
+        for(int idx : groupsMatches[ig])
+          matches1.push_back(pair.matches[idx]);
+        for(int idx : groupsMatches[jg])
+          matches2.push_back(pair.matches[idx]);
+        double score = -computeHomologyDataFitScore(data.cam(iCam),data.cam(jCam),
+          matches1,matches2,OptionsRANSAC(2048,3.,10),&H1,&H2);
 
         fprintf(file,"%i %i %i %i %.100e\n",iCam,jCam,ig,jg,score);
       }
