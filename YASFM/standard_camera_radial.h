@@ -75,9 +75,8 @@ public:
 
   \param[in,out] file Opened file containg main camera information as written
   by writeASCII().
-  \param[in] readMode Given by WriteMode.
   */
-  YASFM_API StandardCameraRadial(istream& file,int readMode);
+  YASFM_API StandardCameraRadial(istream& file);
 
   /// Destructor.
   /**
@@ -120,7 +119,7 @@ public:
   \param[in] pt The 3d point.
   \return A projection of the 3d point.
   */
-  YASFM_API virtual Vector2d project(const Vector3d& pt) const;
+  YASFM_API virtual Vector2d project(const Point& pt) const;
 
   /// Generate ceres cost function.
   /**

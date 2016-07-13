@@ -22,7 +22,9 @@
 #include "camera.h"
 
 using Eigen::Matrix3d;
+using Eigen::Matrix;
 using Eigen::Vector3d;
+using Eigen::VectorXd;
 using std::string;
 using std::vector;
 
@@ -132,6 +134,20 @@ YASFM_API void closestRank2Matrix(const double* const A,double* B);
 */
 YASFM_API void closestRank2Matrix(const Matrix3d& A,Matrix3d *B);
 
+/// Find closest essential matrix using svd decomposition.
+/**
+\param[in] A 3x3 matrix.
+\param[out] E Essential matrix (rank 2 + 1st and 2nd singular values the same).
+*/
+YASFM_API void closestEssentialMatrix(const double* const A,double* E);
+
+/// Find closest essential matrix using svd decomposition.
+/**
+\param[in] A 3x3 matrix.
+\param[out] E Essential matrix (rank 2 + 1st and 2nd singular values the same).
+*/
+YASFM_API void closestEssentialMatrix(const Matrix3d& A,Matrix3d *E);
+
 /// RQ decomposition
 /**
 Decomposes A so that A = R*Q, where R is upper triangular and Q is orthogonal. 
@@ -203,6 +219,19 @@ direction.
 */
 YASFM_API void approximateInverseRadialDistortion(int nForwardParams,int nInverseParams,
   double maxRadius,const double* const radParams,double* invRadParams);
+
+/// Transforms x in a way that large values get mapped to some constant value.
+/**
+Robustifier taken from TDV course lectures of Radim Sara.
+
+\param[in] softThresh Changes the shape of the function. The larger softThresh is the
+larger values get mapped to non-constant values. Empirically, it is good to set this to
+hard threshold value you use later.
+\param[in] x Value to be robustified.
+\return Robustified x. Note that the units of this variable are meaningless.
+*/
+template<typename T>
+T robustify(double softThresh,T x);
 
 /// Driver for the cminpack function lmdif1.
 /**
@@ -292,7 +321,7 @@ void quicksort(const vector<T>& arr,vector<int> *order)
 {
   int n = static_cast<int>(arr.size());
   order->resize(n);
-  ::quicksort(n,&arr[0],&(*order)[0]);
+  ::quicksort(n,arr.data(),order->data());
 }
 
 template<typename T>
@@ -332,6 +361,15 @@ void filterOutOutliers(const vector<int>& outliers,vector<T> *parr)
     keep[i] = false;
 
   filterVector(keep,parr);
+}
+
+template<typename T>
+T robustify(double softThresh,T x)
+{
+  const double t = 0.25;
+  const double sigma = softThresh / sqrt(-log(t*t));
+
+  return -log(exp(-(x*x)/T(2*sigma*sigma))+T(t)) + T(log(1+t));
 }
 
 template<unsigned int N>

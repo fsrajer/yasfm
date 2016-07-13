@@ -56,7 +56,7 @@ public:
   /// Total number of descriptors that can be kept in memory (over all images).
   /// Adjust this based on your machine. 
   /// Default 4M which eats 2GB memory (made for a laptop with 8GB of memory).
-  static size_t maxDescrInMemoryTotal_;
+  YASFM_API static size_t maxDescrInMemoryTotal_;
 
   /// Constructor. (empty)
   YASFM_API Camera();
@@ -76,9 +76,8 @@ public:
 
   \param[in,out] file Opened file containg main camera information as written
   by writeASCII().
-  \param[in] readMode Given by WriteMode.
   */
-  YASFM_API Camera(istream& file,int readMode);
+  YASFM_API Camera(istream& file);
 
   /// Copy constructor.
   /// \param[in] o Other camera.
@@ -121,7 +120,7 @@ public:
   \param[in] pt The 3d point.
   \return A projection of the 3d point.
   */
-  YASFM_API virtual Vector2d project(const Vector3d& pt) const = 0;
+  YASFM_API virtual Vector2d project(const Point& pt) const = 0;
   
   /// Generate ceres cost function.
   /**
@@ -229,15 +228,6 @@ private:
   ///////////////////////////////////
 
 public:
-  /// Enum for indicating what features information should be read.
-  enum ReadMode
-  {
-    /// Read only keys (coordinates, scales and orientations).
-    ReadKeys = 1,
-    /// Read descriptors and normalize descriptors to unit length.
-    ReadDescriptors = 2
-  };
-
   /// Allocate storage for keys and descriptors.
   /**
   WARNING: Might trigger release of descriptors of some other camera if the
@@ -280,6 +270,13 @@ public:
   \param[in] height Image height
   */
   YASFM_API virtual void setImage(const string& filename,int width,int height);
+
+  /// Set features filename, clear existing keys and optionally read the new ones.
+  /**
+  \param[in] filename Path to features file.
+  \param[in] readKeys Should the keys be read.
+  */
+  YASFM_API virtual void setFeaturesFilename(const string& filename,bool readKeys);
 
   /// \return Reference to the path to the image file.
   YASFM_API const string& imgFilename() const;
@@ -340,6 +337,16 @@ public:
   /// \param[in] saveAsBinary Should the output file be binary?
   YASFM_API void writeFeatures() const;
 
+  /// Enum for indicating what features information should be read.
+  /// Use | for using more options at once.
+  enum ReadMode
+  {
+    /// Read only keys (coordinates, scales and orientations).
+    ReadKeys = 1,
+    /// Read descriptors.
+    ReadDescriptors = 2
+  };
+
   /// Read in features.
   /// WARNING: Might trigger release of descriptors of some other camera if the
   /// memory limit is reached.
@@ -350,6 +357,21 @@ private:
   void copyIn(const Camera& o);
 
   void allocAndRegisterDescr(int num,int dim);
+
+  /// Read in features in .feat.gz format.
+  /// WARNING: Might trigger release of descriptors of some other camera if the
+  /// memory limit is reached.
+  YASFM_API void readFeaturesFeatGz(int readMode);
+
+  /// Read in features in .sft format.
+  /// WARNING: Might trigger release of descriptors of some other camera if the
+  /// memory limit is reached.
+  YASFM_API void readFeaturesSft(int readMode);
+
+  /// Read in features in .key format.
+  /// WARNING: Might trigger release of descriptors of some other camera if the
+  /// memory limit is reached.
+  YASFM_API void readFeaturesKey(int readMode);
 
   string imgFilename_; ///< Path to image file.
   int imgWidth_;       ///< Image width.

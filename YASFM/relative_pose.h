@@ -11,12 +11,14 @@
 #pragma once
 
 #include <vector>
+#include <memory>
 
 #include "Eigen\Dense"
 
 #include "defines.h"
 #include "ransac.h"
 #include "sfm_data.h"
+#include "options_types.h"
 
 using Eigen::ArrayXXd;
 using Eigen::ArrayXXi;
@@ -26,6 +28,7 @@ using Eigen::Vector3d;
 using Eigen::Vector4d;
 using Eigen::VectorXd;
 using std::vector;
+using std::make_unique;
 using namespace yasfm;
 
 ////////////////////////////////////////////////////
@@ -34,6 +37,8 @@ using namespace yasfm;
 
 namespace yasfm
 {
+
+YASFM_API double optimizeLine(const Matrix3d& H,const Vector3d& randVec,Vector3d *line);
 
 /// Callback function for EG verification progress notifying
 /**
@@ -52,6 +57,27 @@ typedef void(*GeomVerifyCallbackFunctionPtr)(void *, IntPair imgPair, int nMatch
 \param[out] progress indicator 0-1
 */
 typedef void(*HomographyInliersCallbackFunctionPtr)(void *, double progress);
+
+/// Convert F to a representation useful for non-linear optimization.
+/**
+See decompose function description.
+
+\param[in] H Homography 3x3.
+\param[in] v Vector 3.
+\param[out] F Fundamental matrix.
+*/
+template<typename T>
+void composeF(const T* const H,const T* const v,Matrix<T,3,3> *F);
+
+/// Convert F from the representation for non-linear optimization.
+/**
+F = H*[v]x, where [v]x is a cross-product matrix and H is a homography.
+
+\param[in] F Fundamental matrix.
+\param[out] H Homography.
+\param[out] v Vector.
+*/
+YASFM_API void decomposeF(const Matrix3d& F,Matrix3d *H,Vector3d *v);
 
 /// Choose good camera pair for initialization (with the most matches).
 /**
@@ -222,24 +248,30 @@ kept (as well as corresponding dists). The empty pairs get removed.
 
 \param[in] solverOpt Options for estimating transformations.
 \param[in] verbose Should this print status?
+\param[in] useCalibratedEG Uses 5pt instead of 7pt. All cameras have to be calibrated.
 \param[in] cams Cameras needed for the keys.
 \param[in,out] pairs Camera pairs which will get verified.
 \param[in] callback function for progress notification, called after each verified pair.
 \param[in] pointer to an object whose callback function should be called.
 */
 YASFM_API void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
-	bool verbose, const ptr_vector<Camera>& cams, pair_umap<CameraPair> *pairs, GeomVerifyCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
+  bool verbose,bool useCalibratedEG,const ptr_vector<Camera>& cams,
+  pair_umap<CameraPair> *pairs, 
+  GeomVerifyCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Sets verbosity to true and calls overloaded function.
 /**
 \param[in] solverOpt Options for estimating transformations.
+\param[in] useCalibratedEG Uses 5pt instead of 7pt. All cameras have to be calibrated.
 \param[in] cams Cameras needed for the keys.
 \param[in,out] pairs Camera pairs which will get verified.
 \param[in] callback function for progress notification, called after each verified pair.
 \param[in] pointer to an object whose callback function should be called.
 */
 YASFM_API void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
-	const ptr_vector<Camera>& cams, pair_umap<CameraPair> *pairs, GeomVerifyCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
+  bool useCalibratedEG,const ptr_vector<Camera>& cams,
+  pair_umap<CameraPair> *pairs, 
+  GeomVerifyCallbackFunctionPtr callbackFunction = NULL, void * callbackObjectPtr = NULL);
 
 /// Estimate fundamental matrix using PROSAC.
 /**
@@ -311,6 +343,24 @@ YASFM_API bool estimateRelativePose5ptRANSAC(const OptionsRANSAC& opt,
   const Camera& cam1,const Camera& cam2,const vector<IntPair>& matches,Matrix3d *E,
   vector<int> *inliers = nullptr);
 
+/// Estimate essential matrix using PROSAC.
+/**
+Robust estimator, which finds such an essential matrix that
+(inv(K1)*pts2)'*E*(inv(K2)*pts1) = 0 using 5 point algorithm.
+MIND THE ORDER of the input points.
+
+\param[in] opt Options.
+\param[in] cam1 First camera with set keys and calibration.
+\param[in] cam2 Second camera with set keys and calibration.
+\param[in] matches Keys matches.
+\param[out] E Essential matrix.
+\param[out] inliers Inliers to the best matrix.
+\return False if the estimated hypothesis was not supported by enough inliers.
+*/
+YASFM_API bool estimateRelativePose5ptPROSAC(const OptionsRANSAC& opt,
+  const Camera& cam1,const Camera& cam2,const CameraPair& pair,Matrix3d *E,
+  vector<int> *inliers = nullptr);
+
 /// Estimate essential matrix (minimal solver).
 /**
 Minimal solver, which finds such an essential matrix that
@@ -325,6 +375,110 @@ MIND THE ORDER of the input points.
 YASFM_API void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
   const vector<Vector3d>& pts2Norm,const vector<IntPair>& matches,
   vector<Matrix3d> *Es);
+
+/// Compute fundamental matrix from an all-inlier sample.
+/**
+Does least squares, closest rank 2 matrix and non-linear refinement.
+Finds a solution for pts2'*F*pts1 = 0.
+MIND THE ORDER of the input points.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] matches Points matches.
+\param[in] matchesToUse Matches which should be used.
+\param[in] tolerance Tolerance for refine optimization termination.
+\param[out] F Fundamental matrix.
+*/
+YASFM_API void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,double tolerance,int maxOptIters,Matrix3d *F);
+
+/// Refines fundamental matrix using levenberg-marquardt.
+/**
+Finds a solution for pts2'*F*pts1 = 0.
+MIND THE ORDER of the input points.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] matches Points matches.
+\param[in] matchesToUse Matches which should be used.
+\param[in,out] F Fundamental matrix.
+*/
+YASFM_API void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,Matrix3d *F);
+
+/// Refines fundamental matrix using levenberg-marquardt.
+/**
+Finds a solution for pts2'*F*pts1 = 0.
+MIND THE ORDER of the input points.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] matches Points matches.
+\param[in] matchesToUse Matches which should be used.
+\param[in] tolerance Tolerance for optimization termination (try e.g. 1e-12).
+\param[in] maxIters Maximum number of refine iterations
+\param[in,out] F Fundamental matrix.
+*/
+YASFM_API void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,double tolerance,int maxIters,Matrix3d *F);
+
+/// Find fundamental matrix inliers.
+/**
+For pts2'*F*pts1 = 0.
+MIND THE ORDER of the input points.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] matches Points matches.
+\param[in] F Fundamental matrix.
+\param[out] inliers Inliers.
+\return Number of inliers.
+*/
+YASFM_API int findFundamentalMatrixInliers(double thresh,const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,const Matrix3d& F,
+  vector<int> *inliers);
+
+/// Compute essential matrix from an all-inlier sample.
+/**
+Does least squares, closest essential matrix using svd (and non-linear refinement - not yet).
+Finds a solution for (inv(K2)*pts2)'*E*(inv(K1)*pts1) = 0.
+MIND THE ORDER of the input points.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] invK1 Inverse calibration matrix corresponding to pts1.
+\param[in] invK2 Inverse calibration matrix corresponding to pts2.
+\param[in] matches Points matches.
+\param[in] matchesToUse Matches which should be used.
+\param[in] tolerance Tolerance for refine optimization termination.
+\param[out] E Essential matrix.
+*/
+YASFM_API void estimateEssentialMatrix(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const Matrix3d& invK1,const Matrix3d& invK2,
+  const vector<IntPair>& matches,const vector<int>& matchesToUse,
+  double tolerance,Matrix3d *E);
+
+/// Refines essential matrix using levenberg-marquardt.
+/**
+Finds a solution for (inv(K2)*pts2)'*E*(inv(K1)*pts1) = 0.
+MIND THE ORDER of the input points.
+
+\param[in] pts1 Points 1 (see function description).
+\param[in] pts2 Points 2 (see function description).
+\param[in] invK1 Inverse calibration matrix corresponding to pts1.
+\param[in] invK2 Inverse calibration matrix corresponding to pts2.
+\param[in] matches Points matches.
+\param[in] matchesToUse Matches which should be used.
+\param[in] tolerance Tolerance for optimization termination (try e.g. 1e-12).
+\param[in,out] E Essential matrix.
+*/
+YASFM_API void refineEssentialMatrixNonLinear(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const Matrix3d& invK1,const Matrix3d& invK2,
+  const vector<IntPair>& matches,const vector<int>& matchesToUse,
+  double tolerance,Matrix3d *E);
 
 /// Compute proportion of the best homography inliers in the matches for all pairs.
 /**
@@ -374,52 +528,56 @@ YASFM_API bool estimateHomographyRANSAC(const OptionsRANSAC& opt,
   const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
   const vector<IntPair>& matches,Matrix3d *H,vector<int> *inliers = nullptr);
 
-/// Options for geometric verification
-struct OptionsGeometricVerification
+/// Options for geometric verificatio
+/**
+Fields:
+/// Threshold defining inliers for estimated similarity.
+double similarityThresh;
+
+/// Threshold defining inliers for estimated affinity.
+double affinityThresh;
+
+/// Threshold defining inliers for estimated homography.
+double homographyThresh;
+
+/// Minimum number of inliers to one transformation.
+int minInliersPerTransform;
+
+/// Maximum number of transformations that should be estimated.
+int maxTransforms;
+
+/// Number of refine iterations that should be done to a transformation.
+/// 1st iteration is estimated using key coordinates, scale and orientation.
+/// 2-4th iterations are affinities
+/// 5+th iterations are homographies
+int nRefineIterations;
+
+/// Minimum number of inliers to continue in further refining.
+int minInliersToRefine;
+
+/// Value in [0,1]. If there is this fraction of inliers found the
+/// refine phase is terminated.
+double stopInlierFraction;
+**/
+class OptionsGeometricVerification : public OptionsWrapper
 {
+public:
   YASFM_API OptionsGeometricVerification()
   {
-    similarityThresh = 20;
-    affinityThresh = 10;
-    homographyThresh = 5;
-    minInliersPerTransform = 10;
-    maxTransforms = 7;
-    nRefineIterations = 8;
-    minInliersToRefine = 4;
-    stopInlierFraction = 0.7;
+    opt.emplace("similarityThresh",make_unique<OptTypeWithVal<double>>(20));
+    opt.emplace("affinityThresh",make_unique<OptTypeWithVal<double>>(10));
+    opt.emplace("homographyThresh",make_unique<OptTypeWithVal<double>>(5));
+    opt.emplace("maxHs",make_unique<OptTypeWithVal<int>>(7));
+    opt.emplace("minInliersPerH",make_unique<OptTypeWithVal<int>>(10));
+    opt.emplace("nRefineIterations",make_unique<OptTypeWithVal<int>>(8));
+    opt.emplace("minInliersToRefine",make_unique<OptTypeWithVal<int>>(4));
+
+    opt.emplace("nOptIterations",make_unique<OptTypeWithVal<int>>(10));
+    opt.emplace("refineTolerance",make_unique<OptTypeWithVal<double>>(1e-12));
+    opt.emplace("fundMatThresh",make_unique<OptTypeWithVal<double>>(3.));
+
+    opt.emplace("mergeThresh",make_unique<OptTypeWithVal<double>>(5.5));
   }
-
-  /// Threshold defining inliers for estimated similarity.
-  double similarityThresh;
-
-  /// Threshold defining inliers for estimated affinity.
-  double affinityThresh;
-
-  /// Threshold defining inliers for estimated homography.
-  double homographyThresh;
-
-  /// Minimum number of inliers to one transformation.
-  int minInliersPerTransform;
-
-  /// Maximum number of transformations that should be estimated.
-  int maxTransforms;
-
-  /// Number of refine iterations that should be done to a transformation.
-  /// 1st iteration is estimated using key coordinates, scale and orientation.
-  /// 2-4th iterations are affinities
-  /// 5+th iterations are homographies
-  int nRefineIterations;
-
-  /// Minimum number of inliers to continue in further refining.
-  int minInliersToRefine;
-
-  /// Value in [0,1]. If there is this fraction of inliers found the 
-  /// refine phase is terminated.
-  double stopInlierFraction;
-
-  /// Write to a file to record which parameters were used.
-  /// \param[in,out] file Opened output file.
-  YASFM_API void write(ostream& file) const;
 };
 
 /// Verify matches geometrically.
@@ -452,24 +610,69 @@ YASFM_API void verifyMatchesGeometrically(const OptionsGeometricVerification& op
 
 /// Verify matches geometrically.
 /**
-Firstly estimates a transformation and saves
-inliers, then estimates another transformation and so on until there is
-enough matches. A transformation can be similarity, affinity or
-homography.
+Detecting multiple motions
 
-Inspired by:
+Homography estimation inspired by:
 https://github.com/vedaldi/practical-object-instance-recognition/blob/master/geometricVerification.m
 
 \param[in] opt Options for estimating transformations.
 \param[in] cam1 First camera.
 \param[in] cam2 Second camera.
-\param[in] matches Keys matches.
-\param[out] inliers Indices of geometrically verified matches.
+\param[in] pair Used for matches and dists.
+\param[out] inliers Indices of geometrically verified matches in the order of 
+transformations from the most supported one.
+\param[out] groups Detected match groups.
 \return Number of inliers.
 */
 YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
-  const Camera& cam1,const Camera& cam2,const vector<IntPair>& matches,
-  vector<int> *inliers);
+  const Camera& cam1,const Camera& cam2,const CameraPair& pair,
+  vector<int> *inliers,vector<MatchGroup> *groups);
+
+/// Greedy detection of multiple fundamental matrices with known homographies.
+/**
+\param[in] opt Options for estimating transformations.
+\param[in] keys1 First camera.
+\param[in] keys2 Second camera.
+\param[in] pair Matches.
+\param[in] groupsH Inliers to individual homographies.
+\param[out] groupsF Inliers to individual Fs.
+\param[out] Fs Fundamental matrices.
+*/
+YASFM_API void estimateFundamentalMatrices(const OptionsGeometricVerification& opt,
+  const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const CameraPair& pair,
+  const vector<vector<int>>& groupsH,vector<vector<int>> *groupsEG,vector<Matrix3d> *Fs);
+
+YASFM_API double computePairwiseEigScore(const Matrix3d& H1,const Matrix3d& H2);
+
+YASFM_API double computePairwiseEGScore(const OptionsGeometricVerification& opt,
+  const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
+  const vector<IntPair>& matches,const vector<int>& group1,
+  const vector<int>& group2);
+
+/// Estimate fundamental matrix using known homographies in the scene to avoid 
+/// degeneracies.
+YASFM_API bool estimateRelativePose7ptKnownHsLOPROSAC(const OptionsRANSAC& opt,
+  const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+  const CameraPair& pair,int nGroups,const vector<int>& groupId,
+  Matrix3d *F,vector<int> *inliers);
+
+/// Refine fundamental matrix using known homographies.
+YASFM_API void refineFKnownHs(const OptionsGeometricVerification& opt,
+  const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const CameraPair& pair,
+  vector<vector<int>> *groupsH,Matrix3d *F,vector<int> *inliersF);
+
+/// Greedy detection of multiple homographies.
+/**
+\param[in] opt Options for estimating transformations.
+\param[in] cam1 First camera.
+\param[in] cam2 Second camera.
+\param[in] matches Matches.
+\param[out] groups Inliers to individual homographies.
+\param[out] Hs Homographies.
+*/
+YASFM_API void growHomographies(const OptionsGeometricVerification& opt,
+  const Camera& cam1,const Camera& cam2,const CameraPair& camPair,
+  vector<vector<int>> *groups,vector<Matrix3d> *Hs);
 
 /// Compute similarity transform given one feature match.
 /**
@@ -575,15 +778,6 @@ public:
   on the output.
   */
   virtual void refine(double tolerance,const vector<int>& inliers,Matrix3d *F) const;
-
-  /// Structure for passing data into cminpack for refining.
-  struct RefineData
-  {
-    const vector<Vector2d> *keys1;
-    const vector<Vector2d> *keys2;
-    const vector<IntPair> *matches; ///< Keys matches.
-    const vector<int> *inliers;     ///< Indices of inlier matches.
-  };
 
 private:
   const int minMatches_;
@@ -691,10 +885,39 @@ private:
   const vector<IntPair>& matches_;
 };
 
+class Mediator7ptKnownHsRANSAC : public Mediator7ptRANSAC
+{
+public:
+  Mediator7ptKnownHsRANSAC(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const vector<IntPair>& matches,int nGroups,const vector<int>& groupId);
+
+  /// Rejects configurations where 4 or more points belong to the same homography.
+  virtual bool isPermittedSelection(const vector<int>& idxs) const;
+
+private:
+  int nGroups_;
+  const vector<int>& groupId_;
+};
+
 } // namespace yasfm
 
 namespace
 {
+
+/// Compute symmetric epipolar distance.
+/**
+See Hartley & Zisserman p. 278.
+Compute for pts2'*F*pts1 = 0.
+MIND THE ORDER of the input points.
+
+\param[in] pt2 Point in the second camera.
+\param[in] F Fundamental matrix.
+\param[in] pt1 Point in the first camera.
+\return Error (in pixels).
+*/
+template<typename T>
+T computeSymmetricEpipolarDist(const Vector2d& pt2,
+  const Matrix<T,3,3>& F,const Vector2d& pt1);
 
 /// Compute squared symmetric epipolar distance.
 /**
@@ -707,22 +930,33 @@ MIND THE ORDER of the input points.
 \param[in] pt1 Point in the first camera.
 \return Squared error (in squared pixels).
 */
-double computeSymmetricEpipolarSquaredDistanceFundMat(const Vector2d& pt2,const Matrix3d& F,
-  const Vector2d& pt1);
+template<typename T>
+T computeSymmetricEpipolarDistSquared(const Vector2d& pt2,
+  const Matrix<T,3,3>& F,const Vector2d& pt1);
 
-// Data are pointer to 
 /// Function for cminpack call which computes symmetric epipolar distance.
 /**
-\param[in] data Pointer to Mediator7ptRANSAC::RefineData.
+\param[in] data Pointer to EssentialMatrixRefineData.
 \param[in] nPoints Number of matches/residuals.
-\param[in] nParams Number of F parameters (9).
-\param[in] params F parameters column wise.
+\param[in] nParams Number of E parameters (9).
+\param[in] params E parameters column wise.
 \param[out] residuals Errors.
 \param[in] iflag Is this call residual or Jacobian computation.
 \return Flag. Negative value would terminate the optimization.
 */
-int computeSymmetricEpipolarDistanceFundMatCMINPACK(void *data,int nPoints,
+int computeEssenMatSampsonDistCMINPACK(void *data,int nPoints,
   int nParams,const double* params,double* residuals,int iflag);
+
+/// Structure for passing data into cminpack for refining.
+struct EssentialMatrixRefineData
+{
+  const Matrix3d *invK1;
+  const Matrix3d *invK2;
+  const vector<Vector2d> *keys1;
+  const vector<Vector2d> *keys2;
+  const vector<IntPair> *matches; ///< Keys matches.
+  const vector<int> *matchesToUse;     ///< Indices of inlier matches.
+};
 
 /// Compute squared first-order geometric error approximation (Sampson distance).
 /**
@@ -734,8 +968,9 @@ MIND THE ORDER of the input points.
 \param[in] pt1 Point in the first camera.
 \return Squared error (in squared pixels).
 */
-double computeSampsonSquaredDistanceFundMat(const Vector2d& pt2,const Matrix3d& F,
-  const Vector2d& pt1);
+template<typename T>
+T computeFundMatSampsonDistSquared(const Vector2d& pt2,
+  const Matrix<T,3,3>& F,const Vector2d& pt1);
 
 /// Solve third order polynomial.
 /**
@@ -781,8 +1016,86 @@ void matchedPointsCenteringMatrix(const vector<Vector2d>& pts,
 ///////////////   Definitions   ////////////////////
 ////////////////////////////////////////////////////
 
+namespace yasfm
+{
+
+template<typename T>
+void composeF(const T* const pH,const T* const v,Matrix<T,3,3> *F)
+{
+  Map<const Matrix<T,3,3>> H(pH);
+  Matrix<T,3,3> vx;
+  vx(0,0) = T(0); vx(0,1) = -v[2]; vx(0,2) = v[1];
+  vx(1,0) = v[2]; vx(1,1) = T(0); vx(1,2) = -v[0];
+  vx(2,0) = -v[1]; vx(2,1) = v[0]; vx(2,2) = T(0);
+  F->noalias() = H * vx;
+}
+
+}
+
 namespace
 {
+
+template<typename T>
+void _commonComputeSymmetricEpipolarDist(const Vector2d& pt2,
+  const Matrix<T,3,3>& F,const Vector2d& pt1,
+  T *pt2Fpt1,T *sqNorm1,T *sqNorm2)
+{
+  Matrix<T,3,1> Fpt1 = F*pt1.homogeneous().cast<T>();
+  Matrix<T,3,1> FTpt2 = F.transpose()*pt2.homogeneous().cast<T>();
+
+  *pt2Fpt1 = pt2.homogeneous().cast<T>().dot(Fpt1);
+  *sqNorm1 = Fpt1.topRows(2).squaredNorm();
+  *sqNorm2 = FTpt2.topRows(2).squaredNorm();
+}
+
+template<typename T>
+T computeSymmetricEpipolarDist(const Vector2d& pt2,
+  const Matrix<T,3,3>& F,const Vector2d& pt1)
+{
+  T pt2Fpt1,sqNorm1,sqNorm2;
+  _commonComputeSymmetricEpipolarDist(pt2,F,pt1,&pt2Fpt1,&sqNorm1,&sqNorm2);
+
+  if(sqNorm1 == 0. || sqNorm2 == 0.)
+  {
+    return pt2Fpt1 * T(1e100);
+  } else
+  {
+    return pt2Fpt1 *
+      (T(1.) / sqrt(sqNorm1) + T(1.) / sqrt(sqNorm2));
+  }
+}
+
+template<typename T>
+T computeSymmetricEpipolarDistSquared(const Vector2d& pt2,
+  const Matrix<T,3,3>& F,const Vector2d& pt1)
+{
+  T pt2Fpt1,sqNorm1,sqNorm2;
+  _commonComputeSymmetricEpipolarDist(pt2,F,pt1,&pt2Fpt1,&sqNorm1,&sqNorm2);
+
+  if(sqNorm1 == 0. || sqNorm2 == 0.)
+  {
+    return (pt2Fpt1*pt2Fpt1) * T(1e100);
+  } else
+  {
+    return (pt2Fpt1*pt2Fpt1) *
+      (T(1.) / sqNorm1 + T(1.) / sqNorm2);
+  }
+}
+
+template<typename T>
+T computeFundMatSampsonDistSquared(const Vector2d& pt2,
+  const Matrix<T,3,3>& F,const Vector2d& pt1)
+{
+  Matrix<T,3,1> Fpt1 = F*pt1.homogeneous().cast<T>();
+  Matrix<T,3,1> FTpt2 = F.transpose()*pt2.homogeneous().cast<T>();
+
+  T pt2Fpt1 = pt2.homogeneous().cast<T>().dot(Fpt1);
+  T sqNorm = (Fpt1.topRows(2).squaredNorm() + FTpt2.topRows(2).squaredNorm());
+  if(sqNorm == 0.)
+    return (pt2Fpt1*pt2Fpt1) * T(1e100);
+  else
+    return (pt2Fpt1*pt2Fpt1) * (T(1.) / sqNorm);
+}
 
 template<bool UseFirstMatch>
 void matchedPointsCenteringMatrix(const vector<Vector2d>& pts,

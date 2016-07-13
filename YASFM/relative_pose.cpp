@@ -2,18 +2,43 @@
 
 #include <ctime>
 #include <iostream>
+#include <list>
 
 #include "5point/5point.h"
+#include "ceres/ceres.h"
 
 #include "points.h"
 
 using Eigen::JacobiSVD;
 using Eigen::MatrixXd;
+using Eigen::Map;
+using Eigen::Matrix;
+using Eigen::Vector3cd;
+using Eigen::AngleAxisd;
+using Eigen::AngleAxis;
+using Eigen::RowVectorXd;
 using std::cerr;
 using std::cout;
+using std::list;
 
 namespace yasfm
 {
+
+void decomposeF(const Matrix3d& F,Matrix3d *H,Vector3d *v)
+{
+  JacobiSVD<Matrix3d> svd(F,Eigen::ComputeFullU | Eigen::ComputeFullV);
+  Matrix3d U = svd.matrixU();
+  Matrix3d V = svd.matrixV();
+  double s = svd.singularValues()(1) / svd.singularValues()(0);
+  Matrix3d B = svd.singularValues().asDiagonal();
+  B(2,2) = B(1,1);
+  Matrix3d W = Matrix3d::Zero();
+  W(0,1) = 1;
+  W(1,0) = -1;
+  W(2,2) = 1;
+  H->noalias() = U*B*(V*W).transpose();
+  *v = V.col(2);
+}
 
 IntPair chooseInitialCameraPair(int minMatches,int nCams,
   const uset<int>& camsToIgnore,const vector<NViewMatch>& nViewMatches)
@@ -129,7 +154,7 @@ void initReconstructionFromCamPair(const OptionsRANSAC& solverOpt,
 
   vector<IntPair> initPairMatches;
   vector<int> nViewMatchesIdxs;
-  nViewMatchesToTwoViewMatches(data->points().matchesToReconstruct(),initPair,
+  nViewMatchesToTwoViewMatches(data->nViewMatches(),initPair,
     &initPairMatches,&nViewMatchesIdxs);
 
   Matrix3d F;
@@ -144,12 +169,14 @@ void initReconstructionFromCamPair(const OptionsRANSAC& solverOpt,
     cam0.setParams(Matrix34d::Identity());
     cam1.setParams(P1);
 
-    cout << "Reconstructing " << nViewMatchesIdxs.size() << " points\n";
-    reconstructPoints(nViewMatchesIdxs,initPair,&cam0,&cam1,&data->points());
+    int nReconstructed = reconstructPoints(data->nViewMatches(),nViewMatchesIdxs,
+      initPair,&cam0,&cam1,&data->pts());
+    filterOutOutliers(nViewMatchesIdxs,&data->nViewMatches());
+    cout << "Reconstructing " << nReconstructed << " points\n";
 
-    removeHighReprojErrorPoints(pointsReprojErrorThresh,&data->cams(),&data->points());
-    cout << "Removing " << nViewMatchesIdxs.size()-data->points().numPtsAlive()
-      << " points with high reprojection error\n";
+    int nRemoved = removeHighReprojErrorPoints(
+      pointsReprojErrorThresh,&data->cams(),&data->pts());
+    cout << "Removing " << nRemoved << " points with high reprojection error\n";
   } else
   {
     cout << "unsuccessful\n";
@@ -168,7 +195,7 @@ void initReconstructionFromCalibratedCamPair(const OptionsRANSAC& solverOpt,
 
   vector<IntPair> initPairMatches;
   vector<int> nViewMatchesIdxs;
-  nViewMatchesToTwoViewMatches(data->points().matchesToReconstruct(),initPair,
+  nViewMatchesToTwoViewMatches(data->nViewMatches(),initPair,
     &initPairMatches,&nViewMatchesIdxs);
 
   Matrix3d E;
@@ -186,12 +213,14 @@ void initReconstructionFromCalibratedCamPair(const OptionsRANSAC& solverOpt,
     cam1.setRotation(R);
     cam1.setC(C);
 
-    cout << "Reconstructing " << nViewMatchesIdxs.size() << " points\n";
-    reconstructPoints(nViewMatchesIdxs,initPair,&cam0,&cam1,&data->points());
+    int nReconstructed = reconstructPoints(data->nViewMatches(),nViewMatchesIdxs,
+      initPair,&cam0,&cam1,&data->pts());
+    filterOutOutliers(nViewMatchesIdxs,&data->nViewMatches());
+    cout << "Reconstructing " << nReconstructed << " points\n";
 
-    removeHighReprojErrorPoints(pointsReprojErrorThresh,&data->cams(),&data->points());
-    cout << "Removing " << nViewMatchesIdxs.size()-data->points().numPtsAlive()
-      << " points with high reprojection error\n";
+    int nRemoved = removeHighReprojErrorPoints(
+      pointsReprojErrorThresh,&data->cams(),&data->pts());
+    cout << "Removing " << nRemoved << " points with high reprojection error\n";
   } else
   {
     cout << "unsuccessful\n";
@@ -312,21 +341,23 @@ void E2RC(const Matrix3d& E,const Matrix3d& K1,const Matrix3d& K2,
       *C = -Rb.transpose()*tb;
     } else
     {
-      cerr << "ERROR: E2RC: None of the 4 decompositions is good\n";
+      YASFM_PRINT_ERROR("None of the 4 decompositions is good.");
       return;
     }
   }
 }
 
-void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
+void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,bool useCalibratedEG,
 	const ptr_vector<Camera>& cams, pair_umap<CameraPair> *pairs, 
 	GeomVerifyCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
-	verifyMatchesEpipolar(solverOpt, true, cams, pairs, callbackFunction, callbackObjectPtr);
+  verifyMatchesEpipolar(solverOpt,true,useCalibratedEG,cams,pairs,
+    callbackFunction,callbackObjectPtr);
 }
 
 void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
-  bool verbose,const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs,
+  bool verbose,bool useCalibratedEG,const ptr_vector<Camera>& cams,
+  pair_umap<CameraPair> *pairs,
   GeomVerifyCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
   clock_t start,end;
@@ -336,7 +367,8 @@ void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
   {
     IntPair camsIdx = it->first;
     auto &pair = it->second;
-
+    const auto& cam1 = *cams[camsIdx.first];
+    const auto& cam2 = *cams[camsIdx.second];
     if(verbose)
     {
       cout << "verifying: " << camsIdx.first << " -> " << camsIdx.second << "\t";
@@ -344,15 +376,29 @@ void verifyMatchesEpipolar(const OptionsRANSAC& solverOpt,
       start = clock();
     }
 
+    bool success;
     Matrix3d F;
     vector<int> inliers;
-    bool success = estimateRelativePose7ptPROSAC(solverOpt,
-      cams[camsIdx.first]->keys(),cams[camsIdx.second]->keys(),pair,&F,&inliers);
+    if(useCalibratedEG)
+    {
+      Matrix3d E;
+      success = estimateRelativePose5ptPROSAC(solverOpt,
+        cam1,cam2,pair,&E,&inliers);
+      F.noalias() = cam2.K().inverse().transpose() * E * cam1.K().inverse();
+    } else
+    {
+      success = estimateRelativePose7ptPROSAC(solverOpt,
+        cam1.keys(),cam2.keys(),pair,&F,&inliers);
+    }
     if(success)
     {
       nPrevMatches = static_cast<int>(pair.matches.size());
       filterVector(inliers,&pair.matches);
       filterVector(inliers,&pair.dists);
+      pair.groups.resize(1);
+      pair.groups[0].size = (int)pair.matches.size();
+      pair.groups[0].type = 'F';
+      pair.groups[0].T = F;
       ++it;
 	  pairsDone++;
     } else
@@ -401,14 +447,13 @@ void estimateRelativePose7pt(const vector<Vector2d>& keys1,const vector<Vector2d
   const size_t minPts = 7;
   if(matches.size() < minPts)
   {
-    cerr << "ERROR: estimateRelativePose7pt: "
-      << "Cannot estimate transformation. " << matches.size()
-      << " matches given but 7 needed.\n";
+    YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
+      << matches.size() << " given but " << minPts << " needed.");
     pFs->clear();
     return;
   }
 
-  // The equation pt1'*F*pt2 = 0 rewritten, i.e. one row
+  // The equation pt2'*F*pt1 = 0 rewritten, i.e. one row
   // corresponds to this equation for one pair of points. 
   MatrixXd A;
   A.resize(7,9);
@@ -418,13 +463,13 @@ void estimateRelativePose7pt(const vector<Vector2d>& keys1,const vector<Vector2d
     const auto& pt2 = keys2[matches[i].second];
     A.row(i) <<
       pt1(0) * pt2(0),
-      pt1(1) * pt2(0),
-      pt2(0),
       pt1(0) * pt2(1),
-      pt1(1) * pt2(1),
-      pt2(1),
       pt1(0),
+      pt1(1) * pt2(0),
+      pt1(1) * pt2(1),
       pt1(1),
+      pt2(0),
+      pt2(1),
       1;
   }
   // A*f has 9 variables and 7 equations, therefore the
@@ -472,9 +517,9 @@ void estimateRelativePose7pt(const vector<Vector2d>& keys1,const vector<Vector2d
   {
     double lambda = roots(i);
     f0 = lambda*f1 + (1 - lambda)*f2;
-    Fs[i].row(0) = f0.middleRows(0,3).transpose();
-    Fs[i].row(1) = f0.middleRows(3,3).transpose();
-    Fs[i].row(2) = f0.middleRows(6,3).transpose();
+    Fs[i].col(0) = f0.middleRows(0,3);
+    Fs[i].col(1) = f0.middleRows(3,3);
+    Fs[i].col(2) = f0.middleRows(6,3);
   }
 }
 
@@ -489,21 +534,35 @@ bool estimateRelativePose5ptRANSAC(const OptionsRANSAC& opt,
   return (nInliers > 0);
 }
 
+
+bool estimateRelativePose5ptPROSAC(const OptionsRANSAC& opt,
+  const Camera& cam1,const Camera& cam2,const CameraPair& pair,Matrix3d *E,
+  vector<int> *inliers)
+{
+  Matrix3d F;
+  Mediator5ptRANSAC m(cam1,cam2,pair.matches);
+  vector<int> matchesOrder;
+  yasfm::quicksort(pair.dists,&matchesOrder);
+  int nInliers = estimateTransformPROSAC(m,opt,matchesOrder,&F,inliers);
+  *E = cam2.K().transpose() * F * cam1.K();
+  return (nInliers > 0);
+}
+
 void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
   const vector<Vector3d>& pts2Norm,const vector<IntPair>& matches,
   vector<Matrix3d> *pEs)
 {
-  if(matches.size() < 5)
+  const int minPts = 5;
+  if(matches.size() < minPts)
   {
-    cerr << "ERROR: estimateRelativePose5pt: "
-      << "Cannot estimate transformation. " << matches.size()
-      << " matches given but 5 needed.\n";
+    YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
+      << matches.size() << " given but " << minPts << " needed.");
     pEs->clear();
     return;
   }
   auto& Es = *pEs;
-  double matchedPts1[5][3],matchedPts2[5][3];
-  for(size_t i = 0; i < 5; i++)
+  double matchedPts1[minPts][3],matchedPts2[minPts][3];
+  for(size_t i = 0; i < minPts; i++)
   {
     memcpy(matchedPts1[i],pts1Norm[matches[i].first].data(),3 * sizeof(double));
     memcpy(matchedPts2[i],pts2Norm[matches[i].second].data(),3 * sizeof(double));
@@ -523,6 +582,239 @@ void estimateRelativePose5pt(const vector<Vector3d>& pts1Norm,
     memcpy(Es[i].col(2).data(),&(EsRaw[i][2]),3 * sizeof(double));
     Es[i].transposeInPlace();
   }
+}
+
+void estimateFundamentalMatrix(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,double tolerance,int maxOptIters,
+  Matrix3d *pF)
+{
+  auto& F = *pF;
+  int nUseful = static_cast<int>(matchesToUse.size());
+  const int minPts = 8;
+
+  if(nUseful < minPts)
+  {
+    YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
+      << matchesToUse.size() << " given but " << minPts << " needed.");
+    F.setZero();
+    return;
+  }
+
+  Matrix3d C1,C2;
+  matchedPointsCenteringMatrix<true>(pts1,matches,matchesToUse,&C1);
+  matchedPointsCenteringMatrix<false>(pts2,matches,matchesToUse,&C2);
+
+  MatrixXd A(nUseful,8);
+  VectorXd b(nUseful);
+  for(int i = 0; i < nUseful; i++)
+  {
+    Vector3d pt1 = C1 * pts1[matches[matchesToUse[i]].first].homogeneous();
+    Vector3d pt2 = C2 * pts2[matches[matchesToUse[i]].second].homogeneous();
+
+    A.row(i) <<
+      pt1(0) * pt2(0),
+      pt1(0) * pt2(1),
+      pt1(0) * pt2(2),
+      pt1(1) * pt2(0),
+      pt1(1) * pt2(1),
+      pt1(1) * pt2(2),
+      pt1(2) * pt2(0),
+      pt1(2) * pt2(1);
+
+    b(i) = -(pt1(2)*pt2(2));
+  }
+
+  VectorXd f = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+
+  // Not rank 2 yet.
+  Matrix3d F_;
+  F_.col(0) = f.topRows(3);
+  F_.col(1) = f.middleRows(3,3);
+  F_(0,2) = f(6); F_(1,2) = f(7); F_(2,2) = 1.;
+
+  closestRank2Matrix(F_,&F);
+
+  // Un-normalize
+  F = C2.transpose() * F * C1;
+
+  refineFundamentalMatrixNonLinear(pts1,pts2,matches,matchesToUse,tolerance,maxOptIters,&F);
+}
+
+struct RefineFCostFunctor
+{
+  RefineFCostFunctor(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const vector<IntPair>& matches,const vector<int>& matchesToUse)
+    : keys1(keys1),keys2(keys2),matches(matches),matchesToUse(matchesToUse)
+  {
+  }
+
+  template<typename T>
+  bool operator()(T const* const* parameters,T* residuals) const
+  {
+    Matrix<T,3,3> F;
+    composeF(parameters[0],parameters[1],&F);
+
+    for(size_t iResidual = 0; iResidual < matchesToUse.size(); iResidual++)
+    {
+      IntPair match = matches[matchesToUse[iResidual]];
+      const auto& x1 = keys1[match.first];
+      const auto& x2 = keys2[match.second];
+
+      T err = computeFundMatSampsonDistSquared(x2,F,x1);
+      // avoiding division by 0 when computing the derivatives
+      residuals[iResidual] = (err == 0.) ? err : sqrt(err); 
+    }
+    return true;
+  }
+
+  static ceres::CostFunction* createCostFunction(
+    const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const vector<IntPair>& matches,const vector<int>& matchesToUse)
+  {
+    auto costFun =
+      new ceres::DynamicAutoDiffCostFunction<RefineFCostFunctor>(
+      new RefineFCostFunctor(keys1,keys2,matches,matchesToUse));
+    costFun->SetNumResiduals((int)matchesToUse.size());
+    costFun->AddParameterBlock(9);
+    costFun->AddParameterBlock(3);
+    return costFun;
+  }
+
+  const vector<Vector2d> &keys1,&keys2;
+  const vector<IntPair>& matches;
+  const vector<int> matchesToUse;
+};
+
+void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,double tolerance,int maxIters,Matrix3d *F)
+{
+  Matrix3d H;
+  Vector3d v;
+  decomposeF(*F,&H,&v);
+
+  ceres::Problem problem;
+  ceres::Solver::Options solverOpt;
+  solverOpt.function_tolerance = tolerance;
+  solverOpt.gradient_tolerance = tolerance;
+  solverOpt.parameter_tolerance = tolerance;
+  solverOpt.max_num_iterations = maxIters;
+  ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
+
+  auto costFun = RefineFCostFunctor::createCostFunction(pts1,pts2,matches,matchesToUse);
+  problem.AddResidualBlock(costFun,lossFun,H.data(),v.data());
+
+  ceres::Solver::Summary summary;
+  ceres::Solve(solverOpt,&problem,&summary);
+  //cout << summary.FullReport();
+
+  composeF(H.data(),v.data(),F);
+}
+
+void refineFundamentalMatrixNonLinear(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,
+  const vector<int>& matchesToUse,Matrix3d *F)
+{
+  refineFundamentalMatrixNonLinear(pts1,pts2,matches,matchesToUse,1e-12,50,F);
+}
+
+int findFundamentalMatrixInliers(double thresh,const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const vector<IntPair>& matches,const Matrix3d& F,
+  vector<int> *pinliers)
+{
+  auto& inliers = *pinliers;
+  int nMatches = static_cast<int>(matches.size());
+  double sqThresh = thresh*thresh;
+  inliers.clear();
+  inliers.reserve(nMatches);
+  for(int iMatch = 0; iMatch < nMatches; iMatch++)
+  {
+    double sqDist = computeFundMatSampsonDistSquared(
+      pts2[matches[iMatch].second],
+      F,
+      pts1[matches[iMatch].first]);
+    if(sqDist < sqThresh)
+    {
+      inliers.push_back(iMatch);
+    }
+  }
+  return static_cast<int>(inliers.size());
+}
+
+void estimateEssentialMatrix(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const Matrix3d& invK1,const Matrix3d& invK2,
+  const vector<IntPair>& matches,const vector<int>& matchesToUse,
+  double tolerance,Matrix3d *pE)
+{
+  auto& E = *pE;
+  int nUseful = static_cast<int>(matchesToUse.size());
+  const int minPts = 8;
+
+  if(matchesToUse.size() < minPts)
+  {
+    YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
+      << matchesToUse.size() << " given but " << minPts << " needed.");
+    E.setZero();
+    return;
+  }
+
+  MatrixXd A(nUseful,8);
+  VectorXd b(nUseful);
+  for(int i = 0; i < nUseful; i++)
+  {
+    Vector3d pt1 = invK1 * pts1[matches[matchesToUse[i]].first].homogeneous();
+    Vector3d pt2 = invK2 * pts2[matches[matchesToUse[i]].second].homogeneous();
+
+    A.row(i) <<
+      pt1(0) * pt2(0),
+      pt1(0) * pt2(1),
+      pt1(0) * pt2(2),
+      pt1(1) * pt2(0),
+      pt1(1) * pt2(1),
+      pt1(1) * pt2(2),
+      pt1(2) * pt2(0),
+      pt1(2) * pt2(1);
+
+    b(i) = -(pt1(2)*pt2(2));
+  }
+
+  VectorXd e = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
+
+  // Not rank 2 yet. Nor has it the same 1st and 2nd singular values.
+  Matrix3d E_;
+  E_.col(0) = e.topRows(3);
+  E_.col(1) = e.middleRows(3,3);
+  E_(0,2) = e(6); E_(1,2) = e(7); E_(2,2) = 1.;
+
+  closestEssentialMatrix(E_,&E);
+
+  refineEssentialMatrixNonLinear(pts1,pts2,invK1,invK2,matches,matchesToUse,tolerance,&E);
+}
+
+void refineEssentialMatrixNonLinear(const vector<Vector2d>& pts1,
+  const vector<Vector2d>& pts2,const Matrix3d& invK1,const Matrix3d& invK2,
+  const vector<IntPair>& matches,const vector<int>& matchesToUse,
+  double tolerance,Matrix3d *E)
+{
+  int numPoints = static_cast<int>(matchesToUse.size());
+  const int numParams = 9;
+
+  EssentialMatrixRefineData data;
+  data.invK1 = &invK1;
+  data.invK2 = &invK2;
+  data.keys1 = &pts1;
+  data.keys2 = &pts2;
+  data.matches = &matches;
+  data.matchesToUse = &matchesToUse;
+
+  vector<double> residuals(numPoints);
+
+  Matrix3d tmp = *E;
+  nonLinearOptimLMCMINPACK(computeEssenMatSampsonDistCMINPACK,
+    &data,numPoints,numParams,tolerance,tmp.data(),&residuals[0]);
+
+  closestEssentialMatrix(tmp,E);
 }
 
 void computeHomographyInliersProportion(const OptionsRANSAC& opt,
@@ -575,18 +867,6 @@ bool estimateHomographyPROSAC(const OptionsRANSAC& opt,const vector<Vector2d>& p
   return (nInliers > 0);
 }
 
-void OptionsGeometricVerification::write(ostream& file) const
-{
-  file << " similarityThresh: " << similarityThresh << "\n";
-  file << " affinityThresh: " << affinityThresh << "\n";
-  file << " homographyThresh: " << homographyThresh << "\n";
-  file << " minInliersPerTransform: " << minInliersPerTransform << "\n";
-  file << " maxTransforms: " << maxTransforms << "\n";
-  file << " nRefineIterations: " << nRefineIterations << "\n";
-  file << " minInliersToRefine: " << minInliersToRefine << "\n";
-  file << " stopInlierFraction: " << stopInlierFraction << "\n";
-}
-
 void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   const ptr_vector<Camera>& cams,pair_umap<CameraPair> *pairs)
 {
@@ -611,11 +891,20 @@ void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
 
     vector<int> inliers;
     int nInliers = verifyMatchesGeometrically(opt,
-      *cams[camsIdx.first],*cams[camsIdx.second],pair.matches,&inliers);
-    if(nInliers >= opt.minInliersPerTransform)
+      *cams[camsIdx.first],*cams[camsIdx.second],pair,&inliers,
+      &pair.groups);
+    if(nInliers > 0)
     {
-      filterVector(inliers,&pair.matches);
-      filterVector(inliers,&pair.dists);
+      // Filter and reorder
+      vector<IntPair> newMatches(inliers.size());
+      vector<double> newDists(inliers.size());
+      for(size_t i = 0; i < inliers.size(); i++)
+      {
+        newMatches[i] = pair.matches[inliers[i]];
+        newDists[i] = pair.dists[inliers[i]];
+      }
+      pair.matches = newMatches;
+      pair.dists = newDists;
       ++it;
     } else
     {
@@ -631,11 +920,88 @@ void verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
   }
 }
 
-YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
-  const Camera& cam1,const Camera& cam2,const vector<IntPair>& allMatches,
-  vector<int> *poutInliers)
+void estimateFundamentalMatrixParallax(const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const Matrix3d& H,const vector<IntPair>& matches,
+  const vector<int>& offPlaneMatches,Matrix3d *pF)
 {
-  auto& outInliers = *poutInliers;
+  auto& F = *pF;
+  const int minPts = 2;
+
+  if(offPlaneMatches.size() < minPts)
+  {
+    YASFM_PRINT_ERROR("Cannot estimate transformation (too few points). "
+      << offPlaneMatches.size() << " given but " << minPts << " needed.");
+    F.setZero();
+    return;
+  }
+
+  MatrixXd A(offPlaneMatches.size(),3);
+  for(size_t iOffPlane = 0; iOffPlane < offPlaneMatches.size(); iOffPlane++)
+  {
+    IntPair match = matches[offPlaneMatches[iOffPlane]];
+    const auto& pt1 = keys1[match.first];
+    const auto& pt2 = keys2[match.second];
+
+    Vector3d pt2Hom = pt2.homogeneous();
+    // epipolar line
+    A.row(iOffPlane) = pt2Hom.cross(H * pt1.homogeneous()).transpose();
+  }
+
+  JacobiSVD<MatrixXd> svd(A,Eigen::ComputeFullV);
+  Vector3d epipole2 = svd.matrixV().rightCols(1);
+
+  Matrix3d e2x;
+  crossProdMat(epipole2,&e2x);
+  F.noalias() = e2x * H;
+}
+
+struct RefineHRobustCostFunctor
+{
+  RefineHRobustCostFunctor(const Vector2d& x1,const Vector2d& x2,
+    double softThresh)
+    : x1(x1),x2(x2),softThresh(softThresh)
+  {
+  }
+
+  template<typename T>
+  bool operator()(const T* const parameters,T* residuals) const
+  {
+    Map<const Matrix<T,3,3>> H(parameters);
+    Matrix<T,3,1> pt = H * x1.homogeneous().cast<T>();
+
+    T errX = x2(0) - pt(0)/pt(2);
+    T errY = x2(1) - pt(1)/pt(2);
+
+    T errSq = errX*errX+errY*errY;
+    // Avoid division by zero in derivatives computation
+    T err = (errSq==0.) ? errSq : sqrt(errSq);
+    residuals[0] = robustify(softThresh,err);
+    return true;
+  }
+
+  static ceres::CostFunction* createCostFunction(const Vector2d& x1,const Vector2d& x2,
+    double softThresh)
+  {
+    return new ceres::AutoDiffCostFunction<RefineHRobustCostFunctor,1,9>(
+      new RefineHRobustCostFunctor(x1,x2,softThresh));
+  }
+
+  const Vector2d &x1,&x2;
+  double softThresh;
+};
+
+void growHomographies(const OptionsGeometricVerification& opt,
+  const Camera& cam1,const Camera& cam2,const CameraPair& camPair,
+  vector<vector<int>> *pgroups,vector<Matrix3d> *pHs)
+{
+  vector<IntPair> allMatches(camPair.matches.size());
+  vector<int> orderedToInputOrder;
+  yasfm::quicksort(camPair.dists,&orderedToInputOrder);
+  for(size_t i = 0; i < allMatches.size(); i++)
+    allMatches[i] = camPair.matches[orderedToInputOrder[i]];
+
+  auto& groups = *pgroups;
+  auto& Hs = *pHs;
 
   int nAllMatches = static_cast<int>(allMatches.size());
   vector<IntPair> remainingMatches = allMatches;
@@ -643,67 +1009,604 @@ YASFM_API int verifyMatchesGeometrically(const OptionsGeometricVerification& opt
   for(int i = 0; i < nAllMatches; i++)
     remainingToAll[i] = i;
 
+  Matrix3d bestH;
   vector<int> bestInliers,currInliers;
   bestInliers.reserve(nAllMatches);
   currInliers.reserve(nAllMatches);
 
-  for(int iTransform = 0; iTransform < opt.maxTransforms; iTransform++)
+  for(int iTransform = 0; iTransform < opt.get<int>("maxHs"); iTransform++)
   {
     bestInliers.clear();
+    vector<bool> matchUsed(remainingMatches.size(),false);
 
     for(size_t iMatch = 0; iMatch < remainingMatches.size(); iMatch++)
     {
+      if(matchUsed[iMatch])
+        continue;
       int k1 = remainingMatches[iMatch].first;
       int k2 = remainingMatches[iMatch].second;
       currInliers.clear();
+      Matrix3d currH;
 
-      for(int iRefine = 0; iRefine < opt.nRefineIterations; iRefine++)
+      for(int iRefine = 0; iRefine < opt.get<int>("nRefineIterations"); iRefine++)
       {
-        Matrix3d H;
         double thresh;
         if(iRefine == 0)
         {
           computeSimilarityFromMatch(cam1.key(k1),cam1.keysScales()[k1],
             cam1.keysOrientations()[k1],cam2.key(k2),cam2.keysScales()[k2],
-            cam2.keysOrientations()[k2],&H);
-          thresh = opt.similarityThresh;
+            cam2.keysOrientations()[k2],&currH);
+          thresh = opt.get<double>("similarityThresh");
         } else if(iRefine <= 4)
         {
           estimateAffinity(cam1.keys(),cam2.keys(),remainingMatches,
-            currInliers,&H);
-          thresh = opt.affinityThresh;
+            currInliers,&currH);
+          thresh = opt.get<double>("affinityThresh");
         } else
         {
           estimateHomography(cam1.keys(),cam2.keys(),remainingMatches,
-            currInliers,&H);
-          thresh = opt.homographyThresh;
+            currInliers,&currH);
+          thresh = opt.get<double>("homographyThresh");
         }
 
         currInliers.clear();
         findHomographyInliers(thresh,cam1.keys(),cam2.keys(),
-          remainingMatches,H,&currInliers);
-        
-        if(currInliers.size() < opt.minInliersToRefine)
-          break;
-        
-        if(currInliers.size() > opt.stopInlierFraction * remainingMatches.size())
+          remainingMatches,currH,&currInliers);
+
+        if(currInliers.size() < opt.get<int>("minInliersToRefine"))
           break;
       }
 
+      for(int idx : currInliers)
+        matchUsed[idx] = true;
+
       if(currInliers.size() > bestInliers.size())
+      {
         bestInliers = currInliers;
+        bestH = currH;
+      }
     }
 
-    if(bestInliers.size() < opt.minInliersPerTransform)
+    ceres::Problem problem;
+    ceres::Solver::Options solverOpt;
+    solverOpt.max_num_iterations = 10;
+    ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
+
+    for(IntPair match : remainingMatches)
+    {
+      const auto& x1 = cam1.key(match.first);
+      const auto& x2 = cam2.key(match.second);
+      auto costFun = RefineHRobustCostFunctor::createCostFunction(
+        x1,x2,opt.get<double>("homographyThresh"));
+      problem.AddResidualBlock(costFun,lossFun,bestH.data());
+    }
+
+    ceres::Solver::Summary summary;
+    ceres::Solve(solverOpt,&problem,&summary);
+    
+    bestInliers.clear();
+    findHomographyInliers(opt.get<double>("homographyThresh"),cam1.keys(),cam2.keys(),
+      remainingMatches,bestH,&bestInliers);
+
+    if(bestInliers.size() < opt.get<int>("minInliersPerH"))
       break;
 
+    Hs.push_back(bestH);
+    groups.emplace_back();
     for(int remainingMatchesInlier : bestInliers)
-      outInliers.push_back(remainingToAll[remainingMatchesInlier]);
+      groups.back().push_back(remainingToAll[remainingMatchesInlier]);
+
     filterOutOutliers(bestInliers,&remainingMatches);
     filterOutOutliers(bestInliers,&remainingToAll);
 
-    if(remainingMatches.size() < opt.minInliersPerTransform)
+    if(remainingMatches.size() < opt.get<int>("minInliersPerH"))
       break;
+  }
+
+  for(auto& g : groups)
+    for(int& idx : g)
+      idx = orderedToInputOrder[idx];
+}
+
+Mediator7ptKnownHsRANSAC::Mediator7ptKnownHsRANSAC(const vector<Vector2d>& keys1,
+  const vector<Vector2d>& keys2,const vector<IntPair>& matches,int nGroups,
+  const vector<int>& groupId)
+  : Mediator7ptRANSAC(keys1,keys2,matches),nGroups_(nGroups),groupId_(groupId)
+{
+}
+
+bool Mediator7ptKnownHsRANSAC::isPermittedSelection(const vector<int>& idxs) const
+{
+  // counts[0] corresponds to non-planar matches
+  vector<int> counts(nGroups_+1,0);
+  for(int idx : idxs)
+    counts[groupId_[idx]+1]++;
+  for(int ig = 0; ig < nGroups_; ig++)
+  {
+    // Degenerate selection?
+    if(counts[ig+1] > 4)
+      return false;
+  }
+  return true;
+}
+
+bool estimateRelativePose7ptKnownHsLOPROSAC(const OptionsRANSAC& opt,
+  const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+  const CameraPair& pair,int nGroups,const vector<int>& groupId,
+  Matrix3d *F,vector<int> *inliers)
+{
+  Mediator7ptKnownHsRANSAC m(keys1,keys2,pair.matches,nGroups,groupId);
+  vector<int> matchesOrder;
+  yasfm::quicksort(pair.dists,&matchesOrder);
+  int nInliers = estimateTransformLOPROSAC(m,opt,matchesOrder,F,inliers);
+  return (nInliers > 0);
+}
+
+struct RefineFKnownHsCostFunctor
+{
+  RefineFKnownHsCostFunctor(const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const CameraPair& pair,const vector<vector<int>>& groupsH,
+    const vector<int>& others,double errThresh,double alpha)
+    : keys1(keys1),keys2(keys2),pair(pair),groupsH(groupsH),others(others),
+    errThresh(errThresh),alpha(alpha)
+  {
+  }
+
+  template<typename T>
+  bool operator()(T const* const* parameters,T* residuals) const
+  {
+    Matrix<T,3,3> F;
+    composeF(parameters[0],parameters[1],&F);
+
+    int iResidual = 0;
+    for(size_t iH = 0; iH < groupsH.size(); iH++)
+    {
+      T avgErr = T(0.);
+      for(int iMatch : groupsH[iH])
+      {
+        IntPair match = pair.matches[iMatch];
+        const auto& x1 = keys1[match.first];
+        const auto& x2 = keys2[match.second];
+
+        T err = sqrt(computeFundMatSampsonDistSquared(x2,F,x1));
+        residuals[iResidual] = T(1. - alpha) * err;
+        avgErr += err;
+        iResidual++;
+      }
+      avgErr /= T(double(groupsH[iH].size()));
+
+      iResidual -= (int)groupsH[iH].size();
+      for(int iMatch : groupsH[iH])
+      {
+        residuals[iResidual] += T(alpha) * avgErr;
+        residuals[iResidual] = 
+          robustify(errThresh,residuals[iResidual]);
+        residuals[iResidual] *= T(1. - pair.dists[iMatch]);
+        iResidual++;
+      }
+    }
+
+    for(size_t io = 0; io < others.size(); io++)
+    {
+      IntPair match = pair.matches[others[io]];
+      const auto& x1 = keys1[match.first];
+      const auto& x2 = keys2[match.second];
+
+      residuals[iResidual] = robustify(errThresh,
+        sqrt(computeFundMatSampsonDistSquared(x2,F,x1)));
+      residuals[iResidual] *= T(1. - pair.dists[others[io]]);
+      iResidual++;
+    }
+
+    return true;
+  }
+
+  const vector<Vector2d> &keys1,&keys2;
+  const CameraPair& pair;
+  const vector<vector<int>> groupsH;
+  const vector<int>& others;
+  /// This changes robustify function.
+  double errThresh;
+  /// Weights how do we compute error of a match which is modelled by homography.
+  /// err = alpha * robustify(groupAverageError) + (1-alpha) * robustify(matchError)
+  double alpha;
+};
+
+void refineFKnownHs(const OptionsGeometricVerification& opt,
+  const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const CameraPair& pair,
+  vector<vector<int>> *pgroupsH,Matrix3d *pF,vector<int> *pinliersF)
+{
+  auto& groupsH = *pgroupsH;
+  auto& F = *pF;
+  auto& inliersF = *pinliersF;
+  const auto& matches = pair.matches;
+
+  int nOptIters = opt.get<int>("nOptIterations");
+  double errThresh = opt.get<double>("fundMatThresh");
+  if(errThresh == 0.)
+    errThresh = 1e-12; // We will divide by the errThresh
+
+  vector<bool> isModelledByH(matches.size(),false);
+  for(const auto& group : groupsH)
+    for(int idx : group)
+      isModelledByH[idx] = true;
+
+  vector<int> others;
+  for(int iMatch = 0; iMatch < (int)matches.size(); iMatch++)
+    if(!isModelledByH[iMatch])
+      others.push_back(iMatch);
+
+  /// === Convert F into a minimal parameterization ===  
+  Matrix3d FParamH;
+  Vector3d FParamv;
+  decomposeF(F,&FParamH,&FParamv);
+
+  double alpha = 0.;
+  for(int iIter = 0; iIter < nOptIters; iIter++)
+  {
+    /// === Set-up the problem ===
+    ceres::Problem problem;
+    ceres::Solver::Options solverOpt;
+    ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
+
+    auto costFun =
+      new ceres::DynamicAutoDiffCostFunction<RefineFKnownHsCostFunctor>(
+      new RefineFKnownHsCostFunctor(keys1,keys2,pair,groupsH,others,errThresh*1.5,
+      alpha));
+
+    costFun->SetNumResiduals((int)matches.size());
+    costFun->AddParameterBlock(9);
+    costFun->AddParameterBlock(3);
+    problem.AddResidualBlock(costFun,lossFun,FParamH.data(),FParamv.data());
+
+    ceres::Solver::Summary summary;
+    ceres::Solve(solverOpt,&problem,&summary);
+#ifdef PRINT_STATUS
+    std::cout << summary.FullReport() << "\n";
+#endif
+    alpha += 1./(nOptIters-1);
+  }
+
+  composeF(FParamH.data(),FParamv.data(),&F);
+
+  inliersF.clear();
+  size_t largestHSz = 0;
+  list<size_t> HsToRemove;
+  for(size_t iH = 0; iH < groupsH.size(); iH++)
+  {
+    double avgErr = 0.;
+    for(int iMatch : groupsH[iH])
+    {
+      IntPair match = matches[iMatch];
+      const auto& x1 = keys1[match.first];
+      const auto& x2 = keys2[match.second];
+
+      avgErr += sqrt(computeFundMatSampsonDistSquared(x2,F,x1));
+    }
+    avgErr /= double(groupsH[iH].size());
+    if(avgErr < errThresh)
+    {
+      for(int iMatch : groupsH[iH])
+        inliersF.push_back(iMatch);
+      HsToRemove.push_front(iH);
+      if(largestHSz < groupsH[iH].size())
+        largestHSz = groupsH[iH].size();
+    }
+  }
+
+  for(size_t io = 0; io < others.size(); io++)
+  {
+    IntPair match = matches[others[io]];
+    const auto& x1 = keys1[match.first];
+    const auto& x2 = keys2[match.second];
+
+    double err = sqrt(computeFundMatSampsonDistSquared(x2,F,x1));
+
+    if(err < errThresh)
+      inliersF.push_back(others[io]);
+  }
+
+  if(HsToRemove.size() < 2 &&
+    (double(largestHSz)/inliersF.size() > opt.get<double>("maxHProportionInF") ||
+    (inliersF.size()-largestHSz) < opt.get<int>("minOffHInliersInF")))
+  {
+    inliersF.clear();
+  } else
+  {
+    for(size_t iH : HsToRemove)
+      groupsH.erase(groupsH.begin() + iH);
+  }
+}
+
+void estimateFundamentalMatrices(const OptionsGeometricVerification& opt,
+  const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const CameraPair& allPair,
+  const vector<vector<int>>& groupsH,vector<vector<int>> *pgroupsF,vector<Matrix3d> *pFs)
+{
+  auto& groupsF = *pgroupsF;
+  auto& Fs = *pFs;
+  int minInliersPerF = opt.get<int>("minInliersPerF");
+
+  OptionsRANSAC ransacOpt(opt.get<int>("maxRansacRounds"),
+    opt.get<double>("fundMatThresh"),minInliersPerF);
+
+  int nAllMatches = static_cast<int>(allPair.matches.size());
+  CameraPair remainingPair = allPair;
+  vector<vector<int>> remainingGroupsH = groupsH;
+  vector<int> remainingToAll(nAllMatches);
+  for(int i = 0; i < nAllMatches; i++)
+    remainingToAll[i] = i;
+
+  vector<int> remainingGroupHId(nAllMatches,-1);
+  for(int ig = 0; ig < (int)groupsH.size(); ig++)
+    for(int idx : groupsH[ig])
+      remainingGroupHId[idx] = ig;
+
+  vector<int> inliers;
+  inliers.reserve(nAllMatches);
+
+  for(int iTransform = 0; iTransform < opt.get<int>("maxFs"); iTransform++)
+  {
+    inliers.clear();
+
+    Matrix3d F;
+    estimateRelativePose7ptKnownHsLOPROSAC(ransacOpt,keys1,keys2,
+      remainingPair,(int)remainingGroupsH.size(),remainingGroupHId,&F,&inliers);
+
+    if(inliers.size() < minInliersPerF)
+      break;
+
+    refineFKnownHs(opt,keys1,keys2,remainingPair,&remainingGroupsH,&F,&inliers);
+
+    if(inliers.size() < minInliersPerF)
+      break;
+
+    // Save inliers as F group
+    Fs.push_back(F);
+    groupsF.emplace_back();
+    for(int remainingMatchesInlier : inliers)
+      groupsF.back().push_back(remainingToAll[remainingMatchesInlier]);
+
+    // Update indices in H groups
+    vector<bool> isInlier(remainingPair.matches.size(),false);
+    for(int idx : inliers)
+      isInlier[idx] = true;
+    vector<int> remainingToNextRemaining(isInlier.size());
+    int idxToNext = 0;
+    for(size_t i = 0; i < isInlier.size(); i++)
+    {
+      remainingToNextRemaining[i] = idxToNext;
+      idxToNext += (!isInlier[i]);
+    }
+    for(auto& group : remainingGroupsH)
+      for(auto& idx : group)
+        idx = remainingToNextRemaining[idx];
+
+    filterOutOutliers(inliers,&remainingPair.matches);
+    filterOutOutliers(inliers,&remainingPair.dists);
+    filterOutOutliers(inliers,&remainingToAll);
+    filterOutOutliers(inliers,&remainingGroupHId);
+
+    // Update indices to H groups
+    for(int ig = 0; ig < (int)remainingGroupsH.size(); ig++)
+      for(int idx : remainingGroupsH[ig])
+        remainingGroupHId[idx] = ig;
+
+    if(remainingPair.matches.size() < minInliersPerF)
+      break;
+  }
+}
+
+double computePairwiseEigScore(const Matrix3d& H1,const Matrix3d& H2)
+{
+  Matrix3d H = H2.inverse() * H1;
+  Vector3cd e = H.eigenvalues();
+
+  double score = 1e30;
+  if(e.imag().any())
+  {
+    int iImag;
+    if(e(0).imag() == 0)
+      iImag = 1;
+    else if(e(2).imag() == 0)
+      iImag = 0;
+    else
+      iImag = 0;
+
+    score = 2*abs(e(iImag).imag() / e(iImag).real());
+
+  } else
+  {
+    Vector3d er = e.real();
+
+    int i = 0,j = 1,k = 2;
+    er = er/(0.5*(er(i)+er(j)));
+    score = abs(1. - er(i)) + abs(1. - er(j));
+
+    i = 1; j = 2; k = 0;
+    er = er/(0.5*(er(i)+er(j)));
+    double scoreCurr = abs(1. - er(i)) + abs(1. - er(j));
+    if(scoreCurr < score)
+      score = scoreCurr;
+
+    i = 0; j = 2; k = 1;
+    er = er/(0.5*(er(i)+er(j)));
+    scoreCurr = abs(1. - er(i)) + abs(1. - er(j));
+    if(scoreCurr < score)
+      score = scoreCurr;
+  }
+
+  return score;
+}
+
+double computePairwiseEGScore(const OptionsGeometricVerification& opt,
+  const vector<Vector2d>& pts1,const vector<Vector2d>& pts2,
+  const vector<IntPair>& matches,const vector<int>& group1,
+  const vector<int>& group2)
+{
+  vector<int> bothGroups;
+  bothGroups.insert(bothGroups.end(),group1.begin(),group1.end());
+  bothGroups.insert(bothGroups.end(),group2.begin(),group2.end());
+  Matrix3d F;
+  estimateFundamentalMatrix(pts1,pts2,matches,bothGroups,
+    opt.get<double>("refineTolerance"),
+    opt.get<int>("nOptIterations"),&F);
+  
+  vector<bool> useMatch(matches.size(),true);
+  for(int iMatch : bothGroups)
+    useMatch[iMatch] = false;
+  vector<IntPair> otherMatches;
+  otherMatches.reserve(matches.size() - bothGroups.size());
+  for(size_t iMatch = 0; iMatch < matches.size(); iMatch++)
+    if(useMatch[iMatch])
+      otherMatches.push_back(matches[iMatch]);
+
+  vector<int> inliers;
+  int nInliers = findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
+    pts1,pts2,matches,F,&inliers);
+
+  return double(nInliers) / double(bothGroups.size());
+}
+
+void estimateFundamentalMatricesMerging(const OptionsGeometricVerification& opt,
+  const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,const vector<IntPair>& matches,
+  const vector<vector<int>>& groupsH,const vector<Matrix3d>& Hs,
+  vector<vector<int>> *pgroupsF,vector<Matrix3d> *pFs)
+{
+  auto& groupsF = *pgroupsF;
+  auto& Fs = *pFs;
+
+  double mergeThresh = opt.get<double>("mergeThresh");
+  vector<bool> visited(groupsH.size(),false);
+  vector<set<int>> toMerge;
+  for(int iStart = 0; iStart < int(groupsH.size()); iStart++)
+  {
+    if(visited[iStart])
+      continue;
+
+    list<int> queue;
+    queue.push_back(iStart);
+    visited[iStart] = true;
+    toMerge.emplace_back();
+
+    while(!queue.empty())
+    {
+      int i = queue.front();
+      queue.pop_front();
+      toMerge.back().insert(i);
+      for(int j = 0; j < (int)groupsH.size(); j++)
+      {
+        if(!visited[j])
+        {
+          double eigScore = computePairwiseEigScore(Hs[i],Hs[j]);
+          double egThresh = computePairwiseEGScore(opt,keys1,
+            keys2,matches,groupsH[i],groupsH[j]);
+          double score = egThresh / eigScore;
+          if(score > mergeThresh)
+          {
+            visited[j] = true;
+            queue.push_back(j);
+          }
+        }
+      }
+    }
+  }
+
+  vector<bool> matchUsed(matches.size(),false);
+  for(const auto& groupH : groupsH)
+    for(int iMatch : groupH)
+      matchUsed[iMatch] = true;
+
+  vector<IntPair> remainingMatches;
+  vector<int> remainingToAll;
+  for(int iMatch = 0; iMatch < int(matches.size()); iMatch++)
+  {
+    if(!matchUsed[iMatch])
+    {
+      remainingMatches.push_back(matches[iMatch]);
+      remainingToAll.push_back(iMatch);
+    }
+  }
+
+  for(const auto& groupIdxs : toMerge)
+  {
+    if(groupIdxs.size() <= 1)
+      continue;
+    groupsF.emplace_back();
+    for(int igH : groupIdxs)
+    {
+      groupsF.back().insert(groupsF.back().end(),
+        groupsH[igH].begin(),groupsH[igH].end());
+    }
+    Fs.emplace_back();
+    estimateFundamentalMatrix(keys1,keys2,matches,
+      groupsF.back(),opt.get<double>("refineTolerance"),
+      opt.get<int>("nOptIterations")*3,&Fs.back());
+
+    vector<int> inliers;
+    findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
+      keys1,keys2,remainingMatches,Fs.back(),&inliers);
+
+    for(int remainingIdx : inliers)
+      groupsF.back().push_back(remainingToAll[remainingIdx]);
+    filterOutOutliers(inliers,&remainingMatches);
+    filterOutOutliers(inliers,&remainingToAll);
+  }
+}
+
+int verifyMatchesGeometrically(const OptionsGeometricVerification& opt,
+  const Camera& cam1,const Camera& cam2,const CameraPair& pair,
+  vector<int> *poutInliers,vector<MatchGroup> *poutGroups)
+{
+  auto& outInliers = *poutInliers;
+  auto& outGroups = *poutGroups;
+
+  vector<vector<int>> groupsH;
+  vector<Matrix3d> Hs;
+  growHomographies(opt,cam1,cam2,pair,&groupsH,&Hs);
+
+  vector<vector<int>> groupsEG;
+  vector<Matrix3d> Fs;
+  //estimateFundamentalMatrices(opt,cam1.keys(),cam2.keys(),pair,groupsH,&groupsEG,&Fs);
+  estimateFundamentalMatricesMerging(opt,cam1.keys(),cam2.keys(),pair.matches,
+    groupsH,Hs,&groupsEG,&Fs);
+
+  // == Remove Hs modelled by EG ==
+  vector<bool> isModelledByEG(pair.matches.size(),false);
+  for(const auto& g : groupsEG)
+    for(int idx : g)
+      isModelledByEG[idx] = true;
+
+  vector<size_t> nModelledByEG(Hs.size(),0);
+  for(size_t iH = 0; iH < Hs.size(); iH++)
+    for(int idx : groupsH[iH])
+      nModelledByEG[iH] += isModelledByEG[idx];
+
+  for(int iH = int(groupsH.size())-1; iH >= 0; iH--)
+  {
+    if(nModelledByEG[iH] == groupsH[iH].size())
+    {
+      groupsH.erase(groupsH.begin() + iH);
+      Hs.erase(Hs.begin() + iH);
+    }
+  }
+
+  outInliers.clear();
+  outGroups.clear();
+  for(size_t ig = 0; ig < groupsEG.size(); ig++)
+  {
+    outInliers.insert(outInliers.end(),groupsEG[ig].begin(),groupsEG[ig].end());
+    outGroups.emplace_back();
+    outGroups.back().size = (int)groupsEG[ig].size();
+    outGroups.back().type = 'F';
+    outGroups.back().T = Fs[ig];
+  }
+  for(size_t ig = 0; ig < groupsH.size(); ig++)
+  {
+    outInliers.insert(outInliers.end(),groupsH[ig].begin(),groupsH[ig].end());
+    outGroups.emplace_back();
+    outGroups.back().size = (int)groupsH[ig].size();
+    outGroups.back().type = 'H';
+    outGroups.back().T = Hs[ig];
   }
 
   return static_cast<int>(outInliers.size());
@@ -833,7 +1736,7 @@ void Mediator7ptRANSAC::computeTransformation(const vector<int>& idxs,vector<Mat
 double Mediator7ptRANSAC::computeSquaredError(const Matrix3d& F,int matchIdx) const
 {
   IntPair match = matches_[matchIdx];
-  return computeSymmetricEpipolarSquaredDistanceFundMat(
+  return computeFundMatSampsonDistSquared(
     keys2_[match.second],
     F,
     keys1_[match.first]);
@@ -842,22 +1745,7 @@ double Mediator7ptRANSAC::computeSquaredError(const Matrix3d& F,int matchIdx) co
 void Mediator7ptRANSAC::refine(double tolerance,const vector<int>& inliers,
   Matrix3d *F) const
 {
-  int numPoints = static_cast<int>(inliers.size());
-  const int numParams = 9;
-
-  RefineData data;
-  data.keys1 = &keys1_;
-  data.keys2 = &keys2_;
-  data.matches = &matches_;
-  data.inliers = &inliers;
-
-  vector<double> residuals(numPoints);
-
-  Matrix3d tmp = *F;
-  nonLinearOptimLMCMINPACK(computeSymmetricEpipolarDistanceFundMatCMINPACK,
-    &data,numPoints,numParams,tolerance,tmp.data(),&residuals[0]);
-
-  closestRank2Matrix(tmp,F);
+  refineFundamentalMatrixNonLinear(keys1_,keys2_,matches_,inliers,tolerance,50,F);
 }
 
 Mediator5ptRANSAC::Mediator5ptRANSAC(const Camera& cam1,const Camera& cam2,
@@ -894,7 +1782,7 @@ void Mediator5ptRANSAC::computeTransformation(const vector<int>& idxs,vector<Mat
 
 double Mediator5ptRANSAC::computeSquaredError(const Matrix3d& F,int matchIdx) const
 {
-  return computeSymmetricEpipolarSquaredDistanceFundMat(
+  return computeFundMatSampsonDistSquared(
     cam2_.key(matches_[matchIdx].second),
     F,
     cam1_.key(matches_[matchIdx].first));
@@ -909,8 +1797,11 @@ int Mediator5ptRANSAC::minMatches() const
 void Mediator5ptRANSAC::refine(double tolerance,const vector<int>& inliers,
   Matrix3d *F) const
 {
-  // TODO: Find LM lib for non-linear minimization
-  // change F to E before optimization.
+  Matrix3d E = cam2_.K().transpose() * (*F) * cam1_.K();
+  refineEssentialMatrixNonLinear(cam1_.keys(),cam2_.keys(),
+    invK1_,invK2_,matches_,inliers,
+    tolerance,&E);
+  F->noalias() = invK2_.transpose() * E * invK1_;
 }
 
 MediatorHomographyRANSAC::MediatorHomographyRANSAC(const vector<Vector2d>& keys1,
@@ -953,46 +1844,23 @@ void MediatorHomographyRANSAC::refine(double tolerance,const vector<int>& inlier
 namespace
 {
 
-double computeSymmetricEpipolarSquaredDistanceFundMat(const Vector2d& pt2,
-  const Matrix3d& F,const Vector2d& pt1)
-{
-  Vector3d Fpt1 = F*pt1.homogeneous();
-  Vector3d FTpt2 = F.transpose()*pt2.homogeneous();
-
-  double pt2Fpt1 = pt2.homogeneous().dot(Fpt1);
-
-  return (pt2Fpt1*pt2Fpt1) *
-    (1. / Fpt1.topRows(2).squaredNorm() + 1. / FTpt2.topRows(2).squaredNorm());
-}
-
-int computeSymmetricEpipolarDistanceFundMatCMINPACK(void *pdata,
+int computeEssenMatSampsonDistCMINPACK(void *pdata,
   int nPoints,int nParams,const double* params,double* residuals,int iflag)
 {
-  Matrix3d F;
-  closestRank2Matrix(params,F.data());
+  const auto& data = *static_cast<EssentialMatrixRefineData *>(pdata);
 
-  const auto& data = *static_cast<Mediator7ptRANSAC::RefineData *>(pdata);
+  Matrix3d E;
+  closestEssentialMatrix(params,E.data());
+  
+  Matrix3d F = (*data.invK2).transpose() * E * (*data.invK1);
+
   for(int iInlier = 0; iInlier < nPoints; iInlier++)
   {
-    IntPair match = (*data.matches)[(*data.inliers)[iInlier]];
-    residuals[iInlier] = sqrt(computeSymmetricEpipolarSquaredDistanceFundMat(
+    IntPair match = (*data.matches)[(*data.matchesToUse)[iInlier]];
+    residuals[iInlier] = sqrt(computeFundMatSampsonDistSquared(
       (*data.keys2)[match.second],F,(*data.keys1)[match.first]));
   }
   return 0; // Negative value would terminate the optimization.
-}
-
-// dist = (pt2'*F*pt1)^2/((F*pt1)^2_1 + (F*pt1)^2_2 + (FT*pt2)^2_1 + (FT*pt2)^2_2)
-// where FT is the transpose of F and _i is the i-th element of a vector
-// Units are squared pixels.
-double computeSampsonSquaredDistanceFundMat(const Vector2d& pt2,const Matrix3d& F,const Vector2d& pt1)
-{
-  Vector3d Fpt1 = F*pt1.homogeneous();
-  Vector3d FTpt2 = F.transpose()*pt2.homogeneous();
-
-  double pt2Fpt1 = pt2.homogeneous().dot(Fpt1);
-
-  return (pt2Fpt1*pt2Fpt1) /
-    (Fpt1.topRows(2).squaredNorm() + FTpt2.topRows(2).squaredNorm());
 }
 
 // Check: http://stackoverflow.com/questions/13328676/c-solving-cubic-equations

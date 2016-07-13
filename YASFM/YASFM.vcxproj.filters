@@ -63,6 +63,9 @@
     <ClInclude Include="image_similarity.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="options_types.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="utils.cpp">
@@ -108,6 +111,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="image_similarity.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="options_types.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

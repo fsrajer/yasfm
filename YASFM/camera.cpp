@@ -6,6 +6,8 @@
 #include <iomanip>
 #include <mutex>
 
+#include "zlib/zlib.h"
+
 #include "utils_io.h"
 
 using Eigen::VectorXf;
@@ -36,18 +38,18 @@ Camera::Camera(const string& imgFilename,const string& featuresDir)
 {
   string fn = extractFilename(imgFilename);
   size_t dotPos = fn.find_last_of(".");
-  featsFilename_ = joinPaths(featuresDir,fn.substr(0,dotPos) + ".sft");
+  featsFilename_ = joinPaths(featuresDir,fn.substr(0,dotPos) + ".feat.gz");
 
   getImgDims(imgFilename,&imgWidth_,&imgHeight_);
 }
 
-Camera::Camera(istream& file,int mode)
+Camera::Camera(istream& file)
 {
   file >> imgFilename_;
   file >> imgWidth_ >> imgHeight_;
   file >> featsFilename_;
 
-  readFeatures(mode);
+  readFeatures(Camera::ReadKeys);
 
   readKeysColors();
 }
@@ -124,6 +126,22 @@ void Camera::setImage(const string& filename,int width,int height)
   imgHeight_ = height;
 }
 
+void Camera::setFeaturesFilename(const string& filename,bool readKeys)
+{
+  keys_.clear();
+  keysScales_.clear();
+  keysOrientations_.clear();
+  clearDescriptors();
+  keysColors_.clear();
+
+  featsFilename_ = filename;
+  if(readKeys)
+  {
+    readFeatures(ReadMode::ReadKeys);
+    readKeysColors();
+  }
+}
+
 const string& Camera::imgFilename() const { return imgFilename_; }
 int Camera::imgWidth() const { return imgWidth_; }
 int Camera::imgHeight() const { return imgHeight_; }
@@ -153,18 +171,18 @@ void Camera::writeASCII(ostream& file) const
 
 void Camera::writeFeatures() const
 {
-  ofstream featuresFile(featsFilename_,std::ios::binary);
-  if(!featuresFile.is_open())
+  gzFile file = gzopen(featsFilename_.c_str(),"wb"); // wb = write binary
+
+  if(!file)
   {
-    cerr << "ERROR: Camera::writeFeatures: unable to open: " << featsFilename_
-      << " for writing\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(featsFilename_);
     return;
   }
 
   int nKeys = static_cast<int>(keys_.size());
   int dim = static_cast<int>(descr_.rows());
-  featuresFile.write((char*)(&nKeys),sizeof(int));
-  featuresFile.write((char*)(&dim),sizeof(int));
+  gzwrite(file,(void*)(&nKeys),sizeof(int));
+  gzwrite(file,(void*)(&dim),sizeof(int));
 
   for(size_t i = 0; i < keys_.size(); i++)
   {
@@ -173,27 +191,122 @@ void Camera::writeFeatures() const
     float scale = float(keysScales_[i]);
     float ori = float(keysOrientations_[i]);
 
-    featuresFile.write((char*)(&y),sizeof(float));
-    featuresFile.write((char*)(&x),sizeof(float));
-    featuresFile.write((char*)(&scale),sizeof(float));
-    featuresFile.write((char*)(&ori),sizeof(float));
+    gzwrite(file,(void*)(&y),sizeof(float));
+    gzwrite(file,(void*)(&x),sizeof(float));
+    gzwrite(file,(void*)(&scale),sizeof(float));
+    gzwrite(file,(void*)(&ori),sizeof(float));
   }
 
-  for(size_t i = 0; i < keys_.size(); i++)
+  for(int i = 0; i < nKeys; i++)
   {
-    featuresFile.write((char*)(&descr_(0,i)),dim*sizeof(float));
+    for(int j = 0; j < dim; j++)
+    {
+      unsigned int tmpui = (unsigned int)floor(0.5+512.0*descr_(j,i));
+      unsigned char tmpuc = (unsigned char)std::min((unsigned int)UCHAR_MAX,tmpui);
+      gzwrite(file,(void*)(&tmpuc),sizeof(unsigned char));
+    }
   }
 
-  featuresFile.close();
+  gzclose(file);
 }
 
 void Camera::readFeatures(int mode)
 {
+  // Format is:
+  // 1) compressed in .feat.gz 
+  // 2) old full binary in .sft
+  // 3) classic ASCII .key
+  if(hasExtension(featsFilename_,".feat.gz"))
+  {
+    readFeaturesFeatGz(mode);
+  } else if(hasExtension(featsFilename_,".sft"))
+  {
+    readFeaturesSft(mode);
+  } else if(hasExtension(featsFilename_,".key"))
+  {
+    readFeaturesKey(mode);
+  } else
+  {
+    YASFM_PRINT_ERROR("Unsupported features file format:\n" << featsFilename_);
+  }
+}
+
+void Camera::allocAndRegisterDescr(int num,int dim)
+{
+  unique_lock<recursive_mutex> lck(mtx);
+  while(nDescrInMemoryTotal_ > maxDescrInMemoryTotal_)
+  {
+    camsWithLoadedDescr_.front()->clearDescriptors();
+  }
+  nDescrInMemoryTotal_ += num;
+  camsWithLoadedDescr_.push_back(this);
+  descr_.resize(dim,num);
+}
+
+void Camera::readFeaturesFeatGz(int mode)
+{
+  gzFile file = gzopen(featsFilename_.c_str(),"rb"); // rb = read binary
+
+  if(!file)
+  {
+    YASFM_PRINT_ERROR_FILE_OPEN(featsFilename_);
+    return;
+  }
+
+  int nKeys,dim;
+  gzread(file,(void*)(&nKeys),sizeof(int));
+  gzread(file,(void*)(&dim),sizeof(int));
+
+  if(mode & ReadKeys)
+  {
+    keys_.resize(nKeys);
+    keysScales_.resize(nKeys);
+    keysOrientations_.resize(nKeys);
+  }
+
+  if(mode & ReadDescriptors)
+    allocAndRegisterDescr(nKeys,dim);
+
+  float tmp[4];
+  if(mode & ReadKeys)
+  {
+    for(int i = 0; i < nKeys; i++)
+    {
+      gzread(file,(void*)(&tmp[0]),4*sizeof(float));
+      keys_[i](0) = tmp[1];
+      keys_[i](1) = tmp[0];
+      keysScales_[i] = tmp[2];
+      keysOrientations_[i] = tmp[3];
+    }
+  } else
+  {
+    for(int i = 0; i < nKeys; i++)
+      gzread(file,(void*)(&tmp[0]),4*sizeof(float));
+  }
+
+  if(mode & ReadDescriptors)
+  {
+    for(int i = 0; i < nKeys; i++)
+    {
+      for(int j = 0; j < dim; j++)
+      {
+        unsigned char tmp;
+        gzread(file,(void*)(&tmp),sizeof(unsigned char));
+        descr_(j,i) = tmp;
+      }
+    }
+    descr_.colwise().normalize();
+  }
+
+  gzclose(file);
+}
+
+void Camera::readFeaturesSft(int mode)
+{
   ifstream featuresFile(featsFilename_,std::ios::binary);
   if(!featuresFile.is_open())
   {
-    cerr << "ERROR: Camera::readFeatures: unable to open: " << featsFilename_
-      << " for reading\n";
+    YASFM_PRINT_ERROR_FILE_OPEN(featsFilename_);
     return;
   }
 
@@ -208,7 +321,7 @@ void Camera::readFeatures(int mode)
     keysOrientations_.resize(nKeys);
   }
   if(mode & ReadDescriptors)
-    allocAndRegisterDescr(nKeys,descrDim); 
+    allocAndRegisterDescr(nKeys,descrDim);
 
   float tmp[4];
   if(mode & ReadKeys)
@@ -236,16 +349,54 @@ void Camera::readFeatures(int mode)
   featuresFile.close();
 }
 
-void Camera::allocAndRegisterDescr(int num,int dim)
+void Camera::readFeaturesKey(int mode)
 {
-  unique_lock<recursive_mutex> lck(mtx);
-  while(nDescrInMemoryTotal_ > maxDescrInMemoryTotal_)
+  ifstream file(featsFilename_);
+  if(!file.is_open())
   {
-    camsWithLoadedDescr_.front()->clearDescriptors();
+    YASFM_PRINT_ERROR_FILE_OPEN(featsFilename_);
+    return;
   }
-  nDescrInMemoryTotal_ += num;
-  camsWithLoadedDescr_.push_back(this);
-  descr_.resize(dim,num);
+
+  int nKeys,descrDim;
+  file >> nKeys >> descrDim;
+
+  if(mode & ReadKeys)
+  {
+    keys_.resize(nKeys);
+    keysScales_.resize(nKeys);
+    keysOrientations_.resize(nKeys);
+  }
+  if(mode & ReadDescriptors)
+    allocAndRegisterDescr(nKeys,descrDim);
+
+  double dummy;
+  for(int i = 0; i < nKeys; i++)
+  {
+    if(mode & ReadKeys)
+      file >> keys_[i](1) >> keys_[i](0) >> keysScales_[i] >> keysOrientations_[i];
+    else
+      file >> dummy >> dummy >> dummy >> dummy;
+
+    if(mode & ReadDescriptors)
+    {
+      for(int d = 0; d < descrDim; d++)
+        file >> descr_(d,i);
+    } else
+    {
+      int nLines = static_cast<int>(ceil(descrDim/20.)) + 1;
+      for(int j = 0; j < nLines; j++)
+      {
+        string s;
+        std::getline(file,s);
+      }
+    }
+  }
+
+  if(mode & ReadDescriptors)
+    descr_.colwise().normalize();
+
+  file.close();
 }
 
 } // namespace yasfm

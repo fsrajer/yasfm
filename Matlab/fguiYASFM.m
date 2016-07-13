@@ -8,26 +8,26 @@ fs.imgsSubdir        = '..\imgs';
 
 % Running sfm and reading results
 fs.YASFMExe            = '..\bin\Incremental.exe';
-fs.ccdWidthDb          = '..\resources\camera_ccd_widths.txt';
+fs.ccdWidthDb          = 'C:\Users\Filip\Workspace\YASFM\resources\camera_ccd_widths.txt';
 fs.firstOctave         = -1;
 fs.RunYASFM           = @fguiButtonRunYASFM;
 
 fs.ResultsFn1           = 'init.txt';
 fs.ResultsFn2           = 'tentatively_matched.txt';
 fs.ResultsFn3           = 'matched.txt';
-fs.ResultsToReadIdx     = 1;
+fs.ResultsToReadIdx     = '2 3';
 fs.ReadResults          = @fguiButtonReadResults;
 
 % Visualization
-fs.ImgIdxs           = '1 2';
+fs.ImgIdxs           = '1';
 fs.SimplePoints      = false;
 fs.ShowKeypoints     = @fguiButtonShowKeypoints;
 fs.ImgPairs            = '1-2';
 fs.ShowLines         = false;
 fs.ShowAllKeys       = false;
 fs.ShowMatches       = @fguiButtonShowMatches;
-% fs.MaxEpLinesInImage = 40;
-% fs.ShowEpipolarLines = @fguiShowEpipolarLines;
+fs.MaxEpLinesInImage = 40;
+fs.ShowEpipolarLines = @fguiButtonShowEpipolarLines;
 fs.SfmToolsExe        = 'C:\Users\Filip\Workspace\cmp\SFMTools\gui.exe';
 fs.FinalBundleFile    = 'bundle_final_model0.out';
 fs.SfMTools          = @fguiButtonShowInSfMTools;

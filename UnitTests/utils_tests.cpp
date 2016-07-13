@@ -9,6 +9,7 @@
 
 using namespace Microsoft::VisualStudio::CppUnitTestFramework;
 using Eigen::Vector4d;
+using Eigen::JacobiSVD;
 using namespace yasfm;
 using std::array;
 
@@ -197,6 +198,23 @@ Matrix34d generateRandomProjection()
       Assert::IsTrue(res1 == res2);
     }
 
+    TEST_METHOD(closestEssentialMatrixTest)
+    {
+      Matrix3d A(Matrix3d::Random()),E;
+      closestEssentialMatrix(A,&E);
+
+      JacobiSVD<Matrix3d> svd(E);
+      Assert::IsTrue(abs(svd.singularValues()(0) - svd.singularValues()(1)) < 1e-12);
+      Assert::IsTrue(abs(svd.singularValues()(2)) < 1e-12);
+
+      E.setZero();
+      closestEssentialMatrix(A.data(),E.data());
+
+      svd = JacobiSVD<Matrix3d>(E);
+      Assert::IsTrue(abs(svd.singularValues()(0) - svd.singularValues()(1)) < 1e-12);
+      Assert::IsTrue(abs(svd.singularValues()(2)) < 1e-12);
+    }
+
     TEST_METHOD(RQDecompositionTest)
     {
       const double cDesiredPrecision = 1e-14;
@@ -290,7 +308,7 @@ Matrix34d generateRandomProjection()
     TEST_METHOD(computeAverageReprojectionErrorTest)
     {
       ptr_vector<Camera> cams;
-      Points points;
+      vector<Point> points;
       double err = computeAverageReprojectionError(cams,points);
       Assert::AreEqual(err,0.);
 
@@ -301,14 +319,11 @@ Matrix34d generateRandomProjection()
       P.setIdentity();
       P.rightCols(1) = -C;
 
-      vector<Vector3d> ptCoord(1);
-      vector<Vector3uc> colors(1);
-      ptCoord[0] = Vector3d::Random();
-      vector<SplitNViewMatch> ptViews(1);
-      ptViews[0].observedPart.emplace(0,0);
-      ptViews[0].observedPart.emplace(1,0);
-      points.addPoints(ptCoord,colors,ptViews);
-
+      points.resize(1);
+      points[0].coord = Vector3d::Random();
+      points[0].views.emplace(0,0);
+      points[0].views.emplace(1,0);
+      
       cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test0.JPG",""));
       cams.push_back(make_unique<StandardCamera>("../UnitTests/test_dataset/test1.JPG",""));
       cams[0]->setParams(P);
@@ -316,7 +331,7 @@ Matrix34d generateRandomProjection()
       cams[0]->resizeFeatures(1,1);
       cams[1]->resizeFeatures(1,1);
 
-      Vector2d proj = cams[0]->project(ptCoord[0]);
+      Vector2d proj = cams[0]->project(points[0]);
       float descr = 0;
 
       cams[0]->setFeature(0,proj(0),proj(1),0,0,&descr);
@@ -360,7 +375,7 @@ Matrix34d generateRandomProjection()
       }
       Vector2d ptApprox = d*ptD;
 
-      Assert::IsTrue(pt.isApprox(ptApprox,1e-5));
+      Assert::IsTrue(pt.isApprox(ptApprox,1e-4));
     }
 
 	};

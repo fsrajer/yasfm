@@ -19,11 +19,25 @@
 #endif
 
 #include <memory>
+#include <string>
+#include <iostream>
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
 #include <vector>
+#include <map>
 #include "Eigen\Dense"
+
+#if defined _MSC_VER && _MSC_VER <= 1800 && !defined __func__
+#define __func__ __FUNCTION__
+#endif
+
+#define YASFM_PRINT_ERROR(message) \
+(std::cerr << "\nERROR in " << __FILE__ << " in " << __func__ << " at line " << __LINE__\
+<< " with message:\n" << message << "\n\n")
+
+#define YASFM_PRINT_ERROR_FILE_OPEN(filename) \
+(YASFM_PRINT_ERROR("Could not open file:\n" << filename))
 
 ////////////////////////////////////////////////////
 ///////////////   Declarations   ///////////////////
@@ -37,7 +51,10 @@ typedef Eigen::Matrix<double,3,4> Matrix34d;
 typedef std::pair<int,int> IntPair;
 
 template<typename T>
-using ptr_vector = std::vector < std::unique_ptr< T > > ;
+using ptr_vector = std::vector < std::unique_ptr< T > >;
+
+template<typename K,typename T>
+using ptr_map = std::map < K,std::unique_ptr<T> >;
 
 /// N-View match are multiple pairs of a camera and key indices.
 /**
@@ -77,6 +94,14 @@ typedef PairHash<int,int> IntPairHash;
 
 template<typename T>
 using pair_umap = std::unordered_map < IntPair,T,IntPairHash >;
+
+typedef struct Point
+{
+  Eigen::Vector3d coord;
+  NViewMatch views;
+  NViewMatch viewsToAdd;
+  Vector3uc color;
+}Point;
 
 } // namespace yasfm
 

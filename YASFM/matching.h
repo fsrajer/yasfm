@@ -38,6 +38,7 @@
 
 #include "defines.h"
 #include "sfm_data.h"
+#include "options_types.h"
 
 using std::set;
 using std::vector;
@@ -64,42 +65,47 @@ namespace yasfm
 YASFM_API void removePoorlyMatchedPairs(int minNumMatches,pair_umap<CameraPair> *pairs);
 
 /// Options for matching features using FLANN.
-struct OptionsFLANN
+/**
+Fields:
+/// What method to use for matching. See FLANN for more details.
+flann::IndexParams indexParams;
+
+/// Nearest neighbor search parameters, eg. num of checks. See FLANN for more details.
+flann::SearchParams searchParams;
+
+/// Threshold for the ratio d1/d2, where di is distance to the i-th nearest neighbor
+/// Negative values disable this filter and only the the nearest is searched.
+float ratioThresh;
+
+/// Discards non-unique matches, i.e., those for which two or more 
+/// different features in feats1 matched to the same feature in feats2
+bool onlyUniques;
+
+/// Verbosity.
+bool verbose;
+*/
+class OptionsFLANN : public OptionsWrapper
 {
+public:
   /// Constructor setting defaults.
   YASFM_API OptionsFLANN()
   {
-    indexParams = flann::KDTreeIndexParams();
-    searchParams = flann::SearchParams();
-    ratioThresh = 0.6f;
-    onlyUniques = true;
-    verbose = true;
+    opt.emplace("indexParams",
+      make_unique<OptTypeWithVal<flann::IndexParams>>(flann::KDTreeIndexParams()));
+    opt.emplace("searchParams",
+      make_unique<OptTypeWithVal<flann::SearchParams>>(flann::SearchParams()));
+    get<flann::SearchParams>("searchParams").cores = 8;
+    opt.emplace("ratioThresh",make_unique<OptTypeWithVal<float>>(0.6f));
+    opt.emplace("onlyUniques",make_unique<OptTypeWithVal<bool>>(true));
+    opt.emplace("verbose",make_unique<OptTypeWithVal<bool>>(true));
   }
 
   /// \return True if the matches should be filtered by ratio of distances of 
   /// the first over the second nearest neighbors.
-  bool filterByRatio() const;
-
-  /// Write to a file to record which parameters were used.
-  /// \param[in,out] file Opened output file.
-  YASFM_API void write(ostream& file) const;
-
-  /// What method to use for matching. See FLANN for more details.
-  flann::IndexParams indexParams;
-
-  /// Nearest neighbor search parameters, eg. num of checks. See FLANN for more details.
-  flann::SearchParams searchParams;
-
-  /// Threshold for the ratio d1/d2, where di is distance to the i-th nearest neighbor
-  /// Negative values disable this filter and only the the nearest is searched.
-  float ratioThresh;
-
-  /// Discards non-unique matches, i.e., those for which two or more 
-  /// different features in feats1 matched to the same feature in feats2
-  bool onlyUniques;
-
-  /// Verbosity.
-  bool verbose;
+  bool filterByRatio() const
+  {
+    return (get<float>("ratioThresh") >= 0.f);
+  }
 };
 
 /// Match features.
@@ -157,7 +163,7 @@ one feature from the first image.
 \param[in] numFeats2 Total number of features in the second camera.
 \param[out] unique Which matches are unique.
 */
-void findUniqueMatches(const vector<IntPair>& matches,size_t numFeats2,
+YASFM_API void findUniqueMatches(const vector<IntPair>& matches,size_t numFeats2,
   vector<bool> *unique);
 
 } // namespace yasfm
