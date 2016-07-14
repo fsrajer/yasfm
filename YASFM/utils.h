@@ -16,7 +16,6 @@
 
 #include "ceres/ceres.h"
 #include "Eigen/Dense"
-#include "cminpack/cminpack.h"
 
 #include "defines.h"
 #include "camera.h"
@@ -233,25 +232,6 @@ hard threshold value you use later.
 template<typename T>
 T robustify(double softThresh,T x);
 
-/// Driver for the cminpack function lmdif1.
-/**
-Brief description of lmdif1:
-the purpose of lmdif1 is to minimize the sum of the squares of m nonlinear functions 
-in n variables by a modification of the levenberg-marquardt algorithm. this is done 
-by using the more general least-squares solver lmdif. the user must provide a subroutine 
-which calculates the functions. the jacobian is then calculated by a forward-difference 
-approximation. 
-
-\param[in] residualFuncHandle Function handle for computing residuals.
-\param[in] data Pointer to data that will be passed to residualFuncHandle.
-\param[in] m The number of residuals.
-\param[in] n The number of parameters.
-\param[in] tolerance Termination tolerance.
-\param[in,out] params Parameters.
-\param[out] residuals Residuals.
-*/
-YASFM_API void nonLinearOptimLMCMINPACK(cminpack_func_mn residualFuncHandle,
-  void *data,int m,int n,double tolerance,double *params,double *residuals);
 
 } // namespace yasfm
 
