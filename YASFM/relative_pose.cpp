@@ -792,27 +792,61 @@ void estimateEssentialMatrix(const vector<Vector2d>& pts1,
   refineEssentialMatrixNonLinear(pts1,pts2,invK1,invK2,matches,matchesToUse,tolerance,&E);
 }
 
+struct EssentialMatrixCostFunctor
+{
+  EssentialMatrixCostFunctor(const Matrix3d& invK1,const Matrix3d& invK2,
+    const vector<Vector2d>& keys1,const vector<Vector2d>& keys2,
+    const vector<IntPair>& matches,const vector<int>& matchesToUse)
+    : invK1(invK1),invK2(invK2),keys1(keys1),keys2(keys2),
+    matches(matches),matchesToUse(matchesToUse)
+  {
+  }
+
+  bool operator()(double const* const* parameters,double* residuals) const
+  {
+    Matrix3d E;
+    closestEssentialMatrix(parameters[0],E.data());
+
+    Matrix3d F = invK2.transpose() * E * invK1;
+
+    for(size_t iInlier = 0; iInlier < matchesToUse.size(); iInlier++)
+    {
+      IntPair match = matches[matchesToUse[iInlier]];
+      residuals[iInlier] = sqrt(computeFundMatSampsonDistSquared(
+        keys2[match.second],F,keys1[match.first]));
+    }
+    return true;
+  }
+
+  const Matrix3d &invK1,&invK2;
+  const vector<Vector2d> &keys1,&keys2;
+  const vector<IntPair> &matches;
+  const vector<int> &matchesToUse;
+};
+
 void refineEssentialMatrixNonLinear(const vector<Vector2d>& pts1,
   const vector<Vector2d>& pts2,const Matrix3d& invK1,const Matrix3d& invK2,
   const vector<IntPair>& matches,const vector<int>& matchesToUse,
   double tolerance,Matrix3d *E)
 {
-  int numPoints = static_cast<int>(matchesToUse.size());
-  const int numParams = 9;
-
-  EssentialMatrixRefineData data;
-  data.invK1 = &invK1;
-  data.invK2 = &invK2;
-  data.keys1 = &pts1;
-  data.keys2 = &pts2;
-  data.matches = &matches;
-  data.matchesToUse = &matchesToUse;
-
-  vector<double> residuals(numPoints);
+  ceres::Problem problem;
+  ceres::Solver::Options solverOpt;
+  solverOpt.max_num_iterations = 200;
+  solverOpt.function_tolerance = tolerance;
+  solverOpt.gradient_tolerance = tolerance;
+  solverOpt.parameter_tolerance = tolerance;
+  ceres::LossFunction *lossFun = NULL;  // NULL specifies squared loss
 
   Matrix3d tmp = *E;
-  nonLinearOptimLMCMINPACK(computeEssenMatSampsonDistCMINPACK,
-    &data,numPoints,numParams,tolerance,tmp.data(),&residuals[0]);
+  auto costFun = new ceres::DynamicNumericDiffCostFunction<
+    EssentialMatrixCostFunctor>(new EssentialMatrixCostFunctor
+    (invK1,invK2,pts1,pts2,matches,matchesToUse));
+  costFun->AddParameterBlock(9);
+  costFun->SetNumResiduals((int)matchesToUse.size());
+  problem.AddResidualBlock(costFun,lossFun,tmp.data());
+  
+  ceres::Solver::Summary summary;
+  ceres::Solve(solverOpt,&problem,&summary);
 
   closestEssentialMatrix(tmp,E);
 }
@@ -1843,25 +1877,6 @@ void MediatorHomographyRANSAC::refine(double tolerance,const vector<int>& inlier
 
 namespace
 {
-
-int computeEssenMatSampsonDistCMINPACK(void *pdata,
-  int nPoints,int nParams,const double* params,double* residuals,int iflag)
-{
-  const auto& data = *static_cast<EssentialMatrixRefineData *>(pdata);
-
-  Matrix3d E;
-  closestEssentialMatrix(params,E.data());
-  
-  Matrix3d F = (*data.invK2).transpose() * E * (*data.invK1);
-
-  for(int iInlier = 0; iInlier < nPoints; iInlier++)
-  {
-    IntPair match = (*data.matches)[(*data.matchesToUse)[iInlier]];
-    residuals[iInlier] = sqrt(computeFundMatSampsonDistSquared(
-      (*data.keys2)[match.second],F,(*data.keys1)[match.first]));
-  }
-  return 0; // Negative value would terminate the optimization.
-}
 
 // Check: http://stackoverflow.com/questions/13328676/c-solving-cubic-equations
 // and http://mathworld.wolfram.com/CubicFormula.html

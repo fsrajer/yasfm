@@ -934,30 +934,6 @@ template<typename T>
 T computeSymmetricEpipolarDistSquared(const Vector2d& pt2,
   const Matrix<T,3,3>& F,const Vector2d& pt1);
 
-/// Function for cminpack call which computes symmetric epipolar distance.
-/**
-\param[in] data Pointer to EssentialMatrixRefineData.
-\param[in] nPoints Number of matches/residuals.
-\param[in] nParams Number of E parameters (9).
-\param[in] params E parameters column wise.
-\param[out] residuals Errors.
-\param[in] iflag Is this call residual or Jacobian computation.
-\return Flag. Negative value would terminate the optimization.
-*/
-int computeEssenMatSampsonDistCMINPACK(void *data,int nPoints,
-  int nParams,const double* params,double* residuals,int iflag);
-
-/// Structure for passing data into cminpack for refining.
-struct EssentialMatrixRefineData
-{
-  const Matrix3d *invK1;
-  const Matrix3d *invK2;
-  const vector<Vector2d> *keys1;
-  const vector<Vector2d> *keys2;
-  const vector<IntPair> *matches; ///< Keys matches.
-  const vector<int> *matchesToUse;     ///< Indices of inlier matches.
-};
-
 /// Compute squared first-order geometric error approximation (Sampson distance).
 /**
 Compute for pts2'*F*pts1 = 0. 
