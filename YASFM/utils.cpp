@@ -196,15 +196,4 @@ void approximateInverseRadialDistortion(int nForwardParams,int nInverseParams,
   invRadParamsMap = A.jacobiSvd(Eigen::ComputeThinU | Eigen::ComputeThinV).solve(b);
 }
 
-void nonLinearOptimLMCMINPACK(cminpack_func_mn residualFuncHandle,
-  void *data,int m,int n,double tolerance,double *params,double *residuals)
-{
-  int doubleWorkArraySize = m*n+5*n+m;
-  vector<double> doubleWorkArray(doubleWorkArraySize);
-  vector<int> integerWorkArray(n);
-
-  int info = lmdif1(residualFuncHandle,data,m,n,params,residuals,tolerance,
-    &integerWorkArray[0],&doubleWorkArray[0],doubleWorkArraySize);
-}
-
 } //namespace yasfm
