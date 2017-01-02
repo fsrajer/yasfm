@@ -48,7 +48,7 @@ from img1 should match to feature0.
 \param[out] nViewMatches Found consistent n-view matches.
 */
 YASFM_API void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
-  const pair_umap<CameraPair>& pairs,
+  const pair_umap<CameraPair>& pairs, Dataset data,
   vector<NViewMatch> *nViewMatches,vector<int> *nViewMatchesGroups,FindNVMCallbackFunctionPtr callbackFunction = NULL,void * callbackObjectPtr = NULL);
 
 /// Creates matches for one camera pair from n-view matches.

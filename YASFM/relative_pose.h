@@ -574,7 +574,8 @@ public:
     opt.emplace("refineTolerance",make_unique<OptTypeWithVal<double>>(1e-12));
     opt.emplace("fundMatThresh",make_unique<OptTypeWithVal<double>>(3.));
 
-    opt.emplace("mergeThresh",make_unique<OptTypeWithVal<double>>(5.5));
+	opt.emplace("mergeThresh",make_unique<OptTypeWithVal<double>>(5.5));
+
   }
 };
 

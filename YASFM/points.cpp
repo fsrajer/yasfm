@@ -19,10 +19,11 @@ namespace yasfm
 {
 
 void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
-  const pair_umap<CameraPair>& pairs,
+  const pair_umap<CameraPair>& pairs, Dataset data,
   vector<NViewMatch> *nViewMatches,vector<int> *pnViewMatchesGroups,
   FindNVMCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
+  Dataset currData = data;
   auto& nViewMatchesGroups = *pnViewMatchesGroups;
   pair_umap<vector<int>> matches,pairwiseGroups;
   vector<uset<int>> matchedCams;
@@ -86,6 +87,8 @@ void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
     }
   }
   cout << " " << groups.size() << "/" << nViewMatches->size();
+  currData.nViewMatches() = *nViewMatches;
+  currData.writeASCII("initClustering.txt");
   umap<int,umap<int,int>> s;
   for(int ig = 0; ig < int(groups.size()); ig++)
   {
@@ -115,6 +118,8 @@ void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
   while(true)
   {
     cout << iter++ << "/" << nViewMatches->size() << "\n";
+	currData.nViewMatches() = *nViewMatches;
+	currData.writeASCII("iter" + std::to_string(iter) + ".txt");
     int iMax = 0,jMax = 1;
     double max = 0;
     for(const auto& entry : s)

@@ -1454,15 +1454,24 @@ double computePairwiseEGScore(const OptionsGeometricVerification& opt,
   vector<bool> useMatch(matches.size(),true);
   for(int iMatch : bothGroups)
     useMatch[iMatch] = false;
-  vector<IntPair> otherMatches;
+  vector<IntPair> otherMatches, currMatches;
   otherMatches.reserve(matches.size() - bothGroups.size());
+  currMatches.reserve(bothGroups.size());
   for(size_t iMatch = 0; iMatch < matches.size(); iMatch++)
     if(useMatch[iMatch])
       otherMatches.push_back(matches[iMatch]);
+	else 
+	  currMatches.push_back(matches[iMatch]);
+	
 
   vector<int> inliers;
+  //Original version
   int nInliers = findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
     pts1,pts2,matches,F,&inliers);
+  
+  //Experimental version
+  /*int nInliers = findFundamentalMatrixInliers(opt.get<double>("fundMatThresh"),
+	  pts1, pts2, currMatches, F, &inliers);*/
 
   return double(nInliers) / double(bothGroups.size());
 }

@@ -252,7 +252,7 @@ int main(int argc,const char* argv[])
   
   cout << "Searching for N view matches ... ";
   vector<int> nViewMatchesAllGroups;
-  twoViewMatchesToNViewMatches(data.cams(),data.pairs(),
+  twoViewMatchesToNViewMatches(data.cams(),data.pairs(), data,
     &data.nViewMatches(),&nViewMatchesAllGroups);
   cout << "found " << data.nViewMatches().size() << "\n";
   data.pairs().clear(); // No need for 2 view matches anymore.
