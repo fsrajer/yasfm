@@ -1,5 +1,5 @@
 #include "points.h"
-
+#include <windows.h>
 #include <algorithm>
 #include <iostream>
 #include <queue>
@@ -24,6 +24,7 @@ void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
   FindNVMCallbackFunctionPtr callbackFunction, void * callbackObjectPtr)
 {
   Dataset currData = data;
+  
   auto& nViewMatchesGroups = *pnViewMatchesGroups;
   pair_umap<vector<int>> matches,pairwiseGroups;
   vector<uset<int>> matchedCams;
@@ -76,7 +77,7 @@ void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
           if(!merge)
           {
             nViewMatchesGroups.push_back(int(groups.size()));
-            groups.push_back(group);
+            groups.push_back(group);  //group[jg] = {group((2,3),1), ... } means track 1 is on pair 2,3 in group jg
           }
         }
         if(callbackFunction != NULL&&callbackObjectPtr != NULL)
@@ -88,7 +89,7 @@ void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
   }
   cout << " " << groups.size() << "/" << nViewMatches->size();
   currData.nViewMatches() = *nViewMatches;
-  currData.writeASCII("initClustering.txt");
+  currData.writeASCII("iter/initClustering.txt");
   umap<int,umap<int,int>> s;
   for(int ig = 0; ig < int(groups.size()); ig++)
   {
@@ -97,9 +98,9 @@ void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
       int cnt = 0;
       for(const auto& entry : groups[ig])
       {
-        if(groups[jg].count(entry.first) > 0)
+        if(groups[jg].count(entry.first) > 0) //same image 1 for both pairs
         {
-          if(groups[jg].at(entry.first) == entry.second)
+          if(groups[jg].at(entry.first) == entry.second) // same image 2 for both pairs
           {
             cnt += 1;
           } else
@@ -110,34 +111,32 @@ void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
         }
       }
       if(cnt > 0)
-        s[ig][jg] = cnt;
+        s[ig][jg] = cnt; //set common pairs to cnt
     }
   }
 
   int iter = 0;
   while(true)
   {
-    cout << iter++ << "/" << nViewMatches->size() << "\n";
-	currData.nViewMatches() = *nViewMatches;
-	currData.writeASCII("iter" + std::to_string(iter) + ".txt");
+    cout << iter++ << "/" << nViewMatches->size() << "\n";	
     int iMax = 0,jMax = 1;
     double max = 0;
-    for(const auto& entry : s)
+    for(const auto& entry : s) //go through common track counts for current group "entry" and all other groups
     {
-      for(const auto& entry_ : entry.second)
+      for(const auto& entry_ : entry.second) //other groups 'entry_'
       {
         if(entry_.second > max)
         {
-          iMax = entry.first;
-          jMax = entry_.first;
-          max = entry_.second;
+          iMax = entry.first;//max i group index
+          jMax = entry_.first;//max j group index
+          max = entry_.second;//find maximum count
         }
       }
     }
     if(max == 0.)
       break;
 
-    for(const auto& entry : groups[jMax])
+    for(const auto& entry : groups[jMax]) //merge 2 groups with most common pairs
       groups[iMax][entry.first] = entry.second;
     groups[jMax].clear();
     for(size_t iMatch = 0; iMatch < nViewMatchesGroups.size(); iMatch++)
@@ -167,7 +166,7 @@ void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
       }
     }
 
-    for(int jg : candidates)
+    for(int jg : candidates)//recalculate count of current common tracks for the newly merged group
     {
       int cnt = 0;
       for(const auto& entry : groups[iMax])
@@ -187,6 +186,36 @@ void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
       if(cnt > 0)
         s[iMax][jg] = cnt;
     }
+	/*
+	int nGroups = 0;
+	for (int ig : nViewMatchesGroups)
+	if (nGroups < ig)
+		nGroups = ig;
+	nGroups++;
+	cout << "found " << nGroups << " groups\n";
+	if (nGroups < 150)
+	{
+		string path = "C:/Users/Uživatel/Documents/TestData/1/iter/" + std::to_string(iter);
+		CreateDirectory(path.c_str(), NULL);
+		vector<NViewMatch> nViewMatchesAll = *nViewMatches;
+		for (int ig = 0; ig < int(groups.size()); ig++)
+		{
+			if (groups[ig].size() > 0)
+			{
+			currData.pairs().clear();
+			vector<bool> toKeep(nViewMatchesAll.size());
+			for (int im = 0; im < nViewMatchesAll.size(); im++)
+			{
+				toKeep[im] = (nViewMatchesGroups[im] == ig);
+			}
+			currData.nViewMatches() = nViewMatchesAll;
+			filterVector(toKeep, &currData.nViewMatches());
+
+			currData.writeASCII("iter/" + std::to_string(iter) + "/g_" + std::to_string(ig) + ".txt");
+			}
+		}
+	}
+	*/
   }
 
   vector<int> groupSizes(groups.size(),0);
@@ -198,8 +227,7 @@ void twoViewMatchesToNViewMatches(const ptr_vector<Camera>& cams,
   for(int ing = 0; ing < newToOld.size(); ing++)
     oldToNew[newToOld[ing]] = ing;
   for(int& ig : nViewMatchesGroups)
-    ig = oldToNew[ig];
-
+    ig = oldToNew[ig];  
   
 }
 
