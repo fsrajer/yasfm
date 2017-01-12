@@ -8,6 +8,3 @@ Use this scheme:
  * feature branches including implementing a feature and its tests, 
  * gets merged into dev when finished
  * when merged into dev and some tests fail, the fixes will be implemented in this branch
-* fix/fix_name 
- * bug fix branch
- * gets merged into dev when finished
