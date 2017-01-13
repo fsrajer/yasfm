@@ -2,7 +2,11 @@
 
 Library for structure from motion.
 
-# 1. What do I need to build it? #
+# Related Publications #
+
+* **[Image Matching for Dynamic Scenes](http://cmp.felk.cvut.cz/~srajefil/theses/filip-srajer-diploma-thesis.pdf)**, *F. Šrajer*, Diploma thesis. Czech Technical University in Prague. 2016.
+
+# What do I need to build it? #
 
 * Windows
 * Microsoft Visual Studio 2013 (version 12) 64bit
