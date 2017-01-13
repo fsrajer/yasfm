@@ -2,7 +2,7 @@
 
 Library for structure from motion.
 
-# Related Publications #
+# Related publications #
 
 * **[Image Matching for Dynamic Scenes](http://cmp.felk.cvut.cz/~srajefil/theses/filip-srajer-diploma-thesis.pdf)**, *F. Šrajer*, Diploma thesis. Czech Technical University in Prague. 2016.
 
